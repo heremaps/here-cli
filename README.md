@@ -77,7 +77,7 @@ npm deploy ...
 
 ### Contributing
 
-We encourage contributions. For fixes and improvements it's helpful to have an [issue](http://github.com/heremaps/here-cli/issues) to reference to. So please file them for us to provide focus. Also read the notes in [CONTRIBUTING.md](CONTRIUBTION.md).
+We encourage contributions. For fixes and improvements it's helpful to have an [issue](http://github.com/heremaps/here-cli/issues) to reference to. So please file them for us to provide focus. Also read the notes in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 When you add a new sub-command (as `bin/here-commandname.js`) please make sure to also include the relevant documentation (as `docs/commandname.md`).
 
