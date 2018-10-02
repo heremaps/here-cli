@@ -1,7 +1,7 @@
 /*
   Copyright (C) 2018 HERE Europe B.V.
   SPDX-License-Identifier: MIT
-  
+
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the
   'Software'), to deal in the Software without restriction, including
@@ -52,6 +52,10 @@ function geoCode(locationString){
       '&app_code=' + appInfo[1] +
       '&searchtext=' + locationString;
       request.get(geocodeURL, (error, response, body) => {
+          if (error)
+            throw error;
+          if (response.statusCode !== 200)
+            throw new Error(response.body);
           let geocodeJson = JSON.parse(body);
           if(geocodeJson.Response.View.length==0){
             console.log("Could not geocode the place '"+locationString+"'");
@@ -74,4 +78,3 @@ function toGeoJson(responseJson){
     "features":features
   };
 }
-     
