@@ -31,6 +31,8 @@ var sso = require("./sso");
 // TODO this should go into env config as well
 var xyzRoot = "https://xyz.api.here.com"; 
 
+var keySeparator = "%%";
+
 var rightsRequest = function(appId){
     return {
         "urm": {
@@ -79,7 +81,7 @@ var login = function(authId, authSecret, onSuccess, onFailure) {
                 onFailure(response, authId, authSecret);
         } else {
             encryptAndStore('keyInfo',body.token);
-            encryptAndStore('appDetails',authId+"-"+authSecret);
+            encryptAndStore('appDetails',authId+keySeparator+authSecret);
             if (onSuccess)
                 onSuccess(response, authId, authSecret);
             else
@@ -91,7 +93,7 @@ var login = function(authId, authSecret, onSuccess, onFailure) {
 var hereAccountLogin = function(email, password,onSuccess, onFailure) {
     sso.getToken(email,password).then(token=>{
         encryptAndStore('keyInfo',token);
-        encryptAndStore('accountInfo',email+"-"+password);
+        encryptAndStore('accountInfo',email+keySeparator+password);
         if (onSuccess)
             onSuccess(response, email, password);
         else
@@ -232,5 +234,6 @@ module.exports.verify = verify;
 module.exports.decryptAndGet=decryptAndGet;
 module.exports.encryptAndStore=encryptAndStore;
 module.exports.hereAccountLogin=hereAccountLogin;
+module.exports.keySeparator=keySeparator;
 module.exports.xyzRoot = function() {return xyzRoot}
 

@@ -448,7 +448,7 @@ program
   .action(function (id) {
     common.decryptAndGet("accountInfo","No here account configure found. Try running 'here configure account'").then((dataStr) =>{
       if(dataStr){
-          const appInfo = dataStr.split("-");
+          const appInfo = dataStr.split(common.keySeparator);
           sso.executeWithCookie(appInfo[0],appInfo[1]).then(cookie=>{
                 const options = { 
                     url: common.xyzRoot()+"/token-api/token",

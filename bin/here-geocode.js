@@ -46,7 +46,7 @@ function toFeature(result){
 
 function geoCode(locationString){
    common.decryptAndGet("appDetails").then((dataStr) =>{
-      const appInfo = dataStr.split("-");
+      const appInfo = dataStr.split(common.keySeparator);
       var geocodeURL = 'https://geocoder.cit.api.here.com/6.2/geocode.json' +
       '?app_id=' + appInfo[0] +
       '&app_code=' + appInfo[1] +
