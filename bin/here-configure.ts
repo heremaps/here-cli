@@ -3,7 +3,7 @@
 /*
   Copyright (C) 2018 HERE Europe B.V.
   SPDX-License-Identifier: MIT
-  
+
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the
   'Software'), to deal in the Software without restriction, including
@@ -24,9 +24,9 @@
   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-var program = require('commander');
-var prompt = require('prompt');
-var common = require('./common');
+import program = require('commander');
+import common = require('./common');
+const prompter = require('prompt');
 
 program
     .version('0.1.0');
@@ -35,24 +35,21 @@ program
     .command('set')
     .arguments('[env]')
     .description('configure HERE credentials for authentiction')
-    .action(function (env, options) {
+    .action(function(env, options) {
         setAuth(env);
     });
 
-function setAuth(env) {
-    cmdEnv = env;
-    prompt.start();
-    prompt.get([{
+function setAuth(env?: any) {
+    prompter.start();
+    prompter.get([{
         name: 'AppId',
         required: true
     }, {
         name: 'AppCode',
         hidden: true,
-        conform: function (value) {
-            return true;
-        }
-    }], function (err, result) {
-        common.login(result['AppId'], result['AppCode']);
+        conform: () => true
+    }], function (err: any, result: any) {
+        common.login(result['AppId'], result['AppCode']).catch(err => console.error(err));
     });
 }
 
@@ -63,23 +60,20 @@ program
         setUserPass(env);
     });
 
-function setUserPass(env) {
-        cmdEnv = env;
-        prompt.start();
-        prompt.get([{
-            name: 'Email',
-            required: true
-        }, {
-            name: 'Password',
-            hidden: true,
-            conform: function (value) {
-                return true;
-            }
-        }], function (err, result) {
-            common.hereAccountLogin(result['Email'], result['Password']);
-        });
+function setUserPass(env?: any) {
+    prompter.start();
+    prompter.get([{
+        name: 'Email',
+        required: true
+    }, {
+        name: 'Password',
+        hidden: true,
+        conform: () => true
+    }], function (err: any, result: any) {
+        common.hereAccountLogin(result['Email'], result['Password']);
+    });
 }
-    
+
 
 
 program
@@ -91,12 +85,12 @@ program
     });
 
 
-prompt.stop();
+prompter.stop();
 
 program.parse(process.argv);
 
 if (!program.args.length) {
     setAuth();
-}else{
-    common.validate(["help","set","verify","account"],[process.argv[2]],program);
+} else {
+    common.validate(["help","set","verify","account"], [process.argv[2]], program);
 }

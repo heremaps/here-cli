@@ -7,6 +7,9 @@
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
   },
+  "scripts": {
+    "prepare": "tsc"
+  },
   "license": "MIT",
   "dependencies": {
     "available-versions": "^0.13.3",
@@ -29,6 +32,17 @@
     "shapefile": "0.6.6",
     "tmp": "0.0.33",
     "user-settings": "0.2.0"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/crypto-js": "^3.1.43",
+    "@types/inquirer": "0.0.43",
+    "@types/node": "^10.11.4",
+    "@types/request": "^2.47.1",
+    "@types/shapefile": "^0.6.0",
+    "@types/tmp": "0.0.33",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.1.1"
   },
   "bin": {
     "here": "bin/here.js"
