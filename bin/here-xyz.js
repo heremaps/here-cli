@@ -712,7 +712,7 @@ function mergeAllTags(features,tags,tagProperties,fileName,idStr,options,callBac
 }
 
 function addTagsToList(value,tp, finalTags){
-  value = value.toLowerCase();
+  value = value.toString().toLowerCase();
   value= value.replace(/\s+/g, '_');
   finalTags.push(value);
   finalTags.push(tp+"@"+value);
