@@ -95,7 +95,7 @@ async function execInternal(
             Authorization: "Bearer " + token,
             "Content-Type": contentType
         },
-        body: method === "GET" ? data : undefined
+        body: method === "GET" ? undefined : data
     };
 
     const { response, body } = await requestAsync(reqJson);
@@ -136,7 +136,7 @@ async function execInternalGzip(
             "Accept-Encoding": "gzip"
         },
         gzip: true,
-        body: method === "GET" ? zippedData : undefined
+        body: method === "GET" ? undefined : zippedData
     };
 
     const { response, body } = await requestAsync(reqJson);
