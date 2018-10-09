@@ -448,33 +448,37 @@ program
   .action(function (id) {
     common.decryptAndGet("accountInfo","No here account configure found. Try running 'here configure account'").then((dataStr) =>{
       if(dataStr){
-          const appInfo = dataStr.split(common.keySeparator);
-          sso.executeWithCookie(appInfo[0],appInfo[1]).then(cookie=>{
-                const options = { 
-                    url: common.xyzRoot()+"/token-api/token",
-                    method: 'GET',
-                    headers: {
-                        "Cookie":cookie,
-                        "Content-Type":"application/json"
-                    }
-                };
-                return new Promise(function(resolve, reject) {
-                    request(options, function(error, response, body) {
-                        var statusCode = response && response.statusCode;
-                        if (statusCode != 200) {
-                            reject(new Error("Error while fetching maxrights :"+body));
-                        }else{
-                            var tokenInfo = JSON.parse(body);
-                            common.decryptAndGet("keyInfo","No token found").then((currentToken) =>{
-                              console.log("====================================================");
-                              console.log("Current CLI token is : "+currentToken);
-                              console.log("====================================================");
-                              common.drawTable(tokenInfo.tokens,["id","type","iat","description"]);
-                            });
-                        }
-                    });
-                });
-          });
+          const appInfo = common.getSplittedKeys(dataStr);
+          if(appInfo){
+            sso.executeWithCookie(appInfo[0],appInfo[1]).then(cookie=>{
+                  const options = { 
+                      url: common.xyzRoot()+"/token-api/token",
+                      method: 'GET',
+                      headers: {
+                          "Cookie":cookie,
+                          "Content-Type":"application/json"
+                      }
+                  };
+                  return new Promise(function(resolve, reject) {
+                      request(options, function(error, response, body) {
+                          var statusCode = response && response.statusCode;
+                          if (statusCode != 200) {
+                              reject(new Error("Error while fetching maxrights :"+body));
+                          }else{
+                              var tokenInfo = JSON.parse(body);
+                              common.decryptAndGet("keyInfo","No token found").then((currentToken) =>{
+                                console.log("====================================================");
+                                console.log("Current CLI token is : "+currentToken);
+                                console.log("====================================================");
+                                common.drawTable(tokenInfo.tokens,["id","type","iat","description"]);
+                              });
+                          }
+                      });
+                  });
+            });
+          }else{
+            console.log("Account information needs to be updated. Retry after executing the command 'here configure account'.");
+          }
        }
     });  
   });

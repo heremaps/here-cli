@@ -225,6 +225,20 @@ function extractData(fields, data) {
     }
     return outArr;
 }
+
+function getSplittedKeys(inString){
+    if(inString.indexOf(keySeparator)!=-1){
+        return inString.split(keySeparator);
+    }else {
+        //Backward support for old separator
+        const tokens = inString.split("-");
+        if(tokens.length==2){
+            return tokens;
+        }else{
+            return null;
+        }
+    }
+}
 module.exports.drawTable = drawTable;
 module.exports.timeStampToLocaleString = timeStampToLocaleString;
 module.exports.md5Sum = md5Sum;
@@ -235,5 +249,6 @@ module.exports.decryptAndGet=decryptAndGet;
 module.exports.encryptAndStore=encryptAndStore;
 module.exports.hereAccountLogin=hereAccountLogin;
 module.exports.keySeparator=keySeparator;
+module.exports.getSplittedKeys=getSplittedKeys;
 module.exports.xyzRoot = function() {return xyzRoot}
 
