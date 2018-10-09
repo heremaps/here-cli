@@ -96,6 +96,53 @@ function readDataFromFile(path,callBack,needConversion){
         callBack(file_data);
 }
 
+
+function readData(path,postfix){
+    return new Promise((resolve,reject)=>{
+        if(path.indexOf("http://")!=-1 || path.indexOf("https://")!=-1){
+            const request = require('request');
+            const fs = require('fs');
+            const tmp = require('tmp');
+            tmp.file({ mode: 0644, prefix: '', postfix: postfix }, function _tempFileCreated(err, tempFilePath, fd) {
+                if (err) throw err;
+                const dest = fs.createWriteStream(tempFilePath);
+                dest.on('finish', function (e) {
+                            resolve(tempFilePath);
+                        });
+                request.get(path)
+                    .on('error', function(err) {
+                            console.log(err)
+                    }).pipe(dest);
+            });
+        }else{
+            resolve(path);
+        }
+    });
+	
+}
+
+/*
+chunckSize should be used later to stream data
+*/
+function readLineFromFile(incomingPath,callBack,chunckSize=100) {
+    readData(incomingPath,'geojsonl').then(path=>{
+        const dataArray=new Array();
+        const fs = require('fs'),
+            readline = require('readline'),
+            instream = fs.createReadStream(path),
+            outstream = new (require('stream'))(),
+            rl = readline.createInterface(instream, outstream);
+        
+        rl.on('line', function (line) {
+            dataArray.push(JSON.parse(line));
+        });
+        
+        rl.on('close', function (line) {
+            callBack(dataArray,true);
+        });
+    });
+}
+
 function dataToJson(file_data){
     var csvjson = require('csvjson');
     var options = {
@@ -187,3 +234,6 @@ function isLon(k){
 module.exports.read = read;
 module.exports.transform = transform;
 module.exports.readShapeFile = readShapeFile
+module.exports.readLineFromFile = readLineFromFile
+
+ 

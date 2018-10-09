@@ -512,7 +512,21 @@ program
 
     if (options.file) {
       var fs = require('fs');
-      if(options.file.indexOf(".shp")!=-1){
+      if(options.file.indexOf(".geojsonl")!=-1){
+        transform.readLineFromFile(options.file,function(result,isCompleted){
+          const totalFeatures = result.reduce(function (features, feature) {
+              if(feature.type=="Feature"){
+                features.push(feature);
+              }else if(feature.type=="FeatureCollection"){
+                features=features.concat(feature.features);
+              }else{
+                console.log("Unknown type"+feature.type);
+              }
+              return features
+          }, []);
+          uploadData(id,options,tags,{type:"FeatureCollection",features:totalFeatures},true,options.ptag,options.file,options.id);
+        },100);
+      }else if(options.file.indexOf(".shp")!=-1){
         transform.readShapeFile(options.file,function(result){
           uploadData(id,options,tags,result,true,options.ptag,options.file,options.id);
         },true);
