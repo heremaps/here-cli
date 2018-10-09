@@ -46,23 +46,27 @@ function toFeature(result){
 
 function geoCode(locationString){
    common.decryptAndGet("appDetails").then((dataStr) =>{
-      const appInfo = dataStr.split(common.keySeparator);
-      var geocodeURL = 'https://geocoder.cit.api.here.com/6.2/geocode.json' +
-      '?app_id=' + appInfo[0] +
-      '&app_code=' + appInfo[1] +
-      '&searchtext=' + locationString;
-      request.get(geocodeURL, (error, response, body) => {
-          if (error)
-            throw error;
-          if (response.statusCode !== 200)
-            throw new Error(response.body);
-          let geocodeJson = JSON.parse(body);
-          if(geocodeJson.Response.View.length==0){
-            console.log("Could not geocode the place '"+locationString+"'");
-          }else{
-            console.log(JSON.stringify(toGeoJson(geocodeJson),null,2));
-          }
-      });
+      const appInfo = common.getSplittedKeys(dataStr);
+      if(appInfo){
+        var geocodeURL = 'https://geocoder.cit.api.here.com/6.2/geocode.json' +
+        '?app_id=' + appInfo[0] +
+        '&app_code=' + appInfo[1] +
+        '&searchtext=' + locationString;
+        request.get(geocodeURL, (error, response, body) => {
+            if (error)
+              throw error;
+            if (response.statusCode !== 200)
+              throw new Error(response.body);
+            let geocodeJson = JSON.parse(body);
+            if(geocodeJson.Response.View.length==0){
+              console.log("Could not geocode the place '"+locationString+"'");
+            }else{
+              console.log(JSON.stringify(toGeoJson(geocodeJson),null,2));
+            }
+        });
+      }else{
+        console.log("Account information needs to be updated. Retry after executing the command 'here configure'.");
+      }
    }).catch(function (error) {
       console.log(error.message);
    });
