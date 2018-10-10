@@ -212,7 +212,7 @@ function readData(path: string, postfix: string): Promise<string> {
 chunckSize should be used later to stream data
 */
 export function readLineFromFile(incomingPath: string, chunckSize = 100) {
-    const path = readData(incomingPath, 'geojsonl').then(path => {
+    return readData(incomingPath, 'geojsonl').then(path => {
         return new Promise((resolve, reject) => {
             const dataArray = new Array<any>();
             const instream = fs.createReadStream(path);

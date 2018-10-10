@@ -30,10 +30,12 @@ import * as program from "commander";
 import * as common from "./common";
 import * as sso from "./sso";
 import * as inquirer from "inquirer";
+import * as transform from "./transformutil";
+import * as fs from "fs";
+import * as tmp from "tmp";
+import * as summary from "./summary";
 
 const request = require("request");
-const summary = require("./summary");
-const transform = require("./transformutil");
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
     {
@@ -83,7 +85,7 @@ async function execInternal(
             method,
             contentType,
             data,
-            token,
+            token
         );
     }
     const isJson = contentType == "application/json" ? true : false;
@@ -145,8 +147,10 @@ async function execInternalGzip(
     return body;
 }
 
-async function execute(uri: string, method: string, contentType: string, data: any, gzip: boolean = false) {
-    const token = await common.verify();
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
+    if(!token){
+        token = await common.verify();
+    }
     return await execInternal(uri, method, contentType, data, token, gzip);
 }
 
@@ -200,6 +204,14 @@ program
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
+        (async () => {
+            var features = await getSpaceDataFromXyz(id,options);
+            summary.summarize(features,id, false);
+        })();    
+    });
+
+function getSpaceDataFromXyz(id: string, options: any) {
+    return new Promise<any[]>(function (resolve, reject) {
         let cType = "application/json";
         if (!options.limit) {
             options.limit = 5000;
@@ -215,20 +227,22 @@ program
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
                 }
-                cType = "application/geo+json";
             }
             return uri;
         };
-        const totalRecords = 500000;
+        if (!options.totalRecords) {
+            options.totalRecords = 500000;
+        }
         let recordLength = 0;
         let features = new Array();
         (async () => {
+
             try {
                 let cHandle = 0;
                 process.stdout.write("Operation may take a while. Please wait .....");
                 do {
                     process.stdout.write(".");
-                    let body = await execInternal(
+                    let jsonOut = await execute(
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -236,7 +250,10 @@ program
                         options.token,
                         true
                     );
-                    const jsonOut = JSON.parse(body);
+
+                    if (jsonOut.constructor !== {}.constructor) {
+                        jsonOut = JSON.parse(jsonOut);
+                    }
                     cHandle = jsonOut.handle;
                     if (jsonOut.features) {
                         recordLength += jsonOut.features.length;
@@ -244,14 +261,16 @@ program
                     } else {
                         cHandle = -1;
                     }
-                } while (cHandle >= 0 && recordLength < totalRecords);
+                } while (cHandle >= 0 && recordLength < options.totalRecords);
                 process.stdout.write("\n");
-                summary.summarize(features, id);
+                resolve(features);
             } catch (error) {
-                console.error(`describe failed: ${error}`);
+                console.error(`getting data from xyz space failed: ${error}`);
+                reject(error);
             }
         })();
     });
+}    
 
 program
     .command("analyze <id>")
@@ -289,7 +308,7 @@ program
                 process.stdout.write("Operation may take a while. Please wait .....");
                 do {
                     process.stdout.write(".");
-                    let body = await execInternal(
+                    let body = await execute(
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -489,7 +508,7 @@ program
             "accountInfo",
             "No here account configure found. Try running 'here configure account'"
         );
-        const appInfo = common.getSplittedKeys(common.keySeparator);
+        const appInfo = common.getSplittedKeys(dataStr);
         if (!appInfo) {
             throw new Error("Account information out of date. Please re-run 'here configure'");
         }
@@ -548,6 +567,11 @@ program
     )
     .option("-o, --override", "override the data even if it share same id")
     .action(function (id, options) {
+        uploadToXyzSpace(id, options);
+    });
+
+function uploadToXyzSpace(id: string, options: any){
+    (async () => {
         let tags = "";
         if (options.tags) {
             tags = options.tags;
@@ -583,64 +607,57 @@ program
                     uploadData(id, options, tags, { type: "FeatureCollection", features: totalFeatures }, true, options.ptag, options.file, options.id);
                 });
             } else if (options.file.indexOf(".shp") != -1) {
-                transform.readShapeFile(
+                let result = await transform.readShapeFile(
                     options.file,
-                    function (result: any) {
-                        uploadData(
-                            id,
-                            options,
-                            tags,
-                            result,
-                            true,
-                            options.ptag,
-                            options.file,
-                            options.id
-                        );
-                    },
-                    true
+                );
+                uploadData(
+                        id,
+                        options,
+                        tags,
+                        result,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
                 );
             } else if (options.file.indexOf(".csv") != -1) {
-                transform.read(
+                let result = await transform.read(
                     options.file,
-                    function (result: any) {
-                        const object = {
-                            features: transform.transform(
-                                result,
-                                options.lat,
-                                options.lon,
-                                options.alt
-                            ),
-                            type: "FeatureCollection"
-                        };
-                        uploadData(
-                            id,
-                            options,
-                            tags,
-                            object,
-                            true,
-                            options.ptag,
-                            options.file,
-                            options.id
-                        );
-                    },
                     true
                 );
+                const object = {
+                        features: transform.transform(
+                            result,
+                            options.lat,
+                            options.lon,
+                            options.alt
+                        ),
+                        type: "FeatureCollection"
+                };
+                uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                );
             } else {
-                transform.read(
+                let result = await transform.read(
                     options.file,
-                    function (result: any) {
-                        uploadData(
-                            id,
-                            options,
-                            tags,
-                            JSON.parse(result),
-                            true,
-                            options.ptag,
-                            options.file,
-                            options.id
-                        );
-                    },
                     false
+                );
+                uploadData(
+                    id,
+                    options,
+                    tags,
+                    JSON.parse(result),
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
                 );
             }
         } else {
@@ -665,7 +682,8 @@ program
                 }
             });
         }
-    });
+    })();
+}
 
 function createQuestionsList(object: any) {
     for (let i = 0; i < 3 && i < object.features.length; i++) {
@@ -972,6 +990,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         "PUT",
         "application/geo+json",
         JSON.stringify(fc),
+        null,
         true
     );
 
@@ -996,7 +1015,7 @@ function chunkify(data: any[], chunksize: number) {
 }
 
 async function launchHereGeoJson(uri: string) {
-    const token = common.verify();
+    const token = await common.verify();
     const accessAppend =
         uri.indexOf("?") == -1
             ? "?access_token=" + token
