@@ -35,6 +35,8 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
 
+//let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
+let hexbin = require('hexbin');
 const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
@@ -341,6 +343,45 @@ program
                 console.error(`describe failed: ${error}`);
             }
         })();
+    });
+
+program
+    .command('hexbin <id>')
+    .description('create hexgrid out of xyz space data and upload it to space')
+    .option("-c, --cellsize <cellsize>", "size of hexgrid cell in meters")
+    .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
+    .action(function (id,options) {
+      (async () => {
+        try{
+          options.totalRecords = Number.MAX_SAFE_INTEGER;
+          //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
+          var features = await getSpaceDataFromXyz(id,options);
+          if (!options.cellsize) {
+            options.cellsize = 2000;
+          }
+          console.log("Creating hexbins for the space data");
+          var hexFeatures = hexbin.calculateHexGrids(features, options.cellsize, options.ids);
+          console.log("uploading the hexagon grids to space");
+          /*
+          fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+            if (err) throw err;
+        });
+        */
+        
+        
+          var tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+          fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
+          options.tags = 'hexbin';
+          options.file = tmpObj.name;
+          options.override = true;
+          uploadToXyzSpace(id,options);
+          
+          
+        } catch (error) {
+            console.error(`hexbin creation failed: ${error}`);
+            process.exit(1);
+        }
+      })();
     });
 
 program
@@ -1039,7 +1080,8 @@ common.validate(
         "describe",
         "clear",
         "token",
-        "analyze"
+        "analyze",
+        "hexbin"
     ],
     [process.argv[2]],
     program
