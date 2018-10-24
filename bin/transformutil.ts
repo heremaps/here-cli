@@ -253,7 +253,7 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
 
 
 export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
-    return readData(incomingPath, 'geojsonl').then(path => {
+    return readData(incomingPath, 'csv').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
