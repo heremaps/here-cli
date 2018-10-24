@@ -30,6 +30,7 @@ import * as tmp from "tmp";
 import * as request from "request";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
+import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"];
@@ -226,4 +227,49 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
         });
     });
 }
+
+
+export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+
+    return readData(incomingPath, 'geojsonl').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            const instream = fs.createReadStream(path);
+            const outstream = new (require('stream'))();
+            const rl = readline.createInterface(instream, outstream);
+
+            rl.on('line', (line: string) => {
+                dataArray.push(JSON.parse(line));
+                if(dataArray.length>=chunckSize){
+                    streamFuntion(dataArray)
+                    dataArray=new Array<any>();
+                }
+            });
+            rl.on("error", err => console.log(err));
+            rl.on('close', () => streamFuntion(dataArray));
+        });
+    });
+}
+
+
+export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'geojsonl').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            var csv = require("fast-csv");
+            var stream = fs.createReadStream(incomingPath);
+            csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+                dataArray.push(data);
+                if(dataArray.length>=chunckSize){
+                    streamFuntion(dataArray)
+                    dataArray=new Array<any>();
+                }
+            }).on("end", function(){
+                streamFuntion(dataArray)
+            });
+        });
+    });
+}
+                
+
 
