@@ -363,19 +363,18 @@ program
           var hexFeatures = hexbin.calculateHexGrids(features, options.cellsize, options.ids);
           console.log("uploading the hexagon grids to space");
           /*
+        /*  
           fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
             if (err) throw err;
         });
         */
         
-        
           var tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
           fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
-          options.tags = 'hexbin';
+          options.tags = 'hexbin_'+options.cellsize;
           options.file = tmpObj.name;
           options.override = true;
           uploadToXyzSpace(id,options);
-          
           
         } catch (error) {
             console.error(`hexbin creation failed: ${error}`);
