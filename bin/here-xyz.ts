@@ -592,10 +592,19 @@ function streamingQueue(){
         .then(x=>{
             queue.uploadCount += task.fc.features.length;
             console.log("uploaded feature count :"+queue.uploadCount);
+            queue.chunksize--;
             done();
         }); 
     });     
     queue.uploadCount=0;
+    queue.chunksize=0;
+    queue.send= async function(obj:any){
+        while(this.chunksize>25){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        this.push(obj);
+        this.chunksize++;
+    }
     return queue;
 }
 
@@ -637,8 +646,14 @@ function uploadToXyzSpace(id: string, options: any){
                 }else{                    
                     let queue = streamingQueue();
                     transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
-                        if(result.length>0)
-                            queue.push({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) }});
+                        return new Promise((res,rej)=>{
+                            ( async()=>{
+                                if(result.length>0){
+                                    await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) }});
+                                }
+                                res();
+                            })();  
+                        });                        
                     });
                 }
             } else if (options.file.indexOf(".shp") != -1) {
@@ -683,19 +698,24 @@ function uploadToXyzSpace(id: string, options: any){
                 }else{
                     let queue = streamingQueue();
                     transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
-                        if(result.length>0){
-                            const fc = {
-                                features: transform.transform(
-                                    result,
-                                    options.lat,
-                                    options.lon,
-                                    options.alt
-                                ),
-                                type: "FeatureCollection"
-                            };
+                        return new Promise((res,rej)=>{
+                            ( async()=>{
+                                if(result.length>0){
+                                    const fc = {
+                                        features: transform.transform(
+                                            result,
+                                            options.lat,
+                                            options.lon,
+                                            options.alt
+                                        ),
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({id:id,options:options,tags:tags,fc:fc});
+                                    res();
+                                }
+                            })();  
+                        });    
 
-                            queue.push({id:id,options:options,tags:tags,fc:fc});
-                        }
                     });
                 }
             } else {
@@ -832,7 +852,6 @@ async function uploadDataToSpaceWithTags(
     uid: string
 ) {
     return new Promise((resolve, reject) => { 
-        const gsv = require("geojson-validation");
         gsv.valid(object, async function (valid: boolean, errs: any) {
             if (!valid) {
                 console.log(errs);

@@ -230,23 +230,27 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
 
 
 export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
-
     return readData(incomingPath, 'geojsonl').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
-            const instream = fs.createReadStream(path);
-            const outstream = new (require('stream'))();
-            const rl = readline.createInterface(instream, outstream);
-
-            rl.on('line', (line: string) => {
+            var LineByLineReader = require('line-by-line'),
+            lr = new LineByLineReader(path);
+            lr.on('error', function (err:any) {
+                console.log(err);
+                throw err;
+            });
+            lr.on('line', async function (line:any) {
                 dataArray.push(JSON.parse(line));
                 if(dataArray.length>=chunckSize){
-                    streamFuntion(dataArray)
+                    lr.pause();
+                    await streamFuntion(dataArray);
+                    lr.resume();
                     dataArray=new Array<any>();
                 }
             });
-            rl.on("error", err => console.log(err));
-            rl.on('close', () => streamFuntion(dataArray));
+            lr.on('end', function () {
+                streamFuntion(dataArray)
+            });
         });
     });
 }
@@ -258,7 +262,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(incomingPath);
-            csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+            let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
                 dataArray.push(data);
                 if(dataArray.length>=chunckSize){
                     streamFuntion(dataArray)
