@@ -37,6 +37,7 @@ import * as summary from "./summary";
 
 //let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
 let hexbin = require('hexbin');
+const md5 = require('md5');
 const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
@@ -350,32 +351,63 @@ program
     .description('create hexgrid out of xyz space data and upload it to space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cell in meters")
     .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
+    .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
     .action(function (id,options) {
       (async () => {
         try{
-          options.totalRecords = Number.MAX_SAFE_INTEGER;
-          //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
-          var features = await getSpaceDataFromXyz(id,options);
-          if (!options.cellsize) {
-            options.cellsize = 2000;
-          }
-          console.log("Creating hexbins for the space data");
-          var hexFeatures = hexbin.calculateHexGrids(features, options.cellsize, options.ids);
-          console.log("uploading the hexagon grids to space");
-          /*
-        /*  
-          fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
-            if (err) throw err;
+        options.totalRecords = Number.MAX_SAFE_INTEGER;
+        //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
+        const features = await getSpaceDataFromXyz(id,options);
+        let cellSizes:number[] = [];
+        if (!options.cellsize) {
+            cellSizes.push(2000);
+        } else {
+            options.cellsize.split(",").forEach(function (item : string) {
+                if (item && item != "") {
+                    let number = parseInt(item.toLowerCase());
+                    if (isNaN(number)){
+                        console.error(`hexbin creation failed: cellsize input "${item}" is not a valid number`);
+                        process.exit(1);
+                    } 
+                    cellSizes.push(number);
+                }
+            });
+        }
+
+        cellSizes.forEach(function (cellsize : number) {
+        //    (async () => {
+            console.log("Creating hexbins for the space data with size " + cellsize);
+            let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy);
+            console.log("uploading the hexagon grids to space with size " + cellsize);
+
+            let centroidFeatures:any[] = [];
+            hexFeatures.forEach(function (hexFeature : any) {
+                let geometry = {"type":"Point","coordinates":hexFeature.properties.centroid};
+                let hashId = md5(JSON.stringify(geometry));
+                centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeature.properties,"id":hashId});
+            });
+            //hexFeatures = hexFeatures.concat(centroidFeatures);
+            /*  
+            fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+                if (err) throw err;
+            });
+            */
+            
+            let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+            fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
+            options.tags = 'hexbin_'+cellsize;
+            options.file = tmpObj.name;
+            options.override = true;
+            uploadToXyzSpace(id,options);
+
+            tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+            fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
+            options.tags = 'centroid_'+cellsize+',hexbin_'+cellsize;
+            options.file = tmpObj.name;
+            options.override = true;
+            uploadToXyzSpace(id,options);
+        //});
         });
-        */
-        
-          var tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
-          fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
-          options.tags = 'hexbin_'+options.cellsize;
-          options.file = tmpObj.name;
-          options.override = true;
-          uploadToXyzSpace(id,options);
-          
         } catch (error) {
             console.error(`hexbin creation failed: ${error}`);
             process.exit(1);
