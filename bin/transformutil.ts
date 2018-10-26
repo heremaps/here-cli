@@ -264,9 +264,14 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
             var stream = fs.createReadStream(incomingPath);
             let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
                 dataArray.push(data);
-                if(dataArray.length>=chunckSize){
-                    streamFuntion(dataArray)
-                    dataArray=new Array<any>();
+                if(dataArray.length >=chunckSize){
+                    //console.log('dataArray '+chunckSize);
+                    csvstream.pause();
+                    (async()=>{
+                        await streamFuntion(dataArray);
+                        csvstream.resume();
+                        dataArray=new Array<any>();
+                    })();
                 }
             }).on("end", function(){
                 streamFuntion(dataArray)

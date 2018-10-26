@@ -35,6 +35,7 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
 let cq = require("block-queue");
+const gsv = require("geojson-validation");
 
 const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
