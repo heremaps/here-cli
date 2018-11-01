@@ -383,7 +383,7 @@ program
             let centroidFeatures:any[] = [];
             hexFeatures.forEach(function (hexFeature : any) {
                 let geometry = {"type":"Point","coordinates":hexFeature.properties.centroid};
-                let hashId = md5(JSON.stringify(geometry));
+                let hashId = md5(JSON.stringify(geometry)+'_'+cellsize);
                 centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeature.properties,"id":hashId});
             });
             //hexFeatures = hexFeatures.concat(centroidFeatures);
