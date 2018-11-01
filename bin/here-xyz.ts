@@ -376,8 +376,9 @@ program
             });
         }
 
-        cellSizes.forEach(function (cellsize : number) {
-        //    (async () => {
+        //cellSizes.forEach(function (cellsize : number) {
+        for(const cellsize of cellSizes){
+           //(async () => {
             console.log("Creating hexbins for the space data with size " + cellsize);
             let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy);
             console.log("uploading the hexagon grids to space with size " + cellsize);
@@ -400,16 +401,17 @@ program
             options.tags = 'hexbin_'+cellsize;
             options.file = tmpObj.name;
             options.override = true;
-            uploadToXyzSpace(id,options);
+            await uploadToXyzSpace(id,options);
 
             tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
             options.tags = 'centroid_'+cellsize+',hexbin_'+cellsize;
             options.file = tmpObj.name;
             options.override = true;
-            uploadToXyzSpace(id,options);
+            await uploadToXyzSpace(id,options);
         //});
-        });
+        }
+        //});
         } catch (error) {
             console.error(`hexbin creation failed: ${error}`);
             process.exit(1);
@@ -682,8 +684,8 @@ function streamingQueue(){
 }
 
 
-function uploadToXyzSpace(id: string, options: any){
-    (async () => {
+async function uploadToXyzSpace(id: string, options: any){
+    //(async () => {
         let tags = "";
         if (options.tags) {
             tags = options.tags;
@@ -733,7 +735,7 @@ function uploadToXyzSpace(id: string, options: any){
                 let result = await transform.readShapeFile(
                     options.file,
                 );
-                uploadData(
+                await uploadData(
                         id,
                         options,
                         tags,
@@ -758,7 +760,7 @@ function uploadToXyzSpace(id: string, options: any){
                             ),
                             type: "FeatureCollection"
                     };
-                    uploadData(
+                    await uploadData(
                             id,
                             options,
                             tags,
@@ -796,7 +798,7 @@ function uploadToXyzSpace(id: string, options: any){
                     options.file,
                     false
                 );
-                uploadData(
+                await uploadData(
                     id,
                     options,
                     tags,
@@ -829,7 +831,7 @@ function uploadToXyzSpace(id: string, options: any){
                 }
             });
         }
-    })();
+    //})();
 }
 
 function createQuestionsList(object: any) {
