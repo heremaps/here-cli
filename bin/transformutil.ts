@@ -30,6 +30,7 @@ import * as tmp from "tmp";
 import * as request from "request";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
+import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"];
@@ -226,4 +227,58 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
         });
     });
 }
+
+
+export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'geojsonl').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            var LineByLineReader = require('line-by-line'),
+            lr = new LineByLineReader(path);
+            lr.on('error', function (err:any) {
+                console.log(err);
+                throw err;
+            });
+            lr.on('line', async function (line:any) {
+                dataArray.push(JSON.parse(line));
+                if(dataArray.length>=chunckSize){
+                    lr.pause();
+                    await streamFuntion(dataArray);
+                    lr.resume();
+                    dataArray=new Array<any>();
+                }
+            });
+            lr.on('end', function () {
+                streamFuntion(dataArray)
+            });
+        });
+    });
+}
+
+
+export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'csv').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            var csv = require("fast-csv");
+            var stream = fs.createReadStream(incomingPath);
+            let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+                dataArray.push(data);
+                if(dataArray.length >=chunckSize){
+                    //console.log('dataArray '+chunckSize);
+                    csvstream.pause();
+                    (async()=>{
+                        await streamFuntion(dataArray);
+                        csvstream.resume();
+                        dataArray=new Array<any>();
+                    })();
+                }
+            }).on("end", function(){
+                streamFuntion(dataArray)
+            });
+        });
+    });
+}
+                
+
 
