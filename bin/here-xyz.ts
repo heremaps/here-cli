@@ -124,7 +124,8 @@ async function execInternalGzip(
     method: string,
     contentType: string,
     data: any,
-    token: string
+    token: string,
+    retry : number=3
 ) {
     const zippedData = await gzip(data);
     const isJson = contentType == "application/json" ? true : false;
@@ -143,9 +144,15 @@ async function execInternalGzip(
         body: method === "GET" ? undefined : zippedData
     };
 
-    const { response, body } = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+    let { response, body } = await requestAsync(reqJson);
+    if (response.statusCode < 200 || response.statusCode > 210){
+        if(response.statusCode>=500){
+            await new Promise(done => setTimeout(done, 1000));
+            body = execInternalGzip(uri,method,contentType,data,token,retry--);
+        }else{
+            throw new Error("Invalid response :"+response.statusCode);
+        }
+    }
     return body;
 }
 
@@ -595,10 +602,16 @@ function streamingQueue(){
             console.log("uploaded feature count :"+queue.uploadCount);
             queue.chunksize--;
             done();
-        }); 
+        }).catch((err) => {
+            queue.failedCount += task.fc.features.length;
+            console.log("failed feature count :"+queue.failedCount);
+            queue.chunksize--;
+            done();
+        });
     });     
     queue.uploadCount=0;
     queue.chunksize=0;
+    queue.failedCount=0;
     queue.send= async function(obj:any){
         while(this.chunksize>25){
             await new Promise(done => setTimeout(done, 1000));
@@ -650,7 +663,7 @@ function uploadToXyzSpace(id: string, options: any){
                         return new Promise((res,rej)=>{
                             ( async()=>{
                                 if(result.length>0){
-                                    await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) }});
+                                    await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
                                 }
                                 res();
                             })();  
@@ -711,7 +724,7 @@ function uploadToXyzSpace(id: string, options: any){
                                         ),
                                         type: "FeatureCollection"
                                     };
-                                    await queue.send({id:id,options:options,tags:tags,fc:fc});
+                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
                                     res();
                                 }
                             })();  
@@ -822,7 +835,7 @@ function uploadData(
                     options.ptag,
                     fileName,
                     options.id
-                ).then(x=>resolve(x));
+                ).then(x=>resolve(x)).catch((error) => reject(error));
 
             });
         } else {
@@ -835,7 +848,7 @@ function uploadData(
                 options.ptag,
                 fileName,
                 options.id
-            ).then(x=>resolve(x));
+            ).then(x=>resolve(x)).catch((error) => reject(error));
         }
 
     });
@@ -873,12 +886,17 @@ async function uploadDataToSpaceWithTags(
                 : [featureOut];
             const chunkSize = chunks.length;
             const index = 0;
-            await iterateChunks(
-                chunks,
-                "/hub/spaces/" + id + "/features",
-                index,
-                chunkSize,
-            );
+            try{
+                await iterateChunks(
+                    chunks,
+                    "/hub/spaces/" + id + "/features",
+                    index,
+                    chunkSize,
+                );
+            }catch(e){
+                reject(e);
+                return;
+            }
             if(!options.stream){
                 if (isFile)
                     console.log(
