@@ -107,7 +107,7 @@ async function execInternal(
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+        throw new Error("Invalid response - " + response.body);
     return body;
 }
 
@@ -148,7 +148,7 @@ async function execInternalGzip(
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+        throw new Error("Invalid response - " + response.body);
     return body;
 }
 
@@ -354,11 +354,17 @@ program
     .option("-c, --cellsize <cellsize>", "size of hexgrid cell in meters")
     .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
     .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
+    .option("-r, --readToken <readToken>", "Token to access source space")
+    .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
+    .option("-t, --targetSpace <targetSpace>", "Target Space name where hexbins and centroids will be uploaded")
     .action(function (id,options) {
       (async () => {
         try{
         options.totalRecords = Number.MAX_SAFE_INTEGER;
         //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
+        if(options.readToken){
+            options.token = options.readToken;
+        }
         const features = await getSpaceDataFromXyz(id,options);
         let cellSizes:number[] = [];
         if (!options.cellsize) {
@@ -375,7 +381,13 @@ program
                 }
             });
         }
-
+        options.token = null;
+        if(options.writeToken){
+            options.token = options.writeToken;
+        }
+        if(options.targetSpace){
+            id = options.targetSpace;
+        }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
            //(async () => {
@@ -398,14 +410,14 @@ program
             
             let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
-            options.tags = 'hexbin_'+cellsize;
+            options.tags = 'hexbin_'+cellsize+',cell_'+cellsize+',hexbin';
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
 
             tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
-            options.tags = 'centroid_'+cellsize+',hexbin_'+cellsize;
+            options.tags = 'centroid_'+cellsize+',cell_'+cellsize+',centroid';
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
@@ -952,6 +964,7 @@ async function uploadDataToSpaceWithTags(
                 "/hub/spaces/" + id + "/features",
                 index,
                 chunkSize,
+                options.token
             );
             if(!options.stream){
                 if (isFile)
@@ -1143,7 +1156,7 @@ function getFileName(fileName: string) {
     }
 }
 
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number) {
+async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string) {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
     const body = await execute(
@@ -1151,7 +1164,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         "PUT",
         "application/geo+json",
         JSON.stringify(fc),
-        null,
+        token,
         true
     );
 
@@ -1161,7 +1174,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     }
 
     console.log("uploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
-    await iterateChunks(chunks, url, index, chunkSize);
+    await iterateChunks(chunks, url, index, chunkSize, token);
 }
 
 function chunkify(data: any[], chunksize: number) {
