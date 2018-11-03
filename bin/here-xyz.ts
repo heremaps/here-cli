@@ -356,7 +356,7 @@ program
     .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
     .option("-r, --readToken <readToken>", "Token to access source space")
     .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
-    .option("-t, --targetSpace <targetSpace>", "Target Space name where hexbins and centroids will be uploaded")
+    .option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .action(function (id,options) {
       (async () => {
         try{
@@ -385,8 +385,8 @@ program
         if(options.writeToken){
             options.token = options.writeToken;
         }
-        if(options.targetSpace){
-            id = options.targetSpace;
+        if(options.destSpace){
+            id = options.destSpace;
         }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
