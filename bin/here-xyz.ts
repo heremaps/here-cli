@@ -396,11 +396,25 @@ program
             console.log("uploading the hexagon grids to space with size " + cellsize);
 
             let centroidFeatures:any[] = [];
-            hexFeatures.forEach(function (hexFeature : any) {
-                let geometry = {"type":"Point","coordinates":hexFeature.properties.centroid};
-                let hashId = md5(JSON.stringify(geometry)+'_'+cellsize);
-                centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeature.properties,"id":hashId});
-            });
+            var i = hexFeatures.length;
+            while (i--) {
+                let isValidHexagon = true;
+                hexFeatures[i].geometry.coordinates[0].forEach(function (coordinate : Array<number>) {
+                    if(coordinate[0] < -180 || coordinate[0] > 180 || coordinate[1] > 90 || coordinate[1] < -90){
+                        isValidHexagon = false;
+                        console.log("Invalid hexagon which is created outside of permissable range - " + coordinate);
+                    }
+                });
+                if (isValidHexagon) { 
+                    let geometry = {"type":"Point","coordinates":hexFeatures[i].properties.centroid};
+                    let hashId = md5(JSON.stringify(geometry)+'_'+cellsize);
+                    centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeatures[i].properties,"id":hashId});
+                } else {
+                    console.log("Invalid hexagon is getting created, ignoring this - " + JSON.stringify(hexFeatures[i]));
+                    hexFeatures.splice(i, 1);
+                }
+            }
+
             //hexFeatures = hexFeatures.concat(centroidFeatures);
             /*  
             fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
