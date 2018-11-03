@@ -357,6 +357,7 @@ program
     .option("-r, --readToken <readToken>", "Token to access source space")
     .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
     .option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
+    .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
     .action(function (id,options) {
       (async () => {
         try{
@@ -366,6 +367,10 @@ program
             options.token = options.readToken;
         }
         const features = await getSpaceDataFromXyz(id,options);
+        if(features.length === 0){
+            console.log("No features is available to create hexbins");
+            process.exit();
+        }
         let cellSizes:number[] = [];
         if (!options.cellsize) {
             cellSizes.push(2000);
