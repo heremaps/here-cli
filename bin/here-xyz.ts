@@ -361,6 +361,7 @@ program
     .action(function (id,options) {
       (async () => {
         try{
+        const sourceId = id;
         options.totalRecords = Number.MAX_SAFE_INTEGER;
         //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
         if(options.readToken){
@@ -430,6 +431,9 @@ program
             let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
             options.tags = 'hexbin_'+cellsize+',cell_'+cellsize+',hexbin';
+            if(options.destSpace){
+                options.tags += ','+sourceId;
+            }
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
@@ -437,6 +441,9 @@ program
             tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
             options.tags = 'centroid_'+cellsize+',cell_'+cellsize+',centroid';
+            if(options.destSpace){
+                options.tags += ','+sourceId;
+            }
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
