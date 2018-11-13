@@ -261,7 +261,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
-            var stream = fs.createReadStream(incomingPath);
+            var stream = fs.createReadStream(path);
             let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
                 dataArray.push(data);
                 if(dataArray.length >=chunckSize){
@@ -282,3 +282,34 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
                 
 
 
+export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'geojson').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            const JSONStream = require('JSONStream');
+            const  es = require('event-stream');
+            const fileStream = fs.createReadStream(path, {encoding: 'utf8'});
+            let stream = fileStream.pipe(JSONStream.parse('features.*'));
+            stream.pipe(es.through(async function (data:any) {
+                if(dataArray.length >=chunckSize){
+                    stream.pause();
+                    fileStream.pause();
+                    await streamFuntion(dataArray);
+                    stream.resume();
+                    fileStream.resume();
+                    dataArray=new Array<any>();
+                }
+                dataArray.push(data);
+                return data;
+            },function end () {
+                if(dataArray.length >0){
+                    (async()=>{
+                        await streamFuntion(dataArray);
+                        dataArray=new Array<any>();
+                    })();
+                }
+            }));
+         });
+    });
+}
+                

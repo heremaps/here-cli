@@ -733,20 +733,38 @@ function uploadToXyzSpace(id: string, options: any){
                     });
                 }
             } else {
-                let result = await transform.read(
-                    options.file,
-                    false
-                );
-                uploadData(
-                    id,
-                    options,
-                    tags,
-                    JSON.parse(result),
-                    true,
-                    options.ptag,
-                    options.file,
-                    options.id
-                );
+                if(!options.stream){
+                    let result = await transform.read(
+                        options.file,
+                        false
+                    );
+                    uploadData(
+                        id,
+                        options,
+                        tags,
+                        JSON.parse(result),
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                }else{
+                    let queue = streamingQueue();
+                    transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                        return new Promise((res,rej)=>{
+                            ( async()=>{
+                                if(result.length>0){
+                                    const fc = {
+                                        features: result,
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
+                                    res();
+                                }
+                            })();  
+                        });   
+                    });
+                }
             }
         } else {
             const getStdin = require("get-stdin");
