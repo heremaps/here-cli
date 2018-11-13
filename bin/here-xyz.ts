@@ -34,6 +34,7 @@ import * as transform from "./transformutil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
+import { deprecate } from "util";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
@@ -594,14 +595,14 @@ function collate(result:Array<any>){
 }
 
 function streamingQueue(){
-    let queue = cq(10,function (task:any,done:Function) {
+    let queue = cq(10,function (task:any,done:Function) {    
         uploadData(task.id, task.options, task.tags, task.fc, 
         true, task.options.ptag, task.options.file, task.options.id)
         .then(x=>{
             queue.uploadCount += task.fc.features.length;
             console.log("uploaded feature count :"+queue.uploadCount);
             queue.chunksize--;
-            done();
+            done(); 
         }).catch((err) => {
             queue.failedCount += task.fc.features.length;
             console.log("failed feature count :"+queue.failedCount);
@@ -618,6 +619,41 @@ function streamingQueue(){
         }
         this.push(obj);
         this.chunksize++;
+    }
+    return queue;
+}
+
+function taskQueue(size:number=8,totalTaskSize:number){
+    let queue = cq(size,function (task:any,done:Function) {
+        iterateChunk(task.chunk,task.url)
+        .then(x=>{
+            queue.uploadCount += 1;
+            queue.chunksize--;
+            console.log("uploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
+            done();
+        }).catch((err) => {
+            queue.failedCount += 1;
+            queue.chunksize--;
+            console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
+            done();
+        });
+    });     
+    queue.uploadCount=0;
+    queue.chunksize=0;
+    queue.failedCount=0;
+    queue.send= async function(obj:any){
+        queue.push(obj);
+        queue.chunksize++;
+        while(queue.chunksize>25){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+    }
+    queue.shutdown =async ()=>{
+        queue.shutdown=true;
+        while(queue.chunksize!=0){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        return true;
     }
     return queue;
 }
@@ -750,19 +786,15 @@ function uploadToXyzSpace(id: string, options: any){
                     );
                 }else{
                     let queue = streamingQueue();
-                    transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
-                        return new Promise((res,rej)=>{
-                            ( async()=>{
+                    let c=0;
+                    transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
                                 if(result.length>0){
                                     const fc = {
                                         features: result,
                                         type: "FeatureCollection"
                                     };
                                     await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
-                                    res();
                                 }
-                            })();  
-                        });   
                     });
                 }
             }
@@ -899,18 +931,19 @@ async function uploadDataToSpaceWithTags(
                 options
             );
 
-            const chunks = options.chunk
-                ? chunkify(featureOut, parseInt(options.chunk))
-                : [featureOut];
-            const chunkSize = chunks.length;
-            const index = 0;
             try{
-                await iterateChunks(
-                    chunks,
-                    "/hub/spaces/" + id + "/features",
-                    index,
-                    chunkSize,
-                );
+               if(options.stream){
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1);
+               }else{
+                    const chunks = options.chunk
+                        ? chunkify(featureOut, parseInt(options.chunk))
+                        : [featureOut];
+                    let tq =  taskQueue(8,chunks.length);
+                    chunks.forEach(chunk=>{
+                        tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
+                    });
+                    await tq.shutdown();
+               }
             }catch(e){
                 reject(e);
                 return;
@@ -1124,6 +1157,18 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
 
     console.log("uploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     await iterateChunks(chunks, url, index, chunkSize);
+}
+async function iterateChunk(chunk: any, url: string) {
+    const fc = { type: "FeatureCollection", features: chunk };
+    const body = await execute(
+        url,
+        "PUT",
+        "application/geo+json",
+        JSON.stringify(fc),
+        null,
+        true
+    );
+    return body;
 }
 
 function chunkify(data: any[], chunksize: number) {

@@ -291,15 +291,15 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,stre
             const fileStream = fs.createReadStream(path, {encoding: 'utf8'});
             let stream = fileStream.pipe(JSONStream.parse('features.*'));
             stream.pipe(es.through(async function (data:any) {
+                dataArray.push(data);
                 if(dataArray.length >=chunckSize){
                     stream.pause();
                     fileStream.pause();
                     await streamFuntion(dataArray);
+                    dataArray=new Array<any>();
                     stream.resume();
                     fileStream.resume();
-                    dataArray=new Array<any>();
                 }
-                dataArray.push(data);
                 return data;
             },function end () {
                 if(dataArray.length >0){
