@@ -600,12 +600,12 @@ function streamingQueue(){
         true, task.options.ptag, task.options.file, task.options.id)
         .then(x=>{
             queue.uploadCount += task.fc.features.length;
-            console.log("uploaded feature count :"+queue.uploadCount);
+            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
             queue.chunksize--;
             done(); 
         }).catch((err) => {
             queue.failedCount += task.fc.features.length;
-            console.log("failed feature count :"+queue.failedCount);
+            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
             queue.chunksize--;
             done();
         });
@@ -619,6 +619,13 @@ function streamingQueue(){
         }
         this.push(obj);
         this.chunksize++;
+    }
+    queue.shutdown =async ()=>{
+        queue.shutdown=true;
+        while(queue.chunksize!=0){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        return true;
     }
     return queue;
 }
@@ -701,7 +708,7 @@ function uploadToXyzSpace(id: string, options: any){
                                 if(result.length>0){
                                     await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
                                 }
-                                res();
+                                res(queue);
                             })();  
                         });                        
                     });
@@ -761,7 +768,7 @@ function uploadToXyzSpace(id: string, options: any){
                                         type: "FeatureCollection"
                                     };
                                     await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
-                                    res();
+                                    res(queue);
                                 }
                             })();  
                         });    
@@ -795,6 +802,7 @@ function uploadToXyzSpace(id: string, options: any){
                                     };
                                     await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
                                 }
+                                return queue;
                     });
                 }
             }

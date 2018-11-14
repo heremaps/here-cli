@@ -249,7 +249,11 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
                 }
             });
             lr.on('end', function () {
-                streamFuntion(dataArray)
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    console.log("");
+                })();
             });
         });
     });
@@ -274,7 +278,11 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
                     })();
                 }
             }).on("end", function(){
-                streamFuntion(dataArray)
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    console.log("");
+                })();
             });
         });
     });
@@ -304,7 +312,9 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,stre
             },function end () {
                 if(dataArray.length >0){
                     (async()=>{
-                        await streamFuntion(dataArray);
+                        const queue = await streamFuntion(dataArray);
+                        await queue.shutdown();
+                        console.log("");
                         dataArray=new Array<any>();
                     })();
                 }
