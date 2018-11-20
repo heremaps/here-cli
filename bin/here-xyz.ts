@@ -38,6 +38,9 @@ import { deprecate } from "util";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
+//let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
+let hexbin = require('hexbin');
+const md5 = require('md5');
 const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
@@ -105,7 +108,7 @@ async function execInternal(
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+        throw new Error("Invalid response - " + response.body);
     return body;
 }
 
@@ -351,6 +354,115 @@ program
                 console.error(`describe failed: ${error}`);
             }
         })();
+    });
+
+program
+    .command('hexbin <id>')
+    .description('create hexgrid out of xyz space data and upload it to space')
+    .option("-c, --cellsize <cellsize>", "size of hexgrid cell in meters")
+    .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
+    .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
+    .option("-r, --readToken <readToken>", "Token to access source space")
+    .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
+    .option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
+    .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
+    .action(function (id,options) {
+      (async () => {
+        try{
+        const sourceId = id;
+        options.totalRecords = Number.MAX_SAFE_INTEGER;
+        //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
+        if(options.readToken){
+            options.token = options.readToken;
+        }
+        const features = await getSpaceDataFromXyz(id,options);
+        if(features.length === 0){
+            console.log("No features is available to create hexbins");
+            process.exit();
+        }
+        let cellSizes:number[] = [];
+        if (!options.cellsize) {
+            cellSizes.push(2000);
+        } else {
+            options.cellsize.split(",").forEach(function (item : string) {
+                if (item && item != "") {
+                    let number = parseInt(item.toLowerCase());
+                    if (isNaN(number)){
+                        console.error(`hexbin creation failed: cellsize input "${item}" is not a valid number`);
+                        process.exit(1);
+                    } 
+                    cellSizes.push(number);
+                }
+            });
+        }
+        options.token = null;
+        if(options.writeToken){
+            options.token = options.writeToken;
+        }
+        if(options.destSpace){
+            id = options.destSpace;
+        }
+        //cellSizes.forEach(function (cellsize : number) {
+        for(const cellsize of cellSizes){
+           //(async () => {
+            console.log("Creating hexbins for the space data with size " + cellsize);
+            let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy);
+            console.log("uploading the hexagon grids to space with size " + cellsize);
+
+            let centroidFeatures:any[] = [];
+            var i = hexFeatures.length;
+            while (i--) {
+                let isValidHexagon = true;
+                hexFeatures[i].geometry.coordinates[0].forEach(function (coordinate : Array<number>) {
+                    if(coordinate[0] < -180 || coordinate[0] > 180 || coordinate[1] > 90 || coordinate[1] < -90){
+                        isValidHexagon = false;
+                        console.log("Invalid hexagon which is created outside of permissable range - " + coordinate);
+                    }
+                });
+                if (isValidHexagon) { 
+                    let geometry = {"type":"Point","coordinates":hexFeatures[i].properties.centroid};
+                    let hashId = md5(JSON.stringify(geometry)+'_'+cellsize);
+                    centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeatures[i].properties,"id":hashId});
+                } else {
+                    console.log("Invalid hexagon is getting created, ignoring this - " + JSON.stringify(hexFeatures[i]));
+                    hexFeatures.splice(i, 1);
+                }
+            }
+
+            //hexFeatures = hexFeatures.concat(centroidFeatures);
+            /*  
+            fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+                if (err) throw err;
+            });
+            */
+            
+            let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+            fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
+            options.tags = 'hexbin_'+cellsize+',cell_'+cellsize+',hexbin';
+            if(options.destSpace){
+                options.tags += ','+sourceId;
+            }
+            options.file = tmpObj.name;
+            options.override = true;
+            await uploadToXyzSpace(id,options);
+
+            tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+            fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
+            options.tags = 'centroid_'+cellsize+',cell_'+cellsize+',centroid';
+            if(options.destSpace){
+                options.tags += ','+sourceId;
+            }
+            options.file = tmpObj.name;
+            options.override = true;
+            await uploadToXyzSpace(id,options);
+        //});
+        }
+        //});
+        } catch (error) {
+            console.error(`hexbin creation failed: ${error}`);
+            process.exit(1);
+        }
+      })();
     });
 
 program
@@ -666,8 +778,8 @@ function taskQueue(size:number=8,totalTaskSize:number){
 }
 
 
-function uploadToXyzSpace(id: string, options: any){
-    (async () => {
+async function uploadToXyzSpace(id: string, options: any){
+    //(async () => {
         let tags = "";
         if (options.tags) {
             tags = options.tags;
@@ -717,7 +829,7 @@ function uploadToXyzSpace(id: string, options: any){
                 let result = await transform.readShapeFile(
                     options.file,
                 );
-                uploadData(
+                await uploadData(
                         id,
                         options,
                         tags,
@@ -742,7 +854,7 @@ function uploadToXyzSpace(id: string, options: any){
                             ),
                             type: "FeatureCollection"
                     };
-                    uploadData(
+                    await uploadData(
                             id,
                             options,
                             tags,
@@ -781,7 +893,7 @@ function uploadToXyzSpace(id: string, options: any){
                         options.file,
                         false
                     );
-                    uploadData(
+                    await uploadData(
                         id,
                         options,
                         tags,
@@ -794,7 +906,7 @@ function uploadToXyzSpace(id: string, options: any){
                 }else{
                     let queue = streamingQueue();
                     let c=0;
-                    transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
+                    await transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
                                 if(result.length>0){
                                     const fc = {
                                         features: result,
@@ -828,7 +940,7 @@ function uploadToXyzSpace(id: string, options: any){
                 }
             });
         }
-    })();
+    //})();
 }
 
 function createQuestionsList(object: any) {
@@ -1146,7 +1258,7 @@ function getFileName(fileName: string) {
     }
 }
 
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number) {
+async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string) {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
     const body = await execute(
@@ -1154,7 +1266,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         "PUT",
         "application/geo+json",
         JSON.stringify(fc),
-        null,
+        token,
         true
     );
 
@@ -1164,7 +1276,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     }
 
     console.log("uploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
-    await iterateChunks(chunks, url, index, chunkSize);
+    await iterateChunks(chunks, url, index, chunkSize, token);
 }
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
@@ -1215,7 +1327,8 @@ common.validate(
         "describe",
         "clear",
         "token",
-        "analyze"
+        "analyze",
+        "hexbin"
     ],
     [process.argv[2]],
     program
