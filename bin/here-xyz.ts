@@ -359,7 +359,7 @@ program
 program
     .command('hexbin <id>')
     .description('create hexgrid out of xyz space data and upload it to space')
-    .option("-c, --cellsize <cellsize>", "size of hexgrid cell in meters")
+    .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, you can give multiple values in comma separated way")
     .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
     .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
     .option("-r, --readToken <readToken>", "Token to access source space")
@@ -1053,7 +1053,7 @@ async function uploadDataToSpaceWithTags(
 
             try{
                if(options.stream){
-                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1);
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
                }else{
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
