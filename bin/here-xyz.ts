@@ -434,7 +434,6 @@ program
             if(!options.latitude){
                 options.latitude = 0;
             }
-            console.log(options.latitude);
         }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
