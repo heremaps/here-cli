@@ -43,6 +43,7 @@ let hexbin = require('hexbin');
 const md5 = require('md5');
 const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
+const bboxDirections = ["west","south","east","north"];
 const questions = [
     {
         type: "checkbox",
@@ -231,9 +232,32 @@ function getSpaceDataFromXyz(id: string, options: any) {
         }
         const getUrI = function (handle: string) {
             let uri = "/hub/spaces/" + id;
-            const spFunction = "iterate";
+            let spFunction;
+            if(options.bbox){
+                spFunction = "bbox";
+                options.limit = 100000;//Max limit of records space api supports 
+            } else {
+                spFunction = "iterate";
+            }
             if (options.limit) {
                 uri = uri + "/" + spFunction + "?limit=" + options.limit;
+                if(options.bbox){
+                    var bboxarray = options.bbox.split(",");
+                    if(bboxarray.length !== 4){
+                        console.error(`boundingbox input size is not proper - "${options.bbox}"`);
+                        process.exit(1);
+                    }
+                    bboxarray.forEach(function (item : string, i: number) {
+                        if (item && item != "") {
+                            let number = parseInt(item.toLowerCase());
+                            if (isNaN(number)){
+                                console.error(`Loading space data using boudning box failed - boundingbox input "${item}" is not a valid number`);
+                                process.exit(1);
+                            }
+                            uri = uri + "&" + bboxDirections[i] + "=" + number;
+                        }
+                    });
+                }
                 if (handle) {
                     uri = uri + "&handle=" + handle;
                 }
@@ -241,6 +265,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
+            //console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
@@ -366,6 +391,8 @@ program
     .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
     .option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
+    .option("-b, --bbox <bbox>", "Hexbins will be created for only those records which are inside specified bounding box, Bounding box input format - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
+    .option("-l, --latitude <latitude>", "Latitude which will be used for converting cellSize from meters to degrees")
     .action(function (id,options) {
       (async () => {
         try{
@@ -402,11 +429,18 @@ program
         if(options.destSpace){
             id = options.destSpace;
         }
+        if(!options.latitude){
+            options.latitude = await getCentreLatitudeOfSpace(id);
+            if(!options.latitude){
+                options.latitude = 0;
+            }
+            console.log(options.latitude);
+        }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
            //(async () => {
             console.log("Creating hexbins for the space data with size " + cellsize);
-            let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy);
+            let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.latitude);
             console.log("uploading the hexagon grids to space with size " + cellsize);
 
             let centroidFeatures:any[] = [];
@@ -464,6 +498,25 @@ program
         }
       })();
     });
+
+async function getCentreLatitudeOfSpace(spaceId: string){
+    const body = await getStatisticsData(spaceId);
+    let bbox = body.bbox.value;
+    const centreLatitude = (bbox[1] + bbox[3])/ 2;
+    return centreLatitude;
+}
+
+async function getStatisticsData(spaceId: string){
+    const body = await execute(
+        "/hub/spaces/" + spaceId + "/statistics",
+        "GET",
+        "application/json",
+        null,
+        null,
+        true
+    );
+    return body;
+}
 
 program
     .command("show <id>")
