@@ -95,7 +95,8 @@ async function execInternal(
         json: isJson,
         headers: {
             Authorization: "Bearer " + token,
-            "Content-Type": contentType
+            "Content-Type": contentType,
+            "App-Name": "CLI"
         },
         body: method === "GET" ? undefined : data
     };
