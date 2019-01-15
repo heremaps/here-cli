@@ -945,11 +945,12 @@ async function uploadDataToSpaceWithTags(
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    let tq =  taskQueue(8,chunks.length);
-                    chunks.forEach(chunk=>{
-                        tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
-                    });
-                    await tq.shutdown();
+                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features",0,chunks.length,options.token);
+                    // let tq =  taskQueue(8,chunks.length);
+                    // chunks.forEach(chunk=>{
+                    //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
+                    // });
+                    // await tq.shutdown();
                }
             }catch(e){
                 reject(e);
