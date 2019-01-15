@@ -34,8 +34,10 @@ import * as transform from "./transformutil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
+import { deprecate } from "util";
+let cq = require("block-queue");
+const gsv = require("geojson-validation");
 
-const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
     {
@@ -95,14 +97,15 @@ async function execInternal(
         json: isJson,
         headers: {
             Authorization: "Bearer " + token,
-            "Content-Type": contentType
+            "Content-Type": contentType,
+            "App-Name": "HereCLI"
         },
         body: method === "GET" ? undefined : data
     };
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+        throw new Error("Invalid response - " + response.body);
     return body;
 }
 
@@ -122,7 +125,8 @@ async function execInternalGzip(
     method: string,
     contentType: string,
     data: any,
-    token: string
+    token: string,
+    retry : number=3
 ) {
     const zippedData = await gzip(data);
     const isJson = contentType == "application/json" ? true : false;
@@ -141,9 +145,15 @@ async function execInternalGzip(
         body: method === "GET" ? undefined : zippedData
     };
 
-    const { response, body } = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response");
+    let { response, body } = await requestAsync(reqJson);
+    if (response.statusCode < 200 || response.statusCode > 210){
+        if(response.statusCode>=500){
+            await new Promise(done => setTimeout(done, 1000));
+            body = execInternalGzip(uri,method,contentType,data,token,retry--);
+        }else{
+            throw new Error("Invalid response :"+response.statusCode);
+        }
+    }
     return body;
 }
 
@@ -566,12 +576,98 @@ program
         "option to enforce uniqueness to the id by creating a hash of feature and use that as id"
     )
     .option("-o, --override", "override the data even if it share same id")
+    .option("-s, --stream", "streaming data support for large file uploads")
     .action(function (id, options) {
         uploadToXyzSpace(id, options);
     });
 
-function uploadToXyzSpace(id: string, options: any){
-    (async () => {
+function collate(result:Array<any>){
+    return result.reduce((features: any, feature: any) => {
+        if (feature.type === "Feature") {
+            features.push(feature);
+        } else if (feature.type === "FeatureCollection") {
+            features = features.concat(feature.features);
+        } else {
+            console.log("Unknown type" + feature.type);
+        }
+        return features
+    }, []);
+}
+
+function streamingQueue(){
+    let queue = cq(10,function (task:any,done:Function) {    
+        uploadData(task.id, task.options, task.tags, task.fc, 
+        true, task.options.ptag, task.options.file, task.options.id)
+        .then(x=>{
+            queue.uploadCount += task.fc.features.length;
+            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
+            queue.chunksize--;
+            done(); 
+        }).catch((err) => {
+            queue.failedCount += task.fc.features.length;
+            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
+            queue.chunksize--;
+            done();
+        });
+    });     
+    queue.uploadCount=0;
+    queue.chunksize=0;
+    queue.failedCount=0;
+    queue.send= async function(obj:any){
+        while(this.chunksize>25){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        this.push(obj);
+        this.chunksize++;
+    }
+    queue.shutdown =async ()=>{
+        queue.shutdown=true;
+        while(queue.chunksize!=0){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        return true;
+    }
+    return queue;
+}
+
+function taskQueue(size:number=8,totalTaskSize:number){
+    let queue = cq(size,function (task:any,done:Function) {
+        iterateChunk(task.chunk,task.url)
+        .then(x=>{
+            queue.uploadCount += 1;
+            queue.chunksize--;
+            console.log("uploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
+            done();
+        }).catch((err) => {
+            queue.failedCount += 1;
+            queue.chunksize--;
+            console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
+            done();
+        });
+    });     
+    queue.uploadCount=0;
+    queue.chunksize=0;
+    queue.failedCount=0;
+    queue.send= async function(obj:any){
+        queue.push(obj);
+        queue.chunksize++;
+        while(queue.chunksize>25){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+    }
+    queue.shutdown =async ()=>{
+        queue.shutdown=true;
+        while(queue.chunksize!=0){
+            await new Promise(done => setTimeout(done, 1000));
+        }
+        return true;
+    }
+    return queue;
+}
+
+
+async function uploadToXyzSpace(id: string, options: any){
+    //(async () => {
         let tags = "";
         if (options.tags) {
             tags = options.tags;
@@ -590,27 +686,38 @@ function uploadToXyzSpace(id: string, options: any){
             options.unique = true;
         }
 
+        if(options.assign && options.stream){
+            console.log(
+                "conflicting options together. You cannot choose assign mode while selecting streaming option"
+            );
+            process.exit(1);
+        }
+
         if (options.file) {
             const fs = require("fs");
             if (options.file.indexOf(".geojsonl") != -1) {
-                transform.readLineFromFile(options.file, 100).then((result: any) => {
-                    const totalFeatures = result.reduce((features: any, feature: any) => {
-                        if (feature.type === "Feature") {
-                            features.push(feature);
-                        } else if (feature.type === "FeatureCollection") {
-                            features = features.concat(feature.features);
-                        } else {
-                            console.log("Unknown type" + feature.type);
-                        }
-                        return features
-                    }, []);
-                    uploadData(id, options, tags, { type: "FeatureCollection", features: totalFeatures }, true, options.ptag, options.file, options.id);
-                });
+                if(!options.stream){
+                    transform.readLineFromFile(options.file, 100).then((result: any) => {                       
+                        uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
+                    });
+                }else{                    
+                    let queue = streamingQueue();
+                    transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                        return new Promise((res,rej)=>{
+                            ( async()=>{
+                                if(result.length>0){
+                                    await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
+                                }
+                                res(queue);
+                            })();  
+                        });                        
+                    });
+                }
             } else if (options.file.indexOf(".shp") != -1) {
                 let result = await transform.readShapeFile(
                     options.file,
                 );
-                uploadData(
+                await uploadData(
                         id,
                         options,
                         tags,
@@ -621,44 +728,83 @@ function uploadToXyzSpace(id: string, options: any){
                         options.id
                 );
             } else if (options.file.indexOf(".csv") != -1) {
-                let result = await transform.read(
-                    options.file,
-                    true
-                );
-                const object = {
-                        features: transform.transform(
-                            result,
-                            options.lat,
-                            options.lon,
-                            options.alt
-                        ),
-                        type: "FeatureCollection"
-                };
-                uploadData(
+                if(!options.stream){
+                    let result = await transform.read(
+                        options.file,
+                        true
+                    );
+                    const object = {
+                            features: transform.transform(
+                                result,
+                                options.lat,
+                                options.lon,
+                                options.alt
+                            ),
+                            type: "FeatureCollection"
+                    };
+                    await uploadData(
+                            id,
+                            options,
+                            tags,
+                            object,
+                            true,
+                            options.ptag,
+                            options.file,
+                            options.id
+                    );
+                }else{
+                    let queue = streamingQueue();
+                    transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                        return new Promise((res,rej)=>{
+                            ( async()=>{
+                                if(result.length>0){
+                                    const fc = {
+                                        features: transform.transform(
+                                            result,
+                                            options.lat,
+                                            options.lon,
+                                            options.alt
+                                        ),
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
+                                    res(queue);
+                                }
+                            })();  
+                        });    
+
+                    });
+                }
+            } else {
+                if(!options.stream){
+                    let result = await transform.read(
+                        options.file,
+                        false
+                    );
+                    await uploadData(
                         id,
                         options,
                         tags,
-                        object,
+                        JSON.parse(result),
                         true,
                         options.ptag,
                         options.file,
                         options.id
-                );
-            } else {
-                let result = await transform.read(
-                    options.file,
-                    false
-                );
-                uploadData(
-                    id,
-                    options,
-                    tags,
-                    JSON.parse(result),
-                    true,
-                    options.ptag,
-                    options.file,
-                    options.id
-                );
+                    );
+                }else{
+                    let queue = streamingQueue();
+                    let c=0;
+                    await transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
+                                if(result.length>0){
+                                    const fc = {
+                                        features: result,
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
+                                }
+                                return queue;
+                    });
+                }
             }
         } else {
             const getStdin = require("get-stdin");
@@ -682,7 +828,7 @@ function uploadToXyzSpace(id: string, options: any){
                 }
             });
         }
-    })();
+    //})();
 }
 
 function createQuestionsList(object: any) {
@@ -718,24 +864,39 @@ function uploadData(
     fileName: string | null,
     uid: string
 ) {
-    if (object.type == "Feature") {
-        object = { features: [object], type: "FeatureCollection" };
-    }
-    if (options.assign) {
-        //console.log("assign mode on");
-        const questions = createQuestionsList(object);
-        inquirer.prompt(questions).then((answers: any) => {
-            if (options.ptag === undefined) {
-                options.ptag = "";
-            }
-            options.ptag = options.ptag + answers.tagChoices;
-            if (options.id === undefined) {
-                options.id = "";
-            }
-            options.id = options.id + answers.idChoice;
-            //console.log(options.ptag);
-            //console.log("unique key - " + options.id);
-            //Need to be inside if, else this will be executed before user choice is inserted as its async
+    return new Promise((resolve, reject) => { 
+
+        if (object.type == "Feature") {
+            object = { features: [object], type: "FeatureCollection" };
+        }
+        if (options.assign) {
+            //console.log("assign mode on");
+            const questions = createQuestionsList(object);
+            inquirer.prompt(questions).then((answers: any) => {
+                if (options.ptag === undefined) {
+                    options.ptag = "";
+                }
+                options.ptag = options.ptag + answers.tagChoices;
+                if (options.id === undefined) {
+                    options.id = "";
+                }
+                options.id = options.id + answers.idChoice;
+                //console.log(options.ptag);
+                //console.log("unique key - " + options.id);
+                //Need to be inside if, else this will be executed before user choice is inserted as its async
+                uploadDataToSpaceWithTags(
+                    id,
+                    options,
+                    tags,
+                    object,
+                    false,
+                    options.ptag,
+                    fileName,
+                    options.id
+                ).then(x=>resolve(x)).catch((error) => reject(error));
+
+            });
+        } else {
             uploadDataToSpaceWithTags(
                 id,
                 options,
@@ -745,23 +906,14 @@ function uploadData(
                 options.ptag,
                 fileName,
                 options.id
-            );
-        });
-    } else {
-        uploadDataToSpaceWithTags(
-            id,
-            options,
-            tags,
-            object,
-            false,
-            options.ptag,
-            fileName,
-            options.id
-        );
-    }
+            ).then(x=>resolve(x)).catch((error) => reject(error));
+        }
+
+    });
+    
 }
 
-function uploadDataToSpaceWithTags(
+async function uploadDataToSpaceWithTags(
     id: string,
     options: any,
     tags: any,
@@ -771,46 +923,59 @@ function uploadDataToSpaceWithTags(
     fileName: string | null,
     uid: string
 ) {
-    const gsv = require("geojson-validation");
-    gsv.valid(object, async function (valid: boolean, errs: any) {
-        if (!valid) {
-            console.log(errs);
-            return;
-        }
-        const featureOut = await mergeAllTags(
-            object.features,
-            tags,
-            tagProperties,
-            fileName,
-            uid,
-            options
-        );
-
-        const chunks = options.chunk
-            ? chunkify(featureOut, parseInt(options.chunk))
-            : [featureOut];
-        const chunkSize = chunks.length;
-        const index = 0;
-        await iterateChunks(
-            chunks,
-            "/hub/spaces/" + id + "/features",
-            index,
-            chunkSize,
-        );
-        if (isFile)
-            console.log(
-                "'" +
-                options.file +
-                "' uploaded to xyzspace '" +
-                id +
-                "' successfully"
-            );
-        else
-            console.log(
-                "data upload to xyzspace '" + id + "' completed successfully"
+    return new Promise((resolve, reject) => { 
+        gsv.valid(object, async function (valid: boolean, errs: any) {
+            if (!valid) {
+                console.log(errs);
+                reject(errs);
+                return;
+            }
+            const featureOut = await mergeAllTags(
+                object.features,
+                tags,
+                tagProperties,
+                fileName,
+                uid,
+                options
             );
 
-        summary.summarize(featureOut, id, true);
+            try{
+               if(options.stream){
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
+               }else{
+                    const chunks = options.chunk
+                        ? chunkify(featureOut, parseInt(options.chunk))
+                        : [featureOut];
+                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features",0,chunks.length,options.token);
+                    // let tq =  taskQueue(8,chunks.length);
+                    // chunks.forEach(chunk=>{
+                    //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
+                    // });
+                    // await tq.shutdown();
+               }
+            }catch(e){
+                reject(e);
+                return;
+            }
+            if(!options.stream){
+                if (isFile)
+                    console.log(
+                        "'" +
+                        options.file +
+                        "' uploaded to xyzspace '" +
+                        id +
+                        "' successfully"
+                    );
+                else
+                    console.log(
+                        "data upload to xyzspace '" + id + "' completed successfully"
+                    );
+
+                summary.summarize(featureOut, id, true);
+                
+            }
+            resolve(true);
+        });
     });
 }
 
@@ -982,7 +1147,7 @@ function getFileName(fileName: string) {
     }
 }
 
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number) {
+async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string) {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
     const body = await execute(
@@ -990,7 +1155,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         "PUT",
         "application/geo+json",
         JSON.stringify(fc),
-        null,
+        token,
         true
     );
 
@@ -1000,7 +1165,19 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     }
 
     console.log("uploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
-    await iterateChunks(chunks, url, index, chunkSize);
+    await iterateChunks(chunks, url, index, chunkSize, token);
+}
+async function iterateChunk(chunk: any, url: string) {
+    const fc = { type: "FeatureCollection", features: chunk };
+    const body = await execute(
+        url,
+        "PUT",
+        "application/geo+json",
+        JSON.stringify(fc),
+        null,
+        true
+    );
+    return body;
 }
 
 function chunkify(data: any[], chunksize: number) {

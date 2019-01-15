@@ -30,6 +30,7 @@ import * as tmp from "tmp";
 import * as request from "request";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
+import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"];
@@ -227,3 +228,98 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
     });
 }
 
+
+export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'geojsonl').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            var LineByLineReader = require('line-by-line'),
+            lr = new LineByLineReader(path);
+            lr.on('error', function (err:any) {
+                console.log(err);
+                throw err;
+            });
+            lr.on('line', async function (line:any) {
+                dataArray.push(JSON.parse(line));
+                if(dataArray.length>=chunckSize){
+                    lr.pause();
+                    await streamFuntion(dataArray);
+                    lr.resume();
+                    dataArray=new Array<any>();
+                }
+            });
+            lr.on('end', function () {
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    console.log("");
+                })();
+            });
+        });
+    });
+}
+
+
+export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'csv').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            var csv = require("fast-csv");
+            var stream = fs.createReadStream(path);
+            let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+                dataArray.push(data);
+                if(dataArray.length >=chunckSize){
+                    //console.log('dataArray '+chunckSize);
+                    csvstream.pause();
+                    (async()=>{
+                        await streamFuntion(dataArray);
+                        csvstream.resume();
+                        dataArray=new Array<any>();
+                    })();
+                }
+            }).on("end", function(){
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    console.log("");
+                })();
+            });
+        });
+    });
+}
+                
+
+
+export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+    return readData(incomingPath, 'geojson').then(path => {
+        return new Promise((resolve, reject) => {
+            let dataArray = new Array<any>();
+            const JSONStream = require('JSONStream');
+            const  es = require('event-stream');
+            const fileStream = fs.createReadStream(path, {encoding: 'utf8'});
+            let stream = fileStream.pipe(JSONStream.parse('features.*'));
+            stream.pipe(es.through(async function (data:any) {
+                dataArray.push(data);
+                if(dataArray.length >=chunckSize){
+                    stream.pause();
+                    fileStream.pause();
+                    await streamFuntion(dataArray);
+                    dataArray=new Array<any>();
+                    stream.resume();
+                    fileStream.resume();
+                }
+                return data;
+            },function end () {
+                if(dataArray.length >0){
+                    (async()=>{
+                        const queue = await streamFuntion(dataArray);
+                        await queue.shutdown();
+                        console.log("");
+                        dataArray=new Array<any>();
+                    })();
+                }
+            }));
+         });
+    });
+}
+                
