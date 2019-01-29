@@ -104,8 +104,10 @@ async function execInternal(
     };
 
     const { response, body } = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response - " + response.body);
+    if (response.statusCode < 200 || response.statusCode > 210){
+        let message = (response.body && response.body.constructor != String)?JSON.stringify(response.body):response.body;
+        throw new Error("Invalid response - " + message);
+    }
     return body;
 }
 
