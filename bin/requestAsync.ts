@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2018 HERE Europe B.V.
+  Copyright (C) 2018 - 2019 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
