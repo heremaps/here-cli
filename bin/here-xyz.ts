@@ -1199,13 +1199,13 @@ async function launchHereGeoJson(uri: string) {
         uri.indexOf("?") == -1
             ? "?access_token=" + token
             : "&access_token=" + token;
-    const opn = require("open");
+    const opn = require("opn");
     opn(
         "http://geojson.tools/index.html?url=" +
         common.xyzRoot() +
         uri +
         accessAppend
-    );
+    ,{wait:false});
 }
 
 common.validate(

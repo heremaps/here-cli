@@ -91,8 +91,8 @@ async function checkVersion() {
 async function showLicenseConfirmation() {
     console.log(fs.readFileSync(path.resolve(__dirname, 'beta-terms.txt'), 'utf8'));
     try {
-        const opn = require("open");
-        opn("http://explore.xyz.here.com/terms-and-conditions");
+        const opn = require("opn");
+        opn("http://explore.xyz.here.com/terms-and-conditions",{wait:false});
     } catch {
     }
 
