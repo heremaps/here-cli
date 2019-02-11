@@ -210,7 +210,7 @@ function collect(val: string, memo: string[]) {
 
 program
     .command("describe <id>")
-    .description("shows the content of the given [id]")
+    .description("gives the summary details of the given space [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-h, --handle <handle>", "The handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -286,7 +286,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
 
 program
     .command("analyze <id>")
-    .description("shows the content of the given [id]")
+    .description("property based analysis of the content of the given [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-h, --handle <handle>", "The handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -457,7 +457,6 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
     .option("-d, --message [message]", "Short description ")
-    .option("-p, --profile [profile]", "Select a profile")
     .action(async options => {
         if (options) {
             if (!options.title) {
@@ -473,7 +472,7 @@ program
     });
 
 program
-    .command("clear")
+    .command("clear <id>")
     .description("clear data from xyz space")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
