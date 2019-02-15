@@ -178,7 +178,7 @@ program
         []
     )
     .action(async function(options) {
-        const uri = "/hub/spaces";
+        const uri = "/hub/spaces?clientId=cli";
         const cType = "application/json";
         let tableFunction = common.drawTable;
         if (options.raw) {
@@ -239,6 +239,9 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
                 }
+                uri = uri+'&clientId=cli'
+            }else{
+                uri = uri+'?clientId=cli'
             }
             return uri;
         };
@@ -308,8 +311,11 @@ program
                     uri = uri + "&tags=" + options.tags;
                 }
                 cType = "application/geo+json";
+                uri = uri+'&clientId=cli'
+            }else{
+                uri = uri+'?clientId=cli'
             }
-            return uri;
+            return uri+'&clientId=cli';
         };
         const totalRecords = 500000;
         let recordLength = 0;
@@ -399,7 +405,10 @@ program
             if (options.tags) {
                 uri = uri + "&tags=" + options.tags;
             }
+            uri = uri+'&clientId=cli'
             cType = "application/geo+json";
+        }else{
+            uri = uri+'?clientId=cli'
         }
         if (options.web) {
             await launchHereGeoJson(uri);
@@ -442,7 +451,7 @@ program
     .action(async geospaceId => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
         await execute(
-            "/hub/spaces/" + geospaceId,
+            "/hub/spaces/" + geospaceId +'?clientId=cli',
             "DELETE",
             "application/json",
             "",
@@ -467,7 +476,7 @@ program
             }
         }
         const gp = getGeoSpaceProfiles(options.title, options.message);
-        const body = await execute("/hub/spaces/", "POST", "application/json", gp);
+        const body = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
         console.log("xyzspace '" + body.id + "' created successfully");
     });
 
@@ -503,7 +512,7 @@ program
 
         //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
         const data = await execute(
-            "/hub/spaces/" + id + "/features?" + finalOpt,
+            "/hub/spaces/" + id + "/features?" + finalOpt+'&clientId=cli',
             "DELETE",
             "application/geo+json",
             null,
@@ -942,12 +951,12 @@ async function uploadDataToSpaceWithTags(
 
             try{
                if(options.stream){
-                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features?clientId=cli",0,1,options.token);
                }else{
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features",0,chunks.length,options.token);
+                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features?clientId=cli",0,chunks.length,options.token);
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
