@@ -178,30 +178,33 @@ program
         []
     )
     .action(async function(options) {
-        const uri = "/hub/spaces";
-        const cType = "application/json";
-        let tableFunction = common.drawTable;
-        if (options.raw) {
-            tableFunction = function(data: any, columns: any) {
-                try {
-                    console.log(JSON.stringify(JSON.parse(data), null, 2));
-                } catch (e) {
-                    console.log(JSON.stringify(data, null, 2));
-                }
-            };
-        }
-        const body = await execute(uri, "GET", cType, "");
-
-        if (body.length == 0) {
-            console.log("No xyzspace found");
-        } else {
-            let fields = ["id", "title", "description"];
-            if (options.prop.length > 0) {
-                fields = options.prop;
-            }
-            tableFunction(body, fields);
-        }
+        listSpaces(options)
     });
+
+async function listSpaces(options:any){
+    const uri = "/hub/spaces";
+    const cType = "application/json";
+    let tableFunction = common.drawTable;
+    if (options.raw) {
+        tableFunction = function(data: any, columns: any) {
+            try {
+                console.log(JSON.stringify(JSON.parse(data), null, 2));
+            } catch (e) {
+                console.log(JSON.stringify(data, null, 2));
+            }
+        };
+    }
+    const body = await execute(uri, "GET", cType, "");
+    if (body.length == 0) {
+        console.log("No xyzspace found");
+    } else {
+        let fields = ["id", "title", "description"];
+        if (options.prop.length > 0) {
+            fields = options.prop;
+        }
+        tableFunction(body, fields);
+    }
+}
 
 function collect(val: string, memo: string[]) {
     memo.push(val);
@@ -292,6 +295,9 @@ program
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
+        analyzeSpace(id, options);
+    });
+    async function analyzeSpace(id:string, options:any) {
         let cType = "application/json";
         if (!options.limit) {
             options.limit = 5000;
@@ -314,46 +320,48 @@ program
         const totalRecords = 500000;
         let recordLength = 0;
         let features = new Array();
-        (async () => {
-            try {
-                let cHandle = 0;
-                process.stdout.write("Operation may take a while. Please wait .....");
-                do {
-                    process.stdout.write(".");
-                    let body = await execute(
-                        getUrI(String(cHandle)),
-                        "GET",
-                        cType,
-                        "",
-                        options.token,
-                        true
-                    );
-                    const jsonOut = JSON.parse(body);
-                    cHandle = jsonOut.handle;
-                    if (jsonOut.features) {
-                        recordLength += jsonOut.features.length;
-                        features = features.concat(jsonOut.features);
-                    } else {
-                        cHandle = -1;
-                    }
-                } while (cHandle >= 0 && recordLength < totalRecords);
-                process.stdout.write("\n");
+        //(async () => {
+        try {
+            let cHandle = 0;
+            process.stdout.write("Operation may take a while. Please wait .....");
+            do {
+                process.stdout.write(".");
+                let body = await execute(
+                    getUrI(String(cHandle)),
+                    "GET",
+                    cType,
+                    "",
+                    options.token,
+                    true
+                );
+                const jsonOut = JSON.parse(body);
+                cHandle = jsonOut.handle;
+                if (jsonOut.features) {
+                    recordLength += jsonOut.features.length;
+                    features = features.concat(jsonOut.features);
+                } else {
+                    cHandle = -1;
+                }
+            } while (cHandle >= 0 && recordLength < totalRecords);
+            process.stdout.write("\n");
 
-                createQuestionsList({ features: features });
-                let properties: any = null;
-                inquirer.prompt(questionAnalyze).then((answers: any) => {
-                    properties = answers.properties;
-                    if (properties && properties.length > 0) {
-                        summary.analyze(features, properties, id);
-                    } else {
-                        console.log("No property selected to analyze");
-                    }
-                });
-            } catch (error) {
-                console.error(`describe failed: ${error}`);
+            createQuestionsList({ features: features });
+            let properties: any = null;
+            let answers: any = await inquirer.prompt(questionAnalyze)
+
+            //then((answers: any) => {
+            properties = answers.properties;
+            if (properties && properties.length > 0) {
+                summary.analyze(features, properties, id);
+            } else {
+                console.log("No property selected to analyze");
             }
-        })();
-    });
+            //});
+        } catch (error) {
+            console.error(`describe failed: ${error}`);
+        }
+        //})();
+    }
 
 program
     .command("show <id>")
@@ -369,7 +377,10 @@ program
         []
     )
     .option("-w, --web", "display xyzspace on http://geojson.tools")
-    .action(async function (id, options) {
+    .action(function(id,options){
+        showSpace(id,options);
+    });
+    async function showSpace(id:string, options:any) {
         let uri = "/hub/spaces";
         let cType = "application/json";
         let tableFunction = common.drawTable;
@@ -434,13 +445,17 @@ program
             }
             tableFunction(options.raw ? body : allFeatures, fields);
         }
-    });
+    }
 
 program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
     .action(async geospaceId => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
+        deleteSpace(geospaceId);
+    });
+
+    async function deleteSpace(geospaceId:string){
         await execute(
             "/hub/spaces/" + geospaceId,
             "DELETE",
@@ -448,7 +463,7 @@ program
             "",
         );
         console.log("xyzspace '" + geospaceId + "' deleted successfully");
-    });
+    }
 
 program
     .command("create")
@@ -457,7 +472,9 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
     .option("-d, --message [message]", "Short description ")
-    .action(async options => {
+    .action(options => createSpace(options));
+
+    async function createSpace(options:any){
         if (options) {
             if (!options.title) {
                 options.title = "a new xyzspace created from commandline";
@@ -469,14 +486,16 @@ program
         const gp = getGeoSpaceProfiles(options.title, options.message);
         const body = await execute("/hub/spaces/", "POST", "application/json", gp);
         console.log("xyzspace '" + body.id + "' created successfully");
-    });
+    }
 
 program
     .command("clear <id>")
     .description("clear data from xyz space")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
-    .action(async function (id, options) {
+    .action((id,options)=>clearSpace(id,options));
+        
+    async function clearSpace(id:string, options:any) {
         if (!options.ids && !options.tags) {
             console.log("At least -t or -i should be provided as a query parameter.");
             process.exit(1);
@@ -509,12 +528,14 @@ program
             null,
         );
         console.log("data cleared successfully.");
-    });
+    }
 
 program
     .command("token")
     .description("list all xyz token ")
-    .action(async function (id) {
+    .action(()=>listTokens());
+    
+    async function listTokens() {
         const dataStr = await common.decryptAndGet(
             "accountInfo",
             "No here account configure found. Try running 'here configure account'"
@@ -555,7 +576,7 @@ program
             "iat",
             "description"
         ]);
-    });
+    }
 
 program
     .command("upload <id>")
@@ -698,12 +719,11 @@ async function uploadToXyzSpace(id: string, options: any){
             const fs = require("fs");
             if (options.file.indexOf(".geojsonl") != -1) {
                 if(!options.stream){
-                    transform.readLineFromFile(options.file, 100).then((result: any) => {                       
-                        uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
-                    });
+                    const result:any=await transform.readLineFromFile(options.file, 100);
+                    await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
                 }else{                    
                     let queue = streamingQueue();
-                    transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    await transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
                         return new Promise((res,rej)=>{
                             ( async()=>{
                                 if(result.length>0){
@@ -713,6 +733,9 @@ async function uploadToXyzSpace(id: string, options: any){
                             })();  
                         });                        
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             } else if (options.file.indexOf(".shp") != -1) {
                 let result = await transform.readShapeFile(
@@ -755,7 +778,7 @@ async function uploadToXyzSpace(id: string, options: any){
                     );
                 }else{
                     let queue = streamingQueue();
-                    transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    await transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
                         return new Promise((res,rej)=>{
                             ( async()=>{
                                 if(result.length>0){
@@ -775,6 +798,9 @@ async function uploadToXyzSpace(id: string, options: any){
                         });    
 
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             } else {
                 if(!options.stream){
@@ -805,6 +831,9 @@ async function uploadToXyzSpace(id: string, options: any){
                                 }
                                 return queue;
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             }
         } else {

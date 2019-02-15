@@ -253,6 +253,7 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
                     console.log("");
+                    resolve();
                 })();
             });
         });
@@ -282,6 +283,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
                     console.log("");
+                    resolve();
                 })();
             });
         });
@@ -318,6 +320,7 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,stre
                         dataArray=new Array<any>();
                     })();
                 }
+                resolve();
             }));
          });
     });
