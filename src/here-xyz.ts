@@ -182,7 +182,7 @@ program
     });
 
 async function listSpaces(options:any){
-    const uri = "/hub/spaces";
+    const uri = "/hub/spaces?clientId=cli";
     const cType = "application/json";
     let tableFunction = common.drawTable;
     if (options.raw) {
@@ -222,7 +222,7 @@ program
         (async () => {
             var features = await getSpaceDataFromXyz(id,options);
             summary.summarize(features,id, false);
-        })();    
+        })();
     });
 
 function getSpaceDataFromXyz(id: string, options: any) {
@@ -242,6 +242,9 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
                 }
+                uri = uri+'&clientId=cli'
+            }else{
+                uri = uri+'?clientId=cli'
             }
             return uri;
         };
@@ -285,7 +288,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
             }
         })();
     });
-}    
+}
 
 program
     .command("analyze <id>")
@@ -314,6 +317,10 @@ program
                     uri = uri + "&tags=" + options.tags;
                 }
                 cType = "application/geo+json";
+                uri = uri+'&clientId=cli'
+            }else{
+                uri = uri+'?clientId=cli'
+            }
             }
             return uri;
         };
@@ -410,7 +417,10 @@ program
             if (options.tags) {
                 uri = uri + "&tags=" + options.tags;
             }
+            uri = uri+'&clientId=cli'
             cType = "application/geo+json";
+        }else{
+            uri = uri+'?clientId=cli'
         }
         if (options.web) {
             await launchHereGeoJson(uri);
@@ -457,7 +467,7 @@ program
 
     async function deleteSpace(geospaceId:string){
         await execute(
-            "/hub/spaces/" + geospaceId,
+        "/hub/spaces/" + geospaceId +'?clientId=cli',
             "DELETE",
             "application/json",
             "",
@@ -494,7 +504,7 @@ program
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
     .action((id,options)=>clearSpace(id,options));
-        
+
     async function clearSpace(id:string, options:any) {
         if (!options.ids && !options.tags) {
             console.log("At least -t or -i should be provided as a query parameter.");
@@ -522,7 +532,7 @@ program
 
         //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
         const data = await execute(
-            "/hub/spaces/" + id + "/features?" + finalOpt,
+        "/hub/spaces/" + id + "/features?" + finalOpt+'&clientId=cli',
             "DELETE",
             "application/geo+json",
             null,
@@ -534,7 +544,7 @@ program
     .command("token")
     .description("list all xyz token ")
     .action(()=>listTokens());
-    
+
     async function listTokens() {
         const dataStr = await common.decryptAndGet(
             "accountInfo",
@@ -617,21 +627,21 @@ function collate(result:Array<any>){
 }
 
 function streamingQueue(){
-    let queue = cq(10,function (task:any,done:Function) {    
-        uploadData(task.id, task.options, task.tags, task.fc, 
+    let queue = cq(10,function (task:any,done:Function) {
+        uploadData(task.id, task.options, task.tags, task.fc,
         true, task.options.ptag, task.options.file, task.options.id)
         .then(x=>{
             queue.uploadCount += task.fc.features.length;
             process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
             queue.chunksize--;
-            done(); 
+            done();
         }).catch((err) => {
             queue.failedCount += task.fc.features.length;
             process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
             queue.chunksize--;
             done();
         });
-    });     
+    });
     queue.uploadCount=0;
     queue.chunksize=0;
     queue.failedCount=0;
@@ -666,7 +676,7 @@ function taskQueue(size:number=8,totalTaskSize:number){
             console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
             done();
         });
-    });     
+    });
     queue.uploadCount=0;
     queue.chunksize=0;
     queue.failedCount=0;
@@ -721,7 +731,7 @@ async function uploadToXyzSpace(id: string, options: any){
                 if(!options.stream){
                     const result:any=await transform.readLineFromFile(options.file, 100);
                     await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
-                }else{                    
+                }else{
                     let queue = streamingQueue();
                     await transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
                         return new Promise((res,rej)=>{
@@ -730,8 +740,8 @@ async function uploadToXyzSpace(id: string, options: any){
                                     await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
                                 }
                                 res(queue);
-                            })();  
-                        });                        
+                            })();
+                        });
                     });
                     while(queue.chunksize!=0){
                         await new Promise(done => setTimeout(done, 1000));
@@ -794,8 +804,8 @@ async function uploadToXyzSpace(id: string, options: any){
                                     await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
                                     res(queue);
                                 }
-                            })();  
-                        });    
+                            })();
+                        });
 
                     });
                     while(queue.chunksize!=0){
@@ -894,7 +904,7 @@ function uploadData(
     fileName: string | null,
     uid: string
 ) {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
 
         if (object.type == "Feature") {
             object = { features: [object], type: "FeatureCollection" };
@@ -940,7 +950,7 @@ function uploadData(
         }
 
     });
-    
+
 }
 
 async function uploadDataToSpaceWithTags(
@@ -953,7 +963,7 @@ async function uploadDataToSpaceWithTags(
     fileName: string | null,
     uid: string
 ) {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
         gsv.valid(object, async function (valid: boolean, errs: any) {
             if (!valid) {
                 console.log(errs);
@@ -971,12 +981,12 @@ async function uploadDataToSpaceWithTags(
 
             try{
                if(options.stream){
-                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
+                   await iterateChunks([featureOut],"/hub/spaces/" + id + "/features?clientId=cli",0,1,options.token);
                }else{
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features",0,chunks.length,options.token);
+                   await iterateChunks(chunks,"/hub/spaces/" + id + "/features?clientId=cli",0,chunks.length,options.token);
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1002,7 +1012,7 @@ async function uploadDataToSpaceWithTags(
                     );
 
                 summary.summarize(featureOut, id, true);
-                
+
             }
             resolve(true);
         });
