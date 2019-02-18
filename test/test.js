@@ -313,15 +313,14 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/stations/stations.shp"});
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/shapesample/shapesample.shp"});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to xyzspace 'myspace' completed successfully")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
       }
-      console.log(output);
-      if (output.indexOf("Unique tag list  :[\"stations\"]")!=-1) {
+      if (output.indexOf("Unique tag list  :[\"shapesample\"]")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
