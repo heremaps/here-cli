@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 
 /*
-  Copyright (C) 2018 - 2019 HERE Europe B.V.
-  SPDX-License-Identifier: MIT
+ Copyright (C) 2018 - 2019 HERE Europe B.V.
+ SPDX-License-Identifier: MIT
 
-  Permission is hereby granted, free of charge, to any person obtaining
-  a copy of this software and associated documentation files (the
-  'Software'), to deal in the Software without restriction, including
-  without limitation the rights to use, copy, modify, merge, publish,
-  distribute, sublicense, and/or sell copies of the Software, and to
-  permit persons to whom the Software is furnished to do so, subject to
-  the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining
+ a copy of this software and associated documentation files (the
+ 'Software'), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
 
-  The above copyright notice and this permission notice shall be
-  included in all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 
 import * as zlib from "zlib";
 import { requestAsync } from "./requestAsync";
@@ -113,12 +113,12 @@ async function execInternal(
 
 function gzip(data: zlib.InputType): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) =>
-        zlib.gzip(data, (error, result) => {
-            if (error)
-                reject(error)
-            else
-                resolve(result);
-        })
+            zlib.gzip(data, (error, result) => {
+                if (error)
+                    reject(error)
+                else
+                    resolve(result);
+            })
     );
 }
 
@@ -172,17 +172,17 @@ program
     .description("information about available xyz spaces")
     .option("-r, --raw", "show raw xyzspace definition")
     .option(
-        "-p, --prop <prop>",
-        "property fields to include in table",
-        collect,
-        []
-    )
+    "-p, --prop <prop>",
+    "property fields to include in table",
+    collect,
+    []
+)
     .action(async function(options) {
-        listSpaces(options)
-    });
+    listSpaces(options)
+});
 
 async function listSpaces(options:any){
-    const uri = "/hub/spaces";
+    const uri = "/hub/spaces?clientId=cli";
     const cType = "application/json";
     let tableFunction = common.drawTable;
     if (options.raw) {
@@ -222,7 +222,7 @@ program
         (async () => {
             var features = await getSpaceDataFromXyz(id,options);
             summary.summarize(features,id, false);
-        })();    
+        })();
     });
 
 function getSpaceDataFromXyz(id: string, options: any) {
@@ -242,6 +242,9 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
                 }
+                uri = uri+'&clientId=cli'
+            }else{
+                uri = uri+'?clientId=cli'
             }
             return uri;
         };
@@ -285,7 +288,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
             }
         })();
     });
-}    
+}
 
 program
     .command("analyze <id>")
@@ -297,71 +300,74 @@ program
     .action(function (id, options) {
         analyzeSpace(id, options);
     });
-    async function analyzeSpace(id:string, options:any) {
-        let cType = "application/json";
-        if (!options.limit) {
-            options.limit = 5000;
-        }
-        const getUrI = function (handle: string) {
-            let uri = "/hub/spaces/" + id;
-            const spFunction = "iterate";
-            if (options.limit) {
-                uri = uri + "/" + spFunction + "?limit=" + options.limit;
-                if (handle) {
-                    uri = uri + "&handle=" + handle;
-                }
-                if (options.tags) {
-                    uri = uri + "&tags=" + options.tags;
-                }
-                cType = "application/geo+json";
-            }
-            return uri;
-        };
-        const totalRecords = 500000;
-        let recordLength = 0;
-        let features = new Array();
-        //(async () => {
-        try {
-            let cHandle = 0;
-            process.stdout.write("Operation may take a while. Please wait .....");
-            do {
-                process.stdout.write(".");
-                let body = await execute(
-                    getUrI(String(cHandle)),
-                    "GET",
-                    cType,
-                    "",
-                    options.token,
-                    true
-                );
-                const jsonOut = JSON.parse(body);
-                cHandle = jsonOut.handle;
-                if (jsonOut.features) {
-                    recordLength += jsonOut.features.length;
-                    features = features.concat(jsonOut.features);
-                } else {
-                    cHandle = -1;
-                }
-            } while (cHandle >= 0 && recordLength < totalRecords);
-            process.stdout.write("\n");
-
-            createQuestionsList({ features: features });
-            let properties: any = null;
-            let answers: any = await inquirer.prompt(questionAnalyze)
-
-            //then((answers: any) => {
-            properties = answers.properties;
-            if (properties && properties.length > 0) {
-                summary.analyze(features, properties, id);
-            } else {
-                console.log("No property selected to analyze");
-            }
-            //});
-        } catch (error) {
-            console.error(`describe failed: ${error}`);
-        }
-        //})();
+async function analyzeSpace(id:string, options:any) {
+    let cType = "application/json";
+    if (!options.limit) {
+        options.limit = 5000;
     }
+    const getUrI = function (handle: string) {
+        let uri = "/hub/spaces/" + id;
+        const spFunction = "iterate";
+        if (options.limit) {
+            uri = uri + "/" + spFunction + "?limit=" + options.limit;
+            if (handle) {
+                uri = uri + "&handle=" + handle;
+            }
+            if (options.tags) {
+                uri = uri + "&tags=" + options.tags;
+            }
+            cType = "application/geo+json";
+            uri = uri+'&clientId=cli'
+        }else{
+            uri = uri+'?clientId=cli'
+        }
+        return uri;
+    };
+    const totalRecords = 500000;
+    let recordLength = 0;
+    let features = new Array();
+    //(async () => {
+    try {
+        let cHandle = 0;
+        process.stdout.write("Operation may take a while. Please wait .....");
+        do {
+            process.stdout.write(".");
+            let body = await execute(
+                getUrI(String(cHandle)),
+                "GET",
+                cType,
+                "",
+                options.token,
+                true
+            );
+            const jsonOut = JSON.parse(body);
+            cHandle = jsonOut.handle;
+            if (jsonOut.features) {
+                recordLength += jsonOut.features.length;
+                features = features.concat(jsonOut.features);
+            } else {
+                cHandle = -1;
+            }
+        } while (cHandle >= 0 && recordLength < totalRecords);
+        process.stdout.write("\n");
+
+        createQuestionsList({ features: features });
+        let properties: any = null;
+        let answers: any = await inquirer.prompt(questionAnalyze)
+
+        //then((answers: any) => {
+        properties = answers.properties;
+        if (properties && properties.length > 0) {
+            summary.analyze(features, properties, id);
+        } else {
+            console.log("No property selected to analyze");
+        }
+        //});
+    } catch (error) {
+        console.error(`describe failed: ${error}`);
+    }
+    //})();
+}
 
 program
     .command("show <id>")
@@ -371,99 +377,102 @@ program
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw xyzspace content")
     .option(
-        "-p, --prop <prop>",
-        "property fields to include in table",
-        collect,
-        []
-    )
+    "-p, --prop <prop>",
+    "property fields to include in table",
+    collect,
+    []
+)
     .option("-w, --web", "display xyzspace on http://geojson.tools")
     .action(function(id,options){
         showSpace(id,options);
     });
-    async function showSpace(id:string, options:any) {
-        let uri = "/hub/spaces";
-        let cType = "application/json";
-        let tableFunction = common.drawTable;
+async function showSpace(id:string, options:any) {
+    let uri = "/hub/spaces";
+    let cType = "application/json";
+    let tableFunction = common.drawTable;
 
-        uri = uri + "/" + id;
+    uri = uri + "/" + id;
 
-        if (options.raw) {
-            tableFunction = function (data: any, columns: any) {
-                try {
-                    console.log(JSON.stringify(JSON.parse(data), null, 2));
-                } catch (e) {
-                    console.log(JSON.stringify(data, null, 2));
-                }
-            };
-        }
-
-        cType = "application/geo+json";
-        if (!options.limit) {
-            options.limit = 5000;
-        }
-        const spFunction = options.handle ? "iterate" : "search";
-        if (options.limit) {
-            uri = uri + "/" + spFunction + "?limit=" + options.limit;
-            if (options.handle) {
-                uri = uri + "&handle=" + options.handle;
+    if (options.raw) {
+        tableFunction = function (data: any, columns: any) {
+            try {
+                console.log(JSON.stringify(JSON.parse(data), null, 2));
+            } catch (e) {
+                console.log(JSON.stringify(data, null, 2));
             }
-            if (options.tags) {
-                uri = uri + "&tags=" + options.tags;
-            }
-            cType = "application/geo+json";
-        }
-        if (options.web) {
-            await launchHereGeoJson(uri);
-        } else {
-            const body = await execute(
-                uri,
-                "GET",
-                cType,
-                ""
-            );
-            let fields = [
-                "id",
-                "geometry.type",
-                "tags",
-                "createdAt",
-                "updatedAt"
-            ];
-            const allFeatures = JSON.parse(body).features;
-            if (!options.raw) {
-                allFeatures.forEach((element: any) => {
-                    element.tags = element.properties["@ns:com:here:xyz"].tags;
-                    element.updatedAt = common.timeStampToLocaleString(
-                        element.properties["@ns:com:here:xyz"].updatedAt
-                    );
-                    element.createdAt = common.timeStampToLocaleString(
-                        element.properties["@ns:com:here:xyz"].createdAt
-                    );
-                });
-            }
-            if (options.prop.length > 0) {
-                fields = options.prop;
-            }
-            tableFunction(options.raw ? body : allFeatures, fields);
-        }
+        };
     }
+
+    cType = "application/geo+json";
+    if (!options.limit) {
+        options.limit = 5000;
+    }
+    const spFunction = options.handle ? "iterate" : "search";
+    if (options.limit) {
+        uri = uri + "/" + spFunction + "?limit=" + options.limit;
+        if (options.handle) {
+            uri = uri + "&handle=" + options.handle;
+        }
+        if (options.tags) {
+            uri = uri + "&tags=" + options.tags;
+        }
+        uri = uri+'&clientId=cli'
+        cType = "application/geo+json";
+    }else{
+        uri = uri+'?clientId=cli'
+    }
+    if (options.web) {
+        await launchHereGeoJson(uri);
+    } else {
+        const body = await execute(
+            uri,
+            "GET",
+            cType,
+            ""
+        );
+        let fields = [
+            "id",
+            "geometry.type",
+            "tags",
+            "createdAt",
+            "updatedAt"
+        ];
+        const allFeatures = JSON.parse(body).features;
+        if (!options.raw) {
+            allFeatures.forEach((element: any) => {
+                element.tags = element.properties["@ns:com:here:xyz"].tags;
+                element.updatedAt = common.timeStampToLocaleString(
+                    element.properties["@ns:com:here:xyz"].updatedAt
+                );
+                element.createdAt = common.timeStampToLocaleString(
+                    element.properties["@ns:com:here:xyz"].createdAt
+                );
+            });
+        }
+        if (options.prop.length > 0) {
+            fields = options.prop;
+        }
+        tableFunction(options.raw ? body : allFeatures, fields);
+    }
+}
 
 program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
     .action(async geospaceId => {
-        //console.log("geospaceId:"+"/geospace/"+geospaceId);
-        deleteSpace(geospaceId);
-    });
+    //console.log("geospaceId:"+"/geospace/"+geospaceId);
+    deleteSpace(geospaceId);
+});
 
-    async function deleteSpace(geospaceId:string){
-        await execute(
-            "/hub/spaces/" + geospaceId,
-            "DELETE",
-            "application/json",
-            "",
-        );
-        console.log("xyzspace '" + geospaceId + "' deleted successfully");
-    }
+async function deleteSpace(geospaceId:string){
+    await execute(
+        "/hub/spaces/" + geospaceId +'?clientId=cli',
+        "DELETE",
+        "application/json",
+        "",
+    );
+    console.log("xyzspace '" + geospaceId + "' deleted successfully");
+}
 
 program
     .command("create")
@@ -474,19 +483,19 @@ program
     .option("-d, --message [message]", "Short description ")
     .action(options => createSpace(options));
 
-    async function createSpace(options:any){
-        if (options) {
-            if (!options.title) {
-                options.title = "a new xyzspace created from commandline";
-            }
-            if (!options.message) {
-                options.message = "a new xyzspace created from commandline";
-            }
+async function createSpace(options:any){
+    if (options) {
+        if (!options.title) {
+            options.title = "a new xyzspace created from commandline";
         }
-        const gp = getGeoSpaceProfiles(options.title, options.message);
-        const body = await execute("/hub/spaces/", "POST", "application/json", gp);
-        console.log("xyzspace '" + body.id + "' created successfully");
+        if (!options.message) {
+            options.message = "a new xyzspace created from commandline";
+        }
     }
+    const gp = getGeoSpaceProfiles(options.title, options.message);
+    const body = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    console.log("xyzspace '" + body.id + "' created successfully");
+}
 
 program
     .command("clear <id>")
@@ -494,89 +503,89 @@ program
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
     .action((id,options)=>clearSpace(id,options));
-        
-    async function clearSpace(id:string, options:any) {
-        if (!options.ids && !options.tags) {
-            console.log("At least -t or -i should be provided as a query parameter.");
-            process.exit(1);
-        }
-        let tagOption = options.tags
-            ? options.tags
-                .split(",")
-                .filter((x: any) => !"") // ### TODO ???
-                .map((x: string) => "tags=" + x)
-                .join("&")
-            : "";
-        if (tagOption != "") {
-            tagOption += "&";
-        }
-        let idOption = options.ids
-            ? options.ids
-                .split(",")
-                .filter((x: any) => !"") // ### TODO ???
-                .map((x: string) => "id=" + x)
-                .join("&")
-            : "";
 
-        let finalOpt = tagOption + idOption;
-
-        //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
-        const data = await execute(
-            "/hub/spaces/" + id + "/features?" + finalOpt,
-            "DELETE",
-            "application/geo+json",
-            null,
-        );
-        console.log("data cleared successfully.");
+async function clearSpace(id:string, options:any) {
+    if (!options.ids && !options.tags) {
+        console.log("At least -t or -i should be provided as a query parameter.");
+        process.exit(1);
     }
+    let tagOption = options.tags
+        ? options.tags
+        .split(",")
+        .filter((x: any) => !"") // ### TODO ???
+        .map((x: string) => "tags=" + x)
+        .join("&")
+        : "";
+    if (tagOption != "") {
+        tagOption += "&";
+    }
+    let idOption = options.ids
+        ? options.ids
+        .split(",")
+        .filter((x: any) => !"") // ### TODO ???
+        .map((x: string) => "id=" + x)
+        .join("&")
+        : "";
+
+    let finalOpt = tagOption + idOption;
+
+    //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
+    const data = await execute(
+        "/hub/spaces/" + id + "/features?" + finalOpt+'&clientId=cli',
+        "DELETE",
+        "application/geo+json",
+        null,
+    );
+    console.log("data cleared successfully.");
+}
 
 program
     .command("token")
     .description("list all xyz token ")
     .action(()=>listTokens());
-    
-    async function listTokens() {
-        const dataStr = await common.decryptAndGet(
-            "accountInfo",
-            "No here account configure found. Try running 'here configure account'"
-        );
-        const appInfo = common.getSplittedKeys(dataStr);
-        if (!appInfo) {
-            throw new Error("Account information out of date. Please re-run 'here configure'");
-        }
 
-        const cookie = await sso.executeWithCookie(appInfo[0], appInfo[1]);
-        const options = {
-            url: common.xyzRoot() + "/token-api/token",
-            method: "GET",
-            headers: {
-                Cookie: cookie,
-                "Content-Type": "application/json"
-            }
-        };
-
-        const { response, body } = await requestAsync(options);
-        if (response.statusCode != 200) {
-            console.log("Error while fetching maxrights :" + body);
-            return;
-        }
-
-        const tokenInfo = JSON.parse(body);
-        const currentToken = await common.decryptAndGet("keyInfo", "No token found");
-        console.log(
-            "===================================================="
-        );
-        console.log("Current CLI token is : " + currentToken);
-        console.log(
-            "===================================================="
-        );
-        common.drawTable(tokenInfo.tokens, [
-            "id",
-            "type",
-            "iat",
-            "description"
-        ]);
+async function listTokens() {
+    const dataStr = await common.decryptAndGet(
+        "accountInfo",
+        "No here account configure found. Try running 'here configure account'"
+    );
+    const appInfo = common.getSplittedKeys(dataStr);
+    if (!appInfo) {
+        throw new Error("Account information out of date. Please re-run 'here configure'");
     }
+
+    const cookie = await sso.executeWithCookie(appInfo[0], appInfo[1]);
+    const options = {
+        url: common.xyzRoot() + "/token-api/token",
+        method: "GET",
+        headers: {
+            Cookie: cookie,
+            "Content-Type": "application/json"
+        }
+    };
+
+    const { response, body } = await requestAsync(options);
+    if (response.statusCode != 200) {
+        console.log("Error while fetching maxrights :" + body);
+        return;
+    }
+
+    const tokenInfo = JSON.parse(body);
+    const currentToken = await common.decryptAndGet("keyInfo", "No token found");
+    console.log(
+        "===================================================="
+    );
+    console.log("Current CLI token is : " + currentToken);
+    console.log(
+        "===================================================="
+    );
+    common.drawTable(tokenInfo.tokens, [
+        "id",
+        "type",
+        "iat",
+        "description"
+    ]);
+}
 
 program
     .command("upload <id>")
@@ -590,13 +599,13 @@ program
     .option("-p, --ptag [ptag]", "property names to be used to add tag")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID")
     .option(
-        "-a, --assign",
-        "list the sample data and allows you to assign fields which needs to be selected as tags"
-    )
+    "-a, --assign",
+    "list the sample data and allows you to assign fields which needs to be selected as tags"
+)
     .option(
-        "-u, --unique",
-        "option to enforce uniqueness to the id by creating a hash of feature and use that as id"
-    )
+    "-u, --unique",
+    "option to enforce uniqueness to the id by creating a hash of feature and use that as id"
+)
     .option("-o, --override", "override the data even if it share same id")
     .option("-s, --stream", "streaming data support for large file uploads")
     .action(function (id, options) {
@@ -617,21 +626,21 @@ function collate(result:Array<any>){
 }
 
 function streamingQueue(){
-    let queue = cq(10,function (task:any,done:Function) {    
-        uploadData(task.id, task.options, task.tags, task.fc, 
-        true, task.options.ptag, task.options.file, task.options.id)
-        .then(x=>{
-            queue.uploadCount += task.fc.features.length;
-            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
-            queue.chunksize--;
-            done(); 
-        }).catch((err) => {
-            queue.failedCount += task.fc.features.length;
-            process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
-            queue.chunksize--;
-            done();
-        });
-    });     
+    let queue = cq(10,function (task:any,done:Function) {
+        uploadData(task.id, task.options, task.tags, task.fc,
+            true, task.options.ptag, task.options.file, task.options.id)
+            .then(x=>{
+                queue.uploadCount += task.fc.features.length;
+                process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
+                queue.chunksize--;
+                done();
+            }).catch((err) => {
+                queue.failedCount += task.fc.features.length;
+                process.stdout.write("\ruploaded feature count :"+queue.uploadCount+", failed feature count :"+queue.failedCount);
+                queue.chunksize--;
+                done();
+            });
+    });
     queue.uploadCount=0;
     queue.chunksize=0;
     queue.failedCount=0;
@@ -655,18 +664,18 @@ function streamingQueue(){
 function taskQueue(size:number=8,totalTaskSize:number){
     let queue = cq(size,function (task:any,done:Function) {
         iterateChunk(task.chunk,task.url)
-        .then(x=>{
-            queue.uploadCount += 1;
-            queue.chunksize--;
-            console.log("uploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
-            done();
-        }).catch((err) => {
-            queue.failedCount += 1;
-            queue.chunksize--;
-            console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
-            done();
-        });
-    });     
+            .then(x=>{
+                queue.uploadCount += 1;
+                queue.chunksize--;
+                console.log("uploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
+                done();
+            }).catch((err) => {
+                queue.failedCount += 1;
+                queue.chunksize--;
+                console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
+                done();
+            });
+    });
     queue.uploadCount=0;
     queue.chunksize=0;
     queue.failedCount=0;
@@ -690,174 +699,174 @@ function taskQueue(size:number=8,totalTaskSize:number){
 
 async function uploadToXyzSpace(id: string, options: any){
     //(async () => {
-        let tags = "";
-        if (options.tags) {
-            tags = options.tags;
-        }
-        //Default chunk size set as 200
-        if (!options.chunk) {
-            options.chunk = 200;
-        }
+    let tags = "";
+    if (options.tags) {
+        tags = options.tags;
+    }
+    //Default chunk size set as 200
+    if (!options.chunk) {
+        options.chunk = 200;
+    }
 
-        if (options.unique && options.override) {
-            console.log(
-                "conflicting options together. You may need to use either unique or override. Refer to 'here xyz upload -h' for help"
-            );
-            process.exit(1);
-        } else if (!options.override) {
-            options.unique = true;
-        }
+    if (options.unique && options.override) {
+        console.log(
+            "conflicting options together. You may need to use either unique or override. Refer to 'here xyz upload -h' for help"
+        );
+        process.exit(1);
+    } else if (!options.override) {
+        options.unique = true;
+    }
 
-        if(options.assign && options.stream){
-            console.log(
-                "conflicting options together. You cannot choose assign mode while selecting streaming option"
-            );
-            process.exit(1);
-        }
+    if(options.assign && options.stream){
+        console.log(
+            "conflicting options together. You cannot choose assign mode while selecting streaming option"
+        );
+        process.exit(1);
+    }
 
-        if (options.file) {
-            const fs = require("fs");
-            if (options.file.indexOf(".geojsonl") != -1) {
-                if(!options.stream){
-                    const result:any=await transform.readLineFromFile(options.file, 100);
-                    await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
-                }else{                    
-                    let queue = streamingQueue();
-                    await transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
-                        return new Promise((res,rej)=>{
-                            ( async()=>{
-                                if(result.length>0){
-                                    await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
-                                }
-                                res(queue);
-                            })();  
-                        });                        
+    if (options.file) {
+        const fs = require("fs");
+        if (options.file.indexOf(".geojsonl") != -1) {
+            if(!options.stream){
+                const result:any=await transform.readLineFromFile(options.file, 100);
+                await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
+            }else{
+                let queue = streamingQueue();
+                await transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    return new Promise((res,rej)=>{
+                        ( async()=>{
+                            if(result.length>0){
+                                await queue.send({id:id,options:options,tags:tags,fc:{ type: "FeatureCollection", features: collate(result) },retryCount:3});
+                            }
+                            res(queue);
+                        })();
                     });
-                    while(queue.chunksize!=0){
-                        await new Promise(done => setTimeout(done, 1000));
-                    }
+                });
+                while(queue.chunksize!=0){
+                    await new Promise(done => setTimeout(done, 1000));
                 }
-            } else if (options.file.indexOf(".shp") != -1) {
-                let result = await transform.readShapeFile(
+            }
+        } else if (options.file.indexOf(".shp") != -1) {
+            let result = await transform.readShapeFile(
+                options.file,
+            );
+            await uploadData(
+                id,
+                options,
+                tags,
+                result,
+                true,
+                options.ptag,
+                options.file,
+                options.id
+            );
+        } else if (options.file.indexOf(".csv") != -1) {
+            if(!options.stream){
+                let result = await transform.read(
                     options.file,
+                    true
                 );
-                await uploadData(
-                        id,
-                        options,
-                        tags,
+                const object = {
+                    features: transform.transform(
                         result,
-                        true,
-                        options.ptag,
-                        options.file,
-                        options.id
+                        options.lat,
+                        options.lon,
+                        options.alt
+                    ),
+                    type: "FeatureCollection"
+                };
+                await uploadData(
+                    id,
+                    options,
+                    tags,
+                    object,
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
                 );
-            } else if (options.file.indexOf(".csv") != -1) {
-                if(!options.stream){
-                    let result = await transform.read(
-                        options.file,
-                        true
-                    );
-                    const object = {
-                            features: transform.transform(
-                                result,
-                                options.lat,
-                                options.lon,
-                                options.alt
-                            ),
-                            type: "FeatureCollection"
-                    };
-                    await uploadData(
-                            id,
-                            options,
-                            tags,
-                            object,
-                            true,
-                            options.ptag,
-                            options.file,
-                            options.id
-                    );
-                }else{
-                    let queue = streamingQueue();
-                    await transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
-                        return new Promise((res,rej)=>{
-                            ( async()=>{
-                                if(result.length>0){
-                                    const fc = {
-                                        features: transform.transform(
-                                            result,
-                                            options.lat,
-                                            options.lon,
-                                            options.alt
-                                        ),
-                                        type: "FeatureCollection"
-                                    };
-                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
-                                    res(queue);
-                                }
-                            })();  
-                        });    
+            }else{
+                let queue = streamingQueue();
+                await transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    return new Promise((res,rej)=>{
+                        ( async()=>{
+                            if(result.length>0){
+                                const fc = {
+                                    features: transform.transform(
+                                        result,
+                                        options.lat,
+                                        options.lon,
+                                        options.alt
+                                    ),
+                                    type: "FeatureCollection"
+                                };
+                                await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
+                                res(queue);
+                            }
+                        })();
+                    });
 
-                    });
-                    while(queue.chunksize!=0){
-                        await new Promise(done => setTimeout(done, 1000));
-                    }
-                }
-            } else {
-                if(!options.stream){
-                    let result = await transform.read(
-                        options.file,
-                        false
-                    );
-                    await uploadData(
-                        id,
-                        options,
-                        tags,
-                        JSON.parse(result),
-                        true,
-                        options.ptag,
-                        options.file,
-                        options.id
-                    );
-                }else{
-                    let queue = streamingQueue();
-                    let c=0;
-                    await transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
-                                if(result.length>0){
-                                    const fc = {
-                                        features: result,
-                                        type: "FeatureCollection"
-                                    };
-                                    await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
-                                }
-                                return queue;
-                    });
-                    while(queue.chunksize!=0){
-                        await new Promise(done => setTimeout(done, 1000));
-                    }
+                });
+                while(queue.chunksize!=0){
+                    await new Promise(done => setTimeout(done, 1000));
                 }
             }
         } else {
-            const getStdin = require("get-stdin");
-            getStdin().then((str: string) => {
-                try {
-                    const obj = JSON.parse(str);
-                    uploadData(
-                        id,
-                        options,
-                        tags,
-                        obj,
-                        false,
-                        options.ptag,
-                        null,
-                        options.id
-                    );
-                } catch (e) {
-                    console.log(
-                        "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
-                    );
+            if(!options.stream){
+                let result = await transform.read(
+                    options.file,
+                    false
+                );
+                await uploadData(
+                    id,
+                    options,
+                    tags,
+                    JSON.parse(result),
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
+                );
+            }else{
+                let queue = streamingQueue();
+                let c=0;
+                await transform.readGeoJsonAsChunks(options.file, options.chunk?options.chunk:1000,async function(result:any){
+                    if(result.length>0){
+                        const fc = {
+                            features: result,
+                            type: "FeatureCollection"
+                        };
+                        await queue.send({id:id,options:options,tags:tags,fc:fc,retryCount:3});
+                    }
+                    return queue;
+                });
+                while(queue.chunksize!=0){
+                    await new Promise(done => setTimeout(done, 1000));
                 }
-            });
+            }
         }
+    } else {
+        const getStdin = require("get-stdin");
+        getStdin().then((str: string) => {
+            try {
+                const obj = JSON.parse(str);
+                uploadData(
+                    id,
+                    options,
+                    tags,
+                    obj,
+                    false,
+                    options.ptag,
+                    null,
+                    options.id
+                );
+            } catch (e) {
+                console.log(
+                    "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
+                );
+            }
+        });
+    }
     //})();
 }
 
@@ -894,7 +903,7 @@ function uploadData(
     fileName: string | null,
     uid: string
 ) {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
 
         if (object.type == "Feature") {
             object = { features: [object], type: "FeatureCollection" };
@@ -940,7 +949,7 @@ function uploadData(
         }
 
     });
-    
+
 }
 
 async function uploadDataToSpaceWithTags(
@@ -953,7 +962,7 @@ async function uploadDataToSpaceWithTags(
     fileName: string | null,
     uid: string
 ) {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
         gsv.valid(object, async function (valid: boolean, errs: any) {
             if (!valid) {
                 console.log(errs);
@@ -970,19 +979,19 @@ async function uploadDataToSpaceWithTags(
             );
 
             try{
-               if(options.stream){
-                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
-               }else{
+                if(options.stream){
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features?clientId=cli",0,1,options.token);
+                }else{
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features",0,chunks.length,options.token);
+                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features?clientId=cli",0,chunks.length,options.token);
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
                     // });
                     // await tq.shutdown();
-               }
+                }
             }catch(e){
                 reject(e);
                 return;
@@ -1002,7 +1011,7 @@ async function uploadDataToSpaceWithTags(
                     );
 
                 summary.summarize(featureOut, id, true);
-                
+
             }
             resolve(true);
         });
@@ -1012,15 +1021,15 @@ async function uploadDataToSpaceWithTags(
 function extractOption(callBack: any) {
     inquirer
         .prompt<{ choice: string }>([
-            {
-                name: "choice",
-                type: "list",
-                message:
-                    "xyz upload will generate unique IDs for all features by default (no features will be overwritten). See upload -h for more options.",
-                choices: ["continue", "quit"],
-                default: 0
-            }
-        ])
+        {
+            name: "choice",
+            type: "list",
+            message:
+                "xyz upload will generate unique IDs for all features by default (no features will be overwritten). See upload -h for more options.",
+            choices: ["continue", "quit"],
+            default: 0
+        }
+    ])
         .then(answers => {
             if (answers.choice === "continue") {
                 callBack();
@@ -1233,7 +1242,7 @@ async function launchHereGeoJson(uri: string) {
         common.xyzRoot() +
         uri +
         accessAppend
-    ,{wait:false});
+        ,{wait:false});
 }
 
 common.validate(
