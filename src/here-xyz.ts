@@ -497,8 +497,7 @@ program
         
     async function clearSpace(id:string, options:any) {
         if (!options.ids && !options.tags) {
-            console.log("At least -t or -i should be provided as a query parameter.");
-            process.exit(1);
+            options.tags="*";
         }
         let tagOption = options.tags
             ? options.tags
