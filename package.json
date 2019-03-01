@@ -57,5 +57,8 @@
   },
   "bin": {
     "here": "bin/here.js"
-  }
+  },
+  "files": [
+    "bin/**/*"
+  ]
 }
