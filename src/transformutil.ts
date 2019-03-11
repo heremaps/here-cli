@@ -33,7 +33,7 @@ import { requestAsync } from "./requestAsync";
 import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
-const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"];
+const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
 const altArray = ["z", "zcoord", "zcoordinate", "coordz", "coordinatez", "altitude", "alt"];
 
 export type FeatureCollection = {
