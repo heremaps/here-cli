@@ -33,7 +33,7 @@ import { requestAsync } from "./requestAsync";
 import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
-const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"];
+const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
 const altArray = ["z", "zcoord", "zcoordinate", "coordz", "coordinatez", "altitude", "alt"];
 
 export type FeatureCollection = {
@@ -132,11 +132,11 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
     let lon = undefined;
     let alt = undefined;
     for (const k in object) {
-        if (lonField == k.toLowerCase()) {
+        if (lonField && lonField.toLowerCase() == k.toLowerCase()) {
             lon = object[lonField];
-        } else if (latField == k.toLowerCase()) {
+        } else if (latField && latField.toLowerCase() == k.toLowerCase()) {
             lat = object[latField];
-        } else if (altField == k.toLowerCase()) {
+        } else if (altField && altField.toLowerCase() == k.toLowerCase()) {
             alt = object[altField];
         } else if (!latField && isLat(k)) {
             lat = object[k];
