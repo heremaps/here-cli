@@ -112,7 +112,7 @@ async function validateToken(token: string) {
         return true;
 
     const { response, body } = await requestAsync({
-        url: xyzRoot() + "/token-api/token?access_token=" + token,
+        url: xyzRoot() + "/token-api/tokens/" + token,
         method: "GET",
         json: true,
     });
