@@ -549,8 +549,7 @@ program
             url: common.xyzRoot() + "/token-api/token",
             method: "GET",
             headers: {
-                Cookie: cookie,
-                "Content-Type": "application/json"
+                Cookie: cookie
             }
         };
 
