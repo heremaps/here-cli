@@ -377,6 +377,7 @@ program
         []
     )
     .option("-w, --web", "display xyzspace on http://geojson.tools")
+    .option("-v, --vector", "display xyzspace in Tangram") 
     .action(function(id,options){
         showSpace(id,options);
     });
@@ -411,6 +412,9 @@ program
                 uri = uri + "&tags=" + options.tags;
             }
             cType = "application/geo+json";
+        }
+        if (options.vector) {
+            await launchXYZSpaceInvader(id);
         }
         if (options.web) {
             await launchHereGeoJson(uri);
@@ -1231,6 +1235,15 @@ async function launchHereGeoJson(uri: string) {
         common.xyzRoot() +
         uri +
         accessAppend
+    ,{wait:false});
+}
+
+async function launchXYZSpaceInvader(spaceId: string) {
+    const token = await common.verify();
+    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + “&token=“ + token;
+    const opn = require("opn");
+    opn(
+        uri
     ,{wait:false});
 }
 
