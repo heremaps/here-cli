@@ -416,7 +416,7 @@ program
         if (options.vector) {
             await launchXYZSpaceInvader(id);
         }
-        if (options.web) {
+        else if (options.web) {
             await launchHereGeoJson(uri);
         } else {
             const body = await execute(
@@ -1240,7 +1240,7 @@ async function launchHereGeoJson(uri: string) {
 
 async function launchXYZSpaceInvader(spaceId: string) {
     const token = await common.verify();
-    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + “&token=“ + token;
+    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token;
     const opn = require("opn");
     opn(
         uri
