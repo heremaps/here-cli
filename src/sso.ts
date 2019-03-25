@@ -35,8 +35,12 @@ const tokenURL = xyzRoot+"/token-api/token?tokenType=PERMANENT"
 export async function getToken(userName: string, password: string) {
     const mainCookie = await executeWithCookie(userName,password);
     const maxRights = await fetchMaxRights(mainCookie);
-    const data = await fetchToken(mainCookie, maxRights);
-    return data.token;
+    //const data = await fetchToken(mainCookie, maxRights);
+    const response = {
+   //     data:data,
+        mainCookie:mainCookie
+    }
+    return response;
 }
 
 export async function executeWithCookie(userName: string, password: string) {
@@ -87,7 +91,7 @@ function extractCookies(cookies: string[] | undefined, expectedKeys: string[]) {
     return returnCookie;
 }
 
-async function fetchMaxRights(cookies: string){
+export async function fetchMaxRights(cookies: string){
     const options = {
         url: maxRightsURL,
         method: 'GET',
@@ -103,8 +107,8 @@ async function fetchMaxRights(cookies: string){
     return body;
 }
 
-async function fetchToken(cookies: string, requestBody: any) {
-    const bodyStr = JSON.stringify({ "urm": JSON.parse(requestBody) });
+export async function fetchToken(cookies: string, requestBody: any, appId : string) {
+    const bodyStr = JSON.stringify({ "urm": JSON.parse(requestBody), cid: appId });
     const options = {
         url: tokenURL,
         method: "POST",
