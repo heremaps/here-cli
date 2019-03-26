@@ -118,13 +118,18 @@ export async function generateToken(mainCookie:string, appId : string) {
     return token;
 }
 
-
+function readOnlyRightsRequest(maxRights:any) {
+    return {
+        "urm": {
+          "xyz-hub": {
+            "readFeatures": maxRights['xyz-hub'].readFeatures
+          }
+        }
+    };
+}
 export async function generateROToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
-    const rights = {
-        "xyz-hub": maxRights['xyz-hub'].readFeatures
-    }
-    const token = await sso.fetchToken(mainCookie, rights, appId);
+    const token = await sso.fetchToken(mainCookie, readOnlyRightsRequest(maxRights), appId);
     encryptAndStore('roKeyInfo', token.token);
 }
 
