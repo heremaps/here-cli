@@ -114,7 +114,18 @@ export async function generateToken(mainCookie:string, appId : string) {
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.token);
     console.log('Default App Selected - ' + appId);
+    await generateROToken(mainCookie, appId);
     return token;
+}
+
+
+export async function generateROToken(mainCookie:string, appId : string) {
+    const maxRights = await sso.fetchMaxRights(mainCookie);
+    const rights = {
+        "xyz-hub": maxRights['xyz-hub'].readFeatures
+    }
+    const token = await sso.fetchToken(mainCookie, rights, appId);
+    encryptAndStore('roKeyInfo', token.token);
 }
 
 export async function getAppIds(cookies: string) {
@@ -195,8 +206,10 @@ export async function decryptAndGet(key: string, description?: string) {
 }
 
 export async function verify() {
-    const keyInfo = settings.get('keyInfo');
-
+    let keyInfo = settings.get('roKeyInfo');
+    if(!keyInfo || keyInfo==null || keyInfo=="" ){
+        keyInfo = settings.get('keyInfo');
+    }
     const secretKey = await getMacAddress();
     if (keyInfo) {
         const bytes = CryptoJS.AES.decrypt(keyInfo, secretKey);
