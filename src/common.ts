@@ -114,7 +114,7 @@ export async function generateToken(mainCookie:string, appId : string) {
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.token);
     console.log('Default App Selected - ' + appId);
-    await generateROToken(mainCookie, appId);
+    await generateROToken(mainCookie,maxRights, appId);
     return token;
 }
 
@@ -127,8 +127,7 @@ function readOnlyRightsRequest(maxRights:any) {
         }
     };
 }
-export async function generateROToken(mainCookie:string, appId : string) {
-    const maxRights = await sso.fetchMaxRights(mainCookie);
+export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
     const token = await sso.fetchToken(mainCookie, readOnlyRightsRequest(maxRights), appId);
     encryptAndStore('roKeyInfo', token.token);
 }
