@@ -1224,7 +1224,7 @@ function chunkify(data: any[], chunksize: number) {
 }
 
 async function launchHereGeoJson(uri: string) {
-    const token = await common.verify();
+    const token = await common.verify(true);
     const accessAppend =
         uri.indexOf("?") == -1
             ? "?access_token=" + token
@@ -1239,7 +1239,7 @@ async function launchHereGeoJson(uri: string) {
 }
 
 async function launchXYZSpaceInvader(spaceId: string,tags:string) {
-    const token = await common.verify();
+    const token = await common.verify(true);
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token+tags;
     const opn = require("opn");
     opn(
