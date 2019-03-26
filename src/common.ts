@@ -114,27 +114,25 @@ export async function generateToken(mainCookie:string, appId : string) {
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.token);
     console.log('Default App Selected - ' + appId);
-    await generateROToken(mainCookie,maxRights, appId);
+    await generateROToken(mainCookie, JSON.parse(maxRights), appId);
     return token;
 }
 
 function readOnlyRightsRequest(maxRights:any) {
     return {
-        "urm": {
           "xyz-hub": {
             "readFeatures": maxRights['xyz-hub'].readFeatures
           }
-        }
     };
 }
 export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
-    const token = await sso.fetchToken(mainCookie, readOnlyRightsRequest(maxRights), appId);
+    const token = await sso.fetchToken(mainCookie, JSON.stringify(readOnlyRightsRequest(maxRights)), appId);
     encryptAndStore('roKeyInfo', token.token);
 }
 
 export async function getAppIds(cookies: string) {
     const options = {
-        url: xyzRoot()+`/account-api/accounts/me`,
+        url: xyzRoot()+`/account-api/accounts/me?clientId=cli`,
         method: 'GET',
         headers: {
             "Cookie": cookies
@@ -188,7 +186,7 @@ async function validateToken(token: string) {
     return response;
 }
 
-async function encryptAndStore(key: string, toEncrypt: string) {
+export async function encryptAndStore(key: string, toEncrypt: string) {
     const secretKey = await getMacAddress();
     const ciphertext = CryptoJS.AES.encrypt(toEncrypt, secretKey);
     settings.set(key, ciphertext.toString());

@@ -86,13 +86,14 @@ async function setUserPass(env?: any) {
         appsData = JSON.parse(appsData);
         let hereAccountID = appsData.aid;
         let updateTC = false;
+        let appIdAppCodeMap : any = {};
         if (appsData.apps) {
             let apps = appsData.apps;
             let defaultAppId = appsData.defaultAppId;
             updateTC = appsData.tcAcceptedAt == 0 ? true : false;
-
             for (let key in apps) {
                 let app = apps[key];
+                appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
                 if(app.status.toLowerCase() == 'active'){
                     if (key == defaultAppId) {
                         choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
@@ -104,8 +105,11 @@ async function setUserPass(env?: any) {
         }
         if(choiceList.length > 0){
             inquirer.prompt(questions).then(async (answers: any) => {
-                await common.updateDefaultAppId(cookieData, hereAccountID, answers.tagChoices, updateTC === true);
-                await common.generateToken(cookieData, answers.tagChoices);
+                let appId = answers.tagChoices;
+                let appCode = appIdAppCodeMap[appId];
+                await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === true);
+                await common.generateToken(cookieData, appId);
+                await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
             });        
         }else{
             console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
