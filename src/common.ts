@@ -209,8 +209,11 @@ export async function decryptAndGet(key: string, description?: string) {
     }
 }
 
-export async function verify() {
-    let keyInfo = settings.get('roKeyInfo');
+export async function verify(readOnly: boolean = false) {
+    let keyInfo = null;
+    if(readOnly) {
+      keyInfo = settings.get('roKeyInfo');
+    }
     if(!keyInfo || keyInfo==null || keyInfo=="" ){
         keyInfo = settings.get('keyInfo');
     }
