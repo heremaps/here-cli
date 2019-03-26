@@ -86,14 +86,14 @@ describe('Configure', function () {
     it('should authenticate userName/password properly', async function () {
       count++;
       const common = rewire('../bin/common');
-      common.__get__('sso').getToken = function () {
+      common.__get__('sso').executeWithCookie = function () {
         return new Promise((res, rej) => {
-          res("myToken");
+          res("myCookie");
         })
       }
       common.xyzRoot = () => "http://localhost:3578";
       const token = await common.hereAccountLogin("abcd", "secret");
-      assert.equal("myToken", token);
+      assert.equal("myCookie", token);
       count--;
     });
 
