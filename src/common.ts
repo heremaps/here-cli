@@ -88,7 +88,7 @@ export async function login(authId: string, authSecret: string) {
         json: true,
     });
 
-    if (response.statusCode !== 200)
+    if (response.statusCode < 200 && response.statusCode > 299)
         throw new Error("Failed to login: " + JSON.stringify(body));
 
     encryptAndStore('keyInfo', body.token);
@@ -113,6 +113,8 @@ export async function generateToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.token);
+    console.log('Default App Selected - ' + appId);
+    return token;
 }
 
 export async function getAppIds(cookies: string) {
@@ -124,28 +126,29 @@ export async function getAppIds(cookies: string) {
         }
     };
     const { response, body } = await requestAsync(options);
-    if (response.statusCode !== 200)
+    if (response.statusCode < 200 && response.statusCode > 299)
         throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
     return body;
 }
 
 export async function updateDefaultAppId(cookies: string, accountId: string, appId: string, updateTC: boolean) {
-
-        let options: any = {}
-        options.url = xyzRoot()+`/account-api/accounts/${accountId}`;
-        options.method = 'PATCH';
-        options.headers = {
-            "Cookie": cookies
+        let payload : any = {};
+        payload.defaultAppId = appId;
+        if(updateTC){
+            payload.tcAccepted = true;
         }
-        options.json= true;
-        options.body = {};
-        options.body.defaultAppId = appId;
-        if (updateTC) {
-            options.body.tcAccepted = true;
+        var options = {
+            url : xyzRoot()+`/account-api/accounts/${accountId}`,
+            method : 'PATCH',
+            headers : {
+                "Cookie": cookies
+            },
+            json : true,
+            body : payload
         }
         const { response, body } = await requestAsync(options);
-        if (response.statusCode !== 200)
+        if (response.statusCode < 200 && response.statusCode > 299)
             throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
         return body;
@@ -161,7 +164,7 @@ async function validateToken(token: string) {
         json: true,
     });
 
-    if (response.statusCode !== 200) {
+    if (response.statusCode < 200 && response.statusCode > 299) {
         console.log("Failed to login : " + JSON.stringify(body));
         throw new Error("Failed to log in");
     }
