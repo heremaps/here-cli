@@ -414,7 +414,7 @@ program
             cType = "application/geo+json";
         }
         if (options.vector) {
-            await launchXYZSpaceInvader(id);
+            await launchXYZSpaceInvader(id,options.tags?"&tags="+options.tags:"");
         }
         else if (options.web) {
             await launchHereGeoJson(uri);
@@ -1238,9 +1238,9 @@ async function launchHereGeoJson(uri: string) {
     ,{wait:false});
 }
 
-async function launchXYZSpaceInvader(spaceId: string) {
+async function launchXYZSpaceInvader(spaceId: string,tags:string) {
     const token = await common.verify();
-    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token;
+    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token+tags;
     const opn = require("opn");
     opn(
         uri
