@@ -44,7 +44,7 @@ const questionLicense = [
 ];
 
 async function start() {
-    if (settings.get('license') === 'true') {
+    if (settings.get('GAlicense') === 'true') {
         await checkVersion();
     } else {
         await showLicenseConfirmation();
@@ -100,7 +100,7 @@ async function showLicenseConfirmation() {
 
     const termsResp = answer.license ? answer.license.toLowerCase() : 'decline';
     if (termsResp === "a" || termsResp === "accept") {
-        settings.set('license', 'true');
+        settings.set('GAlicense', 'true');
         await checkVersion();
     } else {
         console.log("In order to use the HERE CLI, you will need to (A)ccept the license agreement. If you would like to remove the HERE CLI installed by npm, please enter npm uninstall -g @here/cli");
