@@ -38,33 +38,33 @@ export let validated = false;
 function rightsRequest(appId: string) {
     return {
         "urm": {
-          "xyz-hub": {
-            "createFeatures": [
-              {
-                "owner": appId
-              }
-            ],
-            "manageSpaces": [
-              {
-                "owner": appId
-              }
-            ],
-            "readFeatures": [
-              {
-                "owner": appId
-              }
-            ],
-            "updateFeatures": [
-              {
-                "owner": appId
-              }
-            ],
-            "deleteFeatures": [
-              {
-                "owner": appId
-              }
-            ]
-          }
+            "xyz-hub": {
+                "createFeatures": [
+                    {
+                        "owner": appId
+                    }
+                ],
+                "manageSpaces": [
+                    {
+                        "owner": appId
+                    }
+                ],
+                "readFeatures": [
+                    {
+                        "owner": appId
+                    }
+                ],
+                "updateFeatures": [
+                    {
+                        "owner": appId
+                    }
+                ],
+                "deleteFeatures": [
+                    {
+                        "owner": appId
+                    }
+                ]
+            }
         }
     };
 }
@@ -81,31 +81,78 @@ function getMacAddress() {
 }
 
 export async function login(authId: string, authSecret: string) {
-    const { response, body} = await requestAsync({
+    const { response, body } = await requestAsync({
         url: xyzRoot() + "/token-api/token?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
         body: rightsRequest(authId),
         json: true,
     });
 
-    if (response.statusCode !== 200)
+    if (response.statusCode < 200 && response.statusCode > 299)
         throw new Error("Failed to login: " + JSON.stringify(body));
 
     encryptAndStore('keyInfo', body.token);
-    encryptAndStore('appDetails',authId+keySeparator+authSecret);
+    encryptAndStore('appDetails', authId + keySeparator + authSecret);
 
     console.log("Secrets verified successfully");
     return { response, authId, authSecret };
 }
 
 export async function hereAccountLogin(email: string, password: string) {
-    const token = await sso.getToken(email, password);
-    encryptAndStore('keyInfo', token);
+    //const response = await sso.getToken(email, password);
+    const mainCookie = await sso.executeWithCookie(email, password);
+    //const maxRights = await sso.fetchMaxRights(mainCookie);
+    //const token = response.data.token;
+    //encryptAndStore('keyInfo', token);
     encryptAndStore('accountInfo', email + keySeparator + password);
     console.log("Secrets verified successfully");
+    return mainCookie;
+}
+
+export async function generateToken(mainCookie:string, appId : string) {
+    const maxRights = await sso.fetchMaxRights(mainCookie);
+    const token = await sso.fetchToken(mainCookie, maxRights, appId);
+    encryptAndStore('keyInfo', token.token);
+    console.log('Default App Selected - ' + appId);
     return token;
 }
 
+export async function getAppIds(cookies: string) {
+    const options = {
+        url: xyzRoot()+`/account-api/accounts/me`,
+        method: 'GET',
+        headers: {
+            "Cookie": cookies
+        }
+    };
+    const { response, body } = await requestAsync(options);
+    if (response.statusCode < 200 && response.statusCode > 299)
+        throw new Error("Error while fetching Apps: " + JSON.stringify(body));
+
+    return body;
+}
+
+export async function updateDefaultAppId(cookies: string, accountId: string, appId: string, updateTC: boolean) {
+        let payload : any = {};
+        payload.defaultAppId = appId;
+        if(updateTC){
+            payload.tcAccepted = true;
+        }
+        var options = {
+            url : xyzRoot()+`/account-api/accounts/${accountId}`,
+            method : 'PATCH',
+            headers : {
+                "Cookie": cookies
+            },
+            json : true,
+            body : payload
+        }
+        const { response, body } = await requestAsync(options);
+        if (response.statusCode < 200 && response.statusCode > 299)
+            throw new Error("Error while fetching Apps: " + JSON.stringify(body));
+
+        return body;
+}
 
 async function validateToken(token: string) {
     if (validated)
@@ -117,7 +164,7 @@ async function validateToken(token: string) {
         json: true,
     });
 
-    if (response.statusCode !== 200) {
+    if (response.statusCode < 200 && response.statusCode > 299) {
         console.log("Failed to login : " + JSON.stringify(body));
         throw new Error("Failed to log in");
     }
@@ -163,11 +210,11 @@ export async function verify() {
 }
 
 export function validate(commands: string[], args: string[], program: any) {
-    if (!args || args.length === 0){
+    if (!args || args.length === 0) {
         console.log("Invalid command 1 :");
         program.help();
     } else {
-        if (args[0]=="help" || args[0]=="--help" || args[0]=="-h" || args[0]=="-help"){
+        if (args[0] == "help" || args[0] == "--help" || args[0] == "-h" || args[0] == "-help") {
             program.help();
         } else if (!commands.includes(args[0])) {
             console.log("Invalid command '" + args[0] + "'");
@@ -184,11 +231,11 @@ export function md5Sum(string: string) {
 export function timeStampToLocaleString(timeStamp: number) {
     const dt = new Date(timeStamp);
     return dt.toLocaleString(undefined, {
-      day: 'numeric',
-      month: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
     });
 }
 
@@ -215,7 +262,7 @@ function resolveObject(path: any, obj: any) {
     }, obj)
 }
 
-export function getSplittedKeys(inString: string){
+export function getSplittedKeys(inString: string) {
     if (inString.indexOf(keySeparator) != -1) {
         return inString.split(keySeparator);
     }

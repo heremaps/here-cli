@@ -26,8 +26,19 @@
 
 import program = require('commander');
 import common = require('./common');
+import * as inquirer from "inquirer";
+
 const prompter = require('prompt');
 
+let choiceList: { name: string, value: string}[] = [];
+const questions = [
+    {
+        type: "rawlist",
+        name: "tagChoices",
+        message: "Select default AppId.",
+        choices: choiceList
+    }
+];
 program
     .version('0.1.0');
 
@@ -36,7 +47,7 @@ program
     .arguments('[env]')
     .description('configure HERE credentials for authentiction')
     .action(function(env, options) {
-        setAuth(env);
+        setUserPass(env);
     });
 
 function setAuth(env?: any) {
@@ -60,7 +71,7 @@ program
         setUserPass(env);
     });
 
-function setUserPass(env?: any) {
+async function setUserPass(env?: any) {
     prompter.start();
     prompter.get([{
         name: 'Email',
@@ -69,8 +80,37 @@ function setUserPass(env?: any) {
         name: 'Password',
         hidden: true,
         conform: () => true
-    }], function (err: any, result: any) {
-        common.hereAccountLogin(result['Email'], result['Password']);
+    }], async function (err: any, result: any) {
+        let cookieData = await common.hereAccountLogin(result['Email'], result['Password']);
+        let appsData = await common.getAppIds(cookieData);
+        appsData = JSON.parse(appsData);
+        let hereAccountID = appsData.aid;
+        let updateTC = false;
+        if (appsData.apps) {
+            let apps = appsData.apps;
+            let defaultAppId = appsData.defaultAppId;
+            updateTC = appsData.tcAcceptedAt == 0 ? true : false;
+
+            for (let key in apps) {
+                let app = apps[key];
+                if(app.status.toLowerCase() == 'active'){
+                    if (key == defaultAppId) {
+                        choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
+                    } else {
+                        choiceList.push({ name: app.dsAppId, value: app.dsAppId });
+                    }
+                }
+            }
+        }
+        if(choiceList.length > 0){
+            inquirer.prompt(questions).then(async (answers: any) => {
+                await common.updateDefaultAppId(cookieData, hereAccountID, answers.tagChoices, updateTC === true);
+                await common.generateToken(cookieData, answers.tagChoices);
+            });        
+        }else{
+            console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
+        }
+        
     });
 }
 
@@ -90,7 +130,7 @@ prompter.stop();
 program.parse(process.argv);
 
 if (!program.args.length) {
-    setAuth();
+    setUserPass();
 } else {
     common.validate(["help","set","verify","account"], [process.argv[2]], program);
 }
