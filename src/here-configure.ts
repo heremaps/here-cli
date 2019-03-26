@@ -93,7 +93,7 @@ async function setUserPass(env?: any) {
 
             for (let key in apps) {
                 let app = apps[key];
-                if(app.staus.toLowercase() == 'active'){
+                if(app.status.toLowerCase() == 'active'){
                     if (key == defaultAppId) {
                         choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
                     } else {
