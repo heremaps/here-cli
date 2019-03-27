@@ -28,7 +28,7 @@ here --help
 ## Configure HERE CLI
 
 As the HERE CLI works with HERE APIs in the cloud, you need to configure your developer identity.
-This only needs to be done once. Just run `here configure set` to set the `appId` and `appCode`.
+This only needs to be done once. Just run `here configure` to set the `email` and `password`.
 For detailed information on getting a Developer account have a look at our [Getting Started Guide](https://www.here.xyz/getting-started/).
 
 ## Supported Commands

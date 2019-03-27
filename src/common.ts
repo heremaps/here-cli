@@ -222,7 +222,7 @@ export async function verify(readOnly: boolean = false) {
         await validateToken(token);
         return token;
     } else {
-        const message = "No saved keyinfo found. Try running 'here configure set'";
+        const message = "No saved keyinfo found. Try running 'here configure'";
         throw new Error(message);
     }
 }

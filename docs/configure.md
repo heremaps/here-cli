@@ -1,7 +1,7 @@
-#### configure set
+#### configure
 
 ```
-here configure set
+here configure
 ```
 
 Configure mapcli with HERE AppId and AppCode.
