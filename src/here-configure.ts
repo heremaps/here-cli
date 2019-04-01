@@ -81,40 +81,43 @@ async function setUserPass(env?: any) {
         hidden: true,
         conform: () => true
     }], async function (err: any, result: any) {
-        let cookieData = await common.hereAccountLogin(result['Email'], result['Password']);
-        let appsData = await common.getAppIds(cookieData);
-        appsData = JSON.parse(appsData);
-        let hereAccountID = appsData.aid;
-        let updateTC = false;
-        let appIdAppCodeMap : any = {};
-        if (appsData.apps) {
-            let apps = appsData.apps;
-            let defaultAppId = appsData.defaultAppId;
-            updateTC = appsData.tcAcceptedAt == 0 ? true : false;
-            for (let key in apps) {
-                let app = apps[key];
-                appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
-                if(app.status.toLowerCase() == 'active'){
-                    if (key == defaultAppId) {
-                        choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
-                    } else {
-                        choiceList.push({ name: app.dsAppId, value: app.dsAppId });
+        try{
+            let cookieData = await common.hereAccountLogin(result['Email'], result['Password']);
+            let appsData = await common.getAppIds(cookieData);
+            appsData = JSON.parse(appsData);
+            let hereAccountID = appsData.aid;
+            let updateTC = false;
+            let appIdAppCodeMap : any = {};
+            if (appsData.apps) {
+                let apps = appsData.apps;
+                let defaultAppId = appsData.defaultAppId;
+                updateTC = appsData.tcAcceptedAt == 0 ? true : false;
+                for (let key in apps) {
+                    let app = apps[key];
+                    appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
+                    if(app.status.toLowerCase() == 'active'){
+                        if (key == defaultAppId) {
+                            choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
+                        } else {
+                            choiceList.push({ name: app.dsAppId, value: app.dsAppId });
+                        }
                     }
                 }
             }
+            if(choiceList.length > 0){
+                inquirer.prompt(questions).then(async (answers: any) => {
+                    let appId = answers.tagChoices;
+                    let appCode = appIdAppCodeMap[appId];
+                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === true);
+                    await common.generateToken(cookieData, appId);
+                    await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
+                });        
+            }else{
+                console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
+            }
+        }catch(error){
+            console.log(error.message);
         }
-        if(choiceList.length > 0){
-            inquirer.prompt(questions).then(async (answers: any) => {
-                let appId = answers.tagChoices;
-                let appCode = appIdAppCodeMap[appId];
-                await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === true);
-                await common.generateToken(cookieData, appId);
-                await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
-            });        
-        }else{
-            console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
-        }
-        
     });
 }
 
@@ -138,3 +141,7 @@ if (!program.args.length) {
 } else {
     common.validate(["help","set","verify","account"], [process.argv[2]], program);
 }
+
+process.on('uncaughtException', error => {
+    console.log(error.message);
+});
