@@ -66,8 +66,10 @@ export async function executeWithCookie(userName: string, password: string) {
 
     const { response: res, body: csrfBody } = await requestAsync(options);
 
-    if (res.statusCode !== 200)
-        throw new Error("Error while Authenticating: " + JSON.stringify(csrfBody));
+    if (res.statusCode !== 200){
+        throw new Error("Error while Authenticating. Please check credentials and try again.");
+    }
+        
 
     const mainCookie = extractCookies(res.headers['set-cookie'], ["here"]);
     return mainCookie;

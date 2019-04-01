@@ -99,11 +99,7 @@ export async function login(authId: string, authSecret: string) {
 }
 
 export async function hereAccountLogin(email: string, password: string) {
-    //const response = await sso.getToken(email, password);
     const mainCookie = await sso.executeWithCookie(email, password);
-    //const maxRights = await sso.fetchMaxRights(mainCookie);
-    //const token = response.data.token;
-    //encryptAndStore('keyInfo', token);
     encryptAndStore('accountInfo', email + keySeparator + password);
     console.log("Secrets verified successfully");
     return mainCookie;
