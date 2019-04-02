@@ -108,7 +108,7 @@ async function setUserPass(env?: any) {
                 inquirer.prompt(questions).then(async (answers: any) => {
                     let appId = answers.tagChoices;
                     let appCode = appIdAppCodeMap[appId];
-                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === true);
+                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false);
                     await common.generateToken(cookieData, appId);
                     await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
                 });        
