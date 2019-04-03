@@ -1,4 +1,5 @@
 # HERE CLI
+[![Build Status](https://travis-ci.com/heremaps/here-cli.svg?branch=master)](https://travis-ci.com/heremaps/here-cli)
 
 HERE CLI is a Node.js command-line interface to work with HERE APIs starting with [HERE XYZ Hub](https://www.here.xyz) APIs. Right now, it allows you to interact with HERE XYZ Hub to create and manage your Spaces, and easily upload and manage your datasets.
 
@@ -27,7 +28,7 @@ here --help
 ## Configure HERE CLI
 
 As the HERE CLI works with HERE APIs in the cloud, you need to configure your developer identity.
-This only needs to be done once. Just run `here configure set` to set the `appId` and `appCode`.
+This only needs to be done once. Just run `here configure` to set the `email` and `password`.
 For detailed information on getting a Developer account have a look at our [Getting Started Guide](https://www.here.xyz/getting-started/).
 
 ## Supported Commands
@@ -85,7 +86,7 @@ If the command is interacting with a HERE service, please include a links to the
 
 ## License
 
-Copyright (C) 2018 HERE Europe B.V.
+Copyright (C) 2018 - 2019 HERE Europe B.V.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 

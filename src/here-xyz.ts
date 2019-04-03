@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
-  Copyright (C) 2018 HERE Europe B.V.
+  Copyright (C) 2018 - 2019 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -38,10 +38,6 @@ import { deprecate } from "util";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
-//let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
-let hexbin = require('hexbin');
-const md5 = require('md5');
-const request = require("request");
 let choiceList: { name: string, value: string}[] = [];
 const bboxDirections = ["west","south","east","north"];
 const questions = [
@@ -102,14 +98,17 @@ async function execInternal(
         json: isJson,
         headers: {
             Authorization: "Bearer " + token,
-            "Content-Type": contentType
+            "Content-Type": contentType,
+            "App-Name": "HereCLI"
         },
         body: method === "GET" ? undefined : data
     };
 
     const { response, body } = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210)
-        throw new Error("Invalid response - " + response.body);
+    if (response.statusCode < 200 || response.statusCode > 210){
+        let message = (response.body && response.body.constructor != String)?JSON.stringify(response.body):response.body;
+        throw new Error("Invalid response - " + message);
+    }
     return body;
 }
 
@@ -180,30 +179,33 @@ program
         []
     )
     .action(async function(options) {
-        const uri = "/hub/spaces";
-        const cType = "application/json";
-        let tableFunction = common.drawTable;
-        if (options.raw) {
-            tableFunction = function(data: any, columns: any) {
-                try {
-                    console.log(JSON.stringify(JSON.parse(data), null, 2));
-                } catch (e) {
-                    console.log(JSON.stringify(data, null, 2));
-                }
-            };
-        }
-        const body = await execute(uri, "GET", cType, "");
-
-        if (body.length == 0) {
-            console.log("No xyzspace found");
-        } else {
-            let fields = ["id", "title", "description"];
-            if (options.prop.length > 0) {
-                fields = options.prop;
-            }
-            tableFunction(body, fields);
-        }
+        listSpaces(options)
     });
+
+async function listSpaces(options:any){
+    const uri = "/hub/spaces?clientId=cli";
+    const cType = "application/json";
+    let tableFunction = common.drawTable;
+    if (options.raw) {
+        tableFunction = function(data: any, columns: any) {
+            try {
+                console.log(JSON.stringify(JSON.parse(data), null, 2));
+            } catch (e) {
+                console.log(JSON.stringify(data, null, 2));
+            }
+        };
+    }
+    const body = await execute(uri, "GET", cType, "");
+    if (body.length == 0) {
+        console.log("No xyzspace found");
+    } else {
+        let fields = ["id", "title", "description"];
+        if (options.prop.length > 0) {
+            fields = options.prop;
+        }
+        tableFunction(body, fields);
+    }
+}
 
 function collect(val: string, memo: string[]) {
     memo.push(val);
@@ -212,7 +214,7 @@ function collect(val: string, memo: string[]) {
 
 program
     .command("describe <id>")
-    .description("shows the content of the given [id]")
+    .description("gives the summary details of the given space [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-h, --handle <handle>", "The handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -240,7 +242,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 spFunction = "iterate";
             }
             if (options.limit) {
-                uri = uri + "/" + spFunction + "?limit=" + options.limit;
+                uri = uri + "/" + spFunction + "?limit=" + options.limit  + "&clientId=cli";
                 if(options.bbox){
                     var bboxarray = options.bbox.split(",");
                     if(bboxarray.length !== 4){
@@ -312,12 +314,16 @@ function getSpaceDataFromXyz(id: string, options: any) {
 
 program
     .command("analyze <id>")
-    .description("shows the content of the given [id]")
+    .description("property based analysis of the content of the given [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-h, --handle <handle>", "The handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
+        analyzeSpace(id, options);
+    });
+
+    async function analyzeSpace(id:string, options:any) {
         let cType = "application/json";
         if (!options.limit) {
             options.limit = 5000;
@@ -326,7 +332,7 @@ program
             let uri = "/hub/spaces/" + id;
             const spFunction = "iterate";
             if (options.limit) {
-                uri = uri + "/" + spFunction + "?limit=" + options.limit;
+                uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
                 if (handle) {
                     uri = uri + "&handle=" + handle;
                 }
@@ -379,9 +385,9 @@ program
                 console.error(`describe failed: ${error}`);
             }
         })();
-    });
+    };
 
-program
+    program
     .command('hexbin <id>')
     .description('create hexgrid out of xyz space data and upload it to space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, you can give multiple values in comma separated way")
@@ -496,7 +502,7 @@ program
             process.exit(1);
         }
       })();
-    });
+});
 
 async function getCentreLatitudeOfSpace(spaceId: string){
     const body = await getStatisticsData(spaceId);
@@ -531,7 +537,11 @@ program
         []
     )
     .option("-w, --web", "display xyzspace on http://geojson.tools")
-    .action(async function (id, options) {
+    .option("-v, --vector", "display xyzspace in Tangram") 
+    .action(function(id,options){
+        showSpace(id,options);
+    });
+    async function showSpace(id:string, options:any) {
         let uri = "/hub/spaces";
         let cType = "application/json";
         let tableFunction = common.drawTable;
@@ -554,7 +564,7 @@ program
         }
         const spFunction = options.handle ? "iterate" : "search";
         if (options.limit) {
-            uri = uri + "/" + spFunction + "?limit=" + options.limit;
+            uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
             if (options.handle) {
                 uri = uri + "&handle=" + options.handle;
             }
@@ -563,7 +573,10 @@ program
             }
             cType = "application/geo+json";
         }
-        if (options.web) {
+        if (options.vector) {
+            await launchXYZSpaceInvader(id,options.tags?"&tags="+options.tags:"");
+        }
+        else if (options.web) {
             await launchHereGeoJson(uri);
         } else {
             const body = await execute(
@@ -596,21 +609,25 @@ program
             }
             tableFunction(options.raw ? body : allFeatures, fields);
         }
-    });
+    }
 
 program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
     .action(async geospaceId => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
+        deleteSpace(geospaceId);
+    });
+
+    async function deleteSpace(geospaceId:string){
         await execute(
-            "/hub/spaces/" + geospaceId,
+            "/hub/spaces/" + geospaceId + "?clientId=cli",
             "DELETE",
             "application/json",
             "",
         );
         console.log("xyzspace '" + geospaceId + "' deleted successfully");
-    });
+    }
 
 program
     .command("create")
@@ -619,8 +636,9 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
     .option("-d, --message [message]", "Short description ")
-    .option("-p, --profile [profile]", "Select a profile")
-    .action(async options => {
+    .action(options => createSpace(options));
+
+    async function createSpace(options:any){
         if (options) {
             if (!options.title) {
                 options.title = "a new xyzspace created from commandline";
@@ -630,19 +648,20 @@ program
             }
         }
         const gp = getGeoSpaceProfiles(options.title, options.message);
-        const body = await execute("/hub/spaces/", "POST", "application/json", gp);
+        const body = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
         console.log("xyzspace '" + body.id + "' created successfully");
-    });
+    }
 
 program
-    .command("clear")
+    .command("clear <id>")
     .description("clear data from xyz space")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
-    .action(async function (id, options) {
+    .action((id,options)=>clearSpace(id,options));
+        
+    async function clearSpace(id:string, options:any) {
         if (!options.ids && !options.tags) {
-            console.log("At least -t or -i should be provided as a query parameter.");
-            process.exit(1);
+            options.tags="*";
         }
         let tagOption = options.tags
             ? options.tags
@@ -666,18 +685,20 @@ program
 
         //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
         const data = await execute(
-            "/hub/spaces/" + id + "/features?" + finalOpt,
+            "/hub/spaces/" + id + "/features?" + finalOpt + "&clientId=cli",
             "DELETE",
             "application/geo+json",
             null,
         );
         console.log("data cleared successfully.");
-    });
+    }
 
 program
     .command("token")
     .description("list all xyz token ")
-    .action(async function (id) {
+    .action(()=>listTokens());
+    
+    async function listTokens() {
         const dataStr = await common.decryptAndGet(
             "accountInfo",
             "No here account configure found. Try running 'here configure account'"
@@ -692,8 +713,7 @@ program
             url: common.xyzRoot() + "/token-api/token",
             method: "GET",
             headers: {
-                Cookie: cookie,
-                "Content-Type": "application/json"
+                Cookie: cookie
             }
         };
 
@@ -718,7 +738,7 @@ program
             "iat",
             "description"
         ]);
-    });
+    }
 
 program
     .command("upload <id>")
@@ -861,12 +881,11 @@ async function uploadToXyzSpace(id: string, options: any){
             const fs = require("fs");
             if (options.file.indexOf(".geojsonl") != -1) {
                 if(!options.stream){
-                    transform.readLineFromFile(options.file, 100).then((result: any) => {                       
-                        uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
-                    });
+                    const result:any=await transform.readLineFromFile(options.file, 100);
+                    await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
                 }else{                    
                     let queue = streamingQueue();
-                    transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    await transform.readLineAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
                         return new Promise((res,rej)=>{
                             ( async()=>{
                                 if(result.length>0){
@@ -876,6 +895,9 @@ async function uploadToXyzSpace(id: string, options: any){
                             })();  
                         });                        
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             } else if (options.file.indexOf(".shp") != -1) {
                 let result = await transform.readShapeFile(
@@ -918,7 +940,7 @@ async function uploadToXyzSpace(id: string, options: any){
                     );
                 }else{
                     let queue = streamingQueue();
-                    transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
+                    await transform.readCSVAsChunks(options.file, options.chunk?options.chunk:1000,function(result:any){
                         return new Promise((res,rej)=>{
                             ( async()=>{
                                 if(result.length>0){
@@ -938,6 +960,9 @@ async function uploadToXyzSpace(id: string, options: any){
                         });    
 
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             } else {
                 if(!options.stream){
@@ -968,6 +993,9 @@ async function uploadToXyzSpace(id: string, options: any){
                                 }
                                 return queue;
                     });
+                    while(queue.chunksize!=0){
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
             }
         } else {
@@ -1105,16 +1133,17 @@ async function uploadDataToSpaceWithTags(
 
             try{
                if(options.stream){
-                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features",0,1,options.token);
+                    await iterateChunks([featureOut],"/hub/spaces/" + id + "/features" + "?clientId=cli",0,1,options.token);
                }else{
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    let tq =  taskQueue(8,chunks.length);
-                    chunks.forEach(chunk=>{
-                        tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
-                    });
-                    await tq.shutdown();
+                    await iterateChunks(chunks,"/hub/spaces/" + id + "/features" + "?clientId=cli",0,chunks.length,options.token);
+                    // let tq =  taskQueue(8,chunks.length);
+                    // chunks.forEach(chunk=>{
+                    //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
+                    // });
+                    // await tq.shutdown();
                }
             }catch(e){
                 reject(e);
@@ -1355,18 +1384,27 @@ function chunkify(data: any[], chunksize: number) {
 }
 
 async function launchHereGeoJson(uri: string) {
-    const token = await common.verify();
+    const token = await common.verify(true);
     const accessAppend =
         uri.indexOf("?") == -1
             ? "?access_token=" + token
             : "&access_token=" + token;
-    const opn = require("open");
+    const opn = require("opn");
     opn(
         "http://geojson.tools/index.html?url=" +
         common.xyzRoot() +
         uri +
         accessAppend
-    );
+    ,{wait:false});
+}
+
+async function launchXYZSpaceInvader(spaceId: string,tags:string) {
+    const token = await common.verify(true);
+    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token+tags;
+    const opn = require("opn");
+    opn(
+        uri
+    ,{wait:false});
 }
 
 common.validate(
@@ -1379,8 +1417,7 @@ common.validate(
         "describe",
         "clear",
         "token",
-        "analyze",
-        "hexbin"
+        "analyze"
     ],
     [process.argv[2]],
     program

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
-  Copyright (C) 2018 HERE Europe B.V.
+  Copyright (C) 2018 - 2019 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -35,8 +35,12 @@ const tokenURL = xyzRoot+"/token-api/token?tokenType=PERMANENT"
 export async function getToken(userName: string, password: string) {
     const mainCookie = await executeWithCookie(userName,password);
     const maxRights = await fetchMaxRights(mainCookie);
-    const data = await fetchToken(mainCookie, maxRights);
-    return data.token;
+    //const data = await fetchToken(mainCookie, maxRights);
+    const response = {
+   //     data:data,
+        mainCookie:mainCookie
+    }
+    return response;
 }
 
 export async function executeWithCookie(userName: string, password: string) {
@@ -62,8 +66,10 @@ export async function executeWithCookie(userName: string, password: string) {
 
     const { response: res, body: csrfBody } = await requestAsync(options);
 
-    if (res.statusCode !== 200)
-        throw new Error("Error while Authenticating: " + JSON.stringify(csrfBody));
+    if (res.statusCode !== 200){
+        throw new Error("Error while Authenticating. Please check credentials and try again.");
+    }
+        
 
     const mainCookie = extractCookies(res.headers['set-cookie'], ["here"]);
     return mainCookie;
@@ -87,25 +93,24 @@ function extractCookies(cookies: string[] | undefined, expectedKeys: string[]) {
     return returnCookie;
 }
 
-async function fetchMaxRights(cookies: string){
+export async function fetchMaxRights(cookies: string){
     const options = {
         url: maxRightsURL,
         method: 'GET',
         headers: {
-            "Cookie": cookies,
-            "Content-Type": "application/json"
+            "Cookie": cookies
         }
     };
 
     const { response, body } = await requestAsync(options);
-    if (response.statusCode !== 200)
+    if (response.statusCode < 200 && response.statusCode >= 300)
         throw new Error("Error while fetching maxrights: " + JSON.stringify(body));
 
     return body;
 }
 
-async function fetchToken(cookies: string, requestBody: any) {
-    const bodyStr = JSON.stringify({ "urm": JSON.parse(requestBody) });
+export async function fetchToken(cookies: string, requestBody: any, appId : string) {
+    const bodyStr = JSON.stringify({ "urm": JSON.parse(requestBody), cid: appId });
     const options = {
         url: tokenURL,
         method: "POST",
@@ -117,7 +122,7 @@ async function fetchToken(cookies: string, requestBody: any) {
     }
 
     const { response, body } = await requestAsync(options);
-    if (response.statusCode !== 200)
+    if (response.statusCode < 200 && response.statusCode >= 300)
         throw new Error("Error while fetching token: " + body);
 
     return JSON.parse(body);

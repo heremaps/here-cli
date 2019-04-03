@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
-  Copyright (C) 2018 HERE Europe B.V.
+  Copyright (C) 2018 - 2019 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -44,7 +44,7 @@ const questionLicense = [
 ];
 
 async function start() {
-    if (settings.get('license') === 'true') {
+    if (settings.get('GAlicense') === 'true') {
         await checkVersion();
     } else {
         await showLicenseConfirmation();
@@ -91,8 +91,8 @@ async function checkVersion() {
 async function showLicenseConfirmation() {
     console.log(fs.readFileSync(path.resolve(__dirname, 'beta-terms.txt'), 'utf8'));
     try {
-        const opn = require("open");
-        opn("http://explore.xyz.here.com/terms-and-conditions");
+        const opn = require("opn");
+        opn("http://explore.xyz.here.com/terms-and-conditions",{wait:false});
     } catch {
     }
 
@@ -100,7 +100,7 @@ async function showLicenseConfirmation() {
 
     const termsResp = answer.license ? answer.license.toLowerCase() : 'decline';
     if (termsResp === "a" || termsResp === "accept") {
-        settings.set('license', 'true');
+        settings.set('GAlicense', 'true');
         await checkVersion();
     } else {
         console.log("In order to use the HERE CLI, you will need to (A)ccept the license agreement. If you would like to remove the HERE CLI installed by npm, please enter npm uninstall -g @here/cli");
