@@ -38,6 +38,10 @@ import { deprecate } from "util";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
+//let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
+let hexbin = require('hexbin');
+const md5 = require('md5');
+const zoomLevelsMap = require('./zoomLevelsMap.json');;
 let choiceList: { name: string, value: string}[] = [];
 const bboxDirections = ["west","south","east","north"];
 const questions = [
@@ -249,6 +253,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                         console.error(`boundingbox input size is not proper - "${options.bbox}"`);
                         process.exit(1);
                     }
+                    console.log(bboxarray);
                     bboxarray.forEach(function (item : string, i: number) {
                         if (item && item != "") {
                             let number = parseInt(item.toLowerCase());
@@ -399,6 +404,7 @@ program
     .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
     .option("-b, --bbox <bbox>", "Hexbins will be created for only those records which are inside specified bounding box, Bounding box input format - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
     .option("-l, --latitude <latitude>", "Latitude which will be used for converting cellSize from meters to degrees")
+    .option("-z, --zoomLevels <zoomLevels>", "zoom levels for which hexbins needs to be created, you can give comma seperated values or hypen(-) for continuos values")
     .action(function (id,options) {
       (async () => {
         try{
@@ -414,9 +420,34 @@ program
             process.exit();
         }
         let cellSizes:number[] = [];
-        if (!options.cellsize) {
-            cellSizes.push(2000);
-        } else {
+        if (options.zoomLevels) {
+            options.zoomLevels.split(",").forEach(function (item : string) {
+                if (item && item != "") {
+                    let zoomLevels = item.split("-");
+                    if(zoomLevels.length === 1){
+                        let number = parseInt(zoomLevels[0].toLowerCase());
+                        if (isNaN(number) || number < 1 || number > 16){
+                            console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
+                            process.exit(1);
+                        }
+                        cellSizes.push(parseInt(zoomLevelsMap[number]));
+                    } else if(zoomLevels.length !== 2){
+                        console.error(`hexbin creation failed: zoom level input "${item}" is not a valid sequence`);
+                        process.exit(1);
+                    } else {
+                        let lowNumber = parseInt(zoomLevels[0].toLowerCase());
+                        let highNumber = parseInt(zoomLevels[1].toLowerCase());
+                        if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 16 || highNumber < 1 || highNumber > 16){
+                            console.error(`hexbin creation failed: zoom level input "${zoomLevels}" is not a valid sequence between 1-16`);
+                            process.exit(1);
+                        }
+                        for (var i = lowNumber; i <= highNumber; i++) {
+                            cellSizes.push(parseInt(zoomLevelsMap[i]));
+                        }
+                    }
+                }
+            });
+        } else if (options.cellsize){
             options.cellsize.split(",").forEach(function (item : string) {
                 if (item && item != "") {
                     let number = parseInt(item.toLowerCase());
@@ -427,6 +458,8 @@ program
                     cellSizes.push(number);
                 }
             });
+        } else {
+            cellSizes.push(2000);
         }
         options.token = null;
         if(options.writeToken){
@@ -478,6 +511,10 @@ program
             let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:hexFeatures}));
             options.tags = 'hexbin_'+cellsize+',cell_'+cellsize+',hexbin';
+            if(options.zoomLevels){
+                const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
+                options.tags += ',zoom'+zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+            }
             if(options.destSpace){
                 options.tags += ','+sourceId;
             }
@@ -488,6 +525,10 @@ program
             tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
             fs.writeFileSync(tmpObj.name, JSON.stringify({type:"FeatureCollection",features:centroidFeatures}));
             options.tags = 'centroid_'+cellsize+',cell_'+cellsize+',centroid';
+            if(options.zoomLevels){
+                const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
+                options.tags += ',zoom'+zoomNumber + ',zoom' + zoomNumber + '_centroid';
+            }
             if(options.destSpace){
                 options.tags += ','+sourceId;
             }
@@ -503,6 +544,10 @@ program
         }
       })();
 });
+
+function getKeyByValue(object: any, value: any) {
+    return Object.keys(object).find(key => object[key] === value);
+}
 
 async function getCentreLatitudeOfSpace(spaceId: string){
     const body = await getStatisticsData(spaceId);
@@ -1417,7 +1462,8 @@ common.validate(
         "describe",
         "clear",
         "token",
-        "analyze"
+        "analyze",
+        "hexbin"
     ],
     [process.argv[2]],
     program
