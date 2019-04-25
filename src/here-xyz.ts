@@ -225,13 +225,13 @@ program
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
         (async () => {
-            var features = await getSpaceDataFromXyz(id,options);
-            summary.summarize(features,id, false);
+            let featureCollection = await getSpaceDataFromXyz(id,options);
+            summary.summarize(featureCollection.features,id, false);
         })();    
     });
 
 function getSpaceDataFromXyz(id: string, options: any) {
-    return new Promise<any[]>(function (resolve, reject) {
+    return new Promise<any>(function (resolve, reject) {
         let cType = "application/json";
         if (!options.limit) {
             options.limit = 5000;
@@ -280,14 +280,17 @@ function getSpaceDataFromXyz(id: string, options: any) {
         }
         let recordLength = 0;
         let features = new Array();
+        let jsonOut;
         (async () => {
 
             try {
-                let cHandle = 0;
-                process.stdout.write("Operation may take a while. Please wait .....");
+                let cHandle = options.handle ? options.handle : 0;
+                if(cHandle === 0){
+                    process.stdout.write("Operation may take a while. Please wait .....");
+                }
                 do {
                     process.stdout.write(".");
-                    let jsonOut = await execute(
+                    jsonOut = await execute(
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -306,9 +309,14 @@ function getSpaceDataFromXyz(id: string, options: any) {
                     } else {
                         cHandle = -1;
                     }
+                    if(options.currentHandleOnly){
+                        cHandle = -1;
+                        break;
+                    }
                 } while (cHandle >= 0 && recordLength < options.totalRecords);
                 process.stdout.write("\n");
-                resolve(features);
+                jsonOut.features = features;
+                resolve(jsonOut);
             } catch (error) {
                 console.error(`getting data from xyz space failed: ${error}`);
                 reject(error);
@@ -414,11 +422,13 @@ program
         if(options.readToken){
             options.token = options.readToken;
         }
-        const features = await getSpaceDataFromXyz(id,options);
+        /*
+        const features = (await getSpaceDataFromXyz(id,options)).features;
         if(features.length === 0){
             console.log("No features is available to create hexbins");
             process.exit();
         }
+        */
         let cellSizes:number[] = [];
         if (options.zoomLevels) {
             options.zoomLevels.split(",").forEach(function (item : string) {
@@ -474,12 +484,40 @@ program
                 options.latitude = 0;
             }
         }
+        let cellSizeHexFeaturesMap = new Map();
+        options.currentHandleOnly = true;
+        options.handle = 0;
+        let cHandle;
+        console.log("Creating hexbins for the space data");
+        do {
+            let jsonOut = await getSpaceDataFromXyz(id,options);
+            cHandle = jsonOut.handle;
+            options.handle = jsonOut.handle;
+            if (jsonOut.features) {
+                const features = jsonOut.features;
+                if(features.length === 0 && !options.handle){
+                    console.log("No features is available to create hexbins");
+                    process.exit();
+                }
+                for(const cellsize of cellSizes){
+                    //(async () => {
+                    //console.log("Creating hexbins for the space data with size " + cellsize);
+                    let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
+                    hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.latitude, hexFeatures);
+                    cellSizeHexFeaturesMap.set(cellsize, hexFeatures);
+                    //console.log("uploading the hexagon grids to space with size " + cellsize);
+                }
+            } else {
+                cHandle = -1;
+            }
+        } while (cHandle >= 0);
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
            //(async () => {
-            console.log("Creating hexbins for the space data with size " + cellsize);
-            let hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.latitude);
+            //console.log("Creating hexbins for the space data with size " + cellsize);
+            let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
             console.log("uploading the hexagon grids to space with size " + cellsize);
+            //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
 
             let centroidFeatures:any[] = [];
             var i = hexFeatures.length;
