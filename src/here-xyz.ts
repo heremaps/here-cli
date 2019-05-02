@@ -471,13 +471,6 @@ program
         } else {
             cellSizes.push(2000);
         }
-        options.token = null;
-        if(options.writeToken){
-            options.token = options.writeToken;
-        }
-        if(options.destSpace){
-            id = options.destSpace;
-        }
         if(!options.latitude){
             options.latitude = await getCentreLatitudeOfSpace(id);
             if(!options.latitude){
@@ -511,6 +504,13 @@ program
                 cHandle = -1;
             }
         } while (cHandle >= 0);
+        options.token = null;
+        if(options.writeToken){
+            options.token = options.writeToken;
+        }
+        if(options.destSpace){
+            id = options.destSpace;
+        }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
            //(async () => {
