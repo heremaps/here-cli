@@ -903,7 +903,7 @@ function taskQueue(size:number=8,totalTaskSize:number){
         .then(x=>{
             queue.uploadCount += 1;
             queue.chunksize--;
-            console.log("uploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
+            process.stdout.write("\ruploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
             done();
         }).catch((err) => {
             queue.failedCount += 1;
@@ -1436,10 +1436,11 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
 
     index++;
     if (index == chunkSize) {
+        process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
         return;
     }
 
-    console.log("uploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     await iterateChunks(chunks, url, index, chunkSize, token);
 }
 async function iterateChunk(chunk: any, url: string) {
