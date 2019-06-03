@@ -79,40 +79,36 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     }
 }
 
-export async function read(path: string, needConversion: boolean) {
+export async function read(path: string, needConversion: boolean, opt: any = null) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
-        return await readDataFromURL(path, needConversion);
+        return await readDataFromURL(path, needConversion, opt);
     } else {
-        return readDataFromFile(path, needConversion);
+        return readDataFromFile(path, needConversion, opt);
     }
 }
 
-async function readDataFromURL(path: string, needConversion: boolean) {
+async function readDataFromURL(path: string, needConversion: boolean, opt: any = null) {
     const { response, body } = await requestAsync({ url: path });
     if (response.statusCode != 200)
         throw new Error("Error requesting: " + body);
 
     if (needConversion)
-        return dataToJson(body);
+        return dataToJson(body, opt);
     else
         return body;
 }
 
-function readDataFromFile(path: string, needConversion: boolean) {
+function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
     const file_data = fs.readFileSync(path, { encoding: 'utf8' });
     if (needConversion)
-        return dataToJson(file_data);
+        return dataToJson(file_data, opt);
     else
         return file_data;
 }
 
-function dataToJson(file_data: string) {
+function dataToJson(file_data: string, opt: any = null) {
     const csvjson = require('csvjson');
-    const options = {
-        delimiter: ",", // optional
-        quote: '"' // optional
-    };
-    const result = csvjson.toObject(file_data, options);
+    const result = csvjson.toObject(file_data, opt);
     return result;
 }
 
