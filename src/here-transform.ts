@@ -41,8 +41,10 @@ program
     .option('-y, --lat [lat]', 'latitude field name')
     .option('-x, --lon [lon]', 'longitude field name')
     .option('-z, --alt [alt]', 'altitude field name')
+    .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
     .action(async function (path, opt) {
-        transform.read(path, true).then(result => {
+        transform.read(path, true, { delimiter: opt.delimiter, quote: opt.quote }).then(result => {
             console.log(JSON.stringify({ features: transform.transform(result, opt.lat, opt.lon, opt.alt), type: "FeatureCollection" }, null, 3)); //Converted json object from csv data
         });
     });
