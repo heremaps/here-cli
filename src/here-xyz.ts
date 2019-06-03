@@ -601,6 +601,8 @@ program
     )
     .option("-o, --override", "override the data even if it share same id")
     .option("-s, --stream", "streaming data support for large file uploads")
+    .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
     .action(function (id, options) {
         uploadToXyzSpace(id, options);
     });
@@ -757,7 +759,8 @@ async function uploadToXyzSpace(id: string, options: any){
                 if(!options.stream){
                     let result = await transform.read(
                         options.file,
-                        true
+                        true,
+                        { delimiter: options.delimiter, quote: options.quote }
                     );
                     const object = {
                             features: transform.transform(
