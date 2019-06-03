@@ -10,6 +10,8 @@ here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv
 ##### Options 
 -y, --lat [lat]  latitude field name
 -x, --lon [lon]  longitude field name
+-d, --delimiter [,]  delimiter for parsing csv
+-q, --quote ["]  quote used for parsing csv
 
 #### Transform shapefile to geojson 
 - ##### Convert the provided shape file as geojson
