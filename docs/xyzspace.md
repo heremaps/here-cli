@@ -36,6 +36,10 @@ Create a new xyzspace with name x-samplexyzspace.
     Upload data to xyzspace with name x-testxyzspace
     ##### Options 
     -f path to file name
+    -y, --lat [lat]  latitude field name
+    -x, --lon [lon]  longitude field name
+    -d, --delimiter [,]  delimiter for parsing csv
+    -q, --quote ["]  quote used for parsing csv
 
 - #### upload shapefile
     ```
