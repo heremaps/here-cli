@@ -11,6 +11,7 @@ The output file name is optional if not specified the command will log the geojs
 ##### Options 
 -y, --lat [lat]  latitude field name
 -x, --lon [lon]  longitude field name
+-po, --point [point]  points field name
 
 #### Transform shapefile to geojson 
 - ##### Convert the provided shape file as geojson

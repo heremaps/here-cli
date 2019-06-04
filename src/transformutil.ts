@@ -35,6 +35,7 @@ import { deprecate } from "util";
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
 const altArray = ["z", "zcoord", "zcoordinate", "coordz", "coordinatez", "altitude", "alt"];
+const pointArray = ["p", "point", "points"];
 
 export type FeatureCollection = {
     "type": "FeatureCollection",
@@ -116,17 +117,17 @@ function dataToJson(file_data: string) {
     return result;
 }
 
-export function transform(result: any[], latField: string, lonField: string, altField: string) {
+export function transform(result: any[], latField: string, lonField: string, altField: string, pointField: string) {
     const objects: any[] = [];
     result.forEach(function (value) {
-        const ggson = toGeoJsonFeature(value, latField, lonField, altField);
+        const ggson = toGeoJsonFeature(value, latField, lonField, altField, pointField);
         if (ggson)
             objects.push(ggson);
     });
     return objects;
 }
 
-function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string) {
+function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string, pointField: string) {
     const props: any = {};
     let lat = undefined;
     let lon = undefined;
@@ -144,6 +145,12 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
             lon = object[k];
         } else if (!altField && isAlt(k)) {
             alt = object[k];
+        } else if (!pointField && isPoint(k)) {
+            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
+            if(point) {
+                lat = point[0];
+                lon = point[1];
+            }
         } else {
             props[k] = object[k];
         }
@@ -186,6 +193,10 @@ function isAlt(k: string) {
 
 function isLon(k: string) {
     return lonArray.includes(k.toLowerCase());
+}
+
+function isPoint(k: string) {
+    return pointArray.includes(k.toLowerCase())
 }
 
 function readData(path: string, postfix: string): Promise<string> {
