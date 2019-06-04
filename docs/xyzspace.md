@@ -53,6 +53,7 @@ Create a new xyzspace with name x-samplexyzspace.
     - -x, --lon [lon]      longitude field name
     - -y, --lat [lat]      latitude field name
     - -z, --alt [alt]      altitude field name
+    - -po, --point [point]  points field name
     - -p, --ptag [ptag]    property names to be used to add tag
     - -i, --id [id]        property name(s) to be used as the feature ID
     - -a, --assign         list the sample data and allows you to assign fields which needs to be selected as tags

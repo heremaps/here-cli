@@ -1,8 +1,9 @@
 #### Transform csv to geojson 
 - ##### Convert the provided csv file as geojson
 ```
-here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv
+here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv output.geojson
 ```
+The output file name is optional if not specified the command will log the geojson
 ###### system will try to autodetect the latitude and longitude fieldname from the following matched field names.
 - longitude ->  "x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"
 - latitudde -> "y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"
@@ -12,9 +13,12 @@ here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv
 -x, --lon [lon]  longitude field name
 -d, --delimiter [,]  delimiter for parsing csv
 -q, --quote ["]  quote used for parsing csv
+-po, --point [point]  points field name
+
 
 #### Transform shapefile to geojson 
 - ##### Convert the provided shape file as geojson
 ```
-here transform shp2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.shp
+here transform shp2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.shp output.geojson
 ```
+The output file name is optional if not specified the command will log the geojson
