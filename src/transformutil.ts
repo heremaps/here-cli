@@ -129,6 +129,13 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
     let lon = undefined;
     let alt = undefined;
     for (const k in object) {
+        if (!pointField && isPoint(k)) {
+            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
+            if(point) {
+                lat = point[0];
+                lon = point[1];
+            }
+        }
         if (lonField && lonField.toLowerCase() == k.toLowerCase()) {
             lon = object[lonField];
         } else if (latField && latField.toLowerCase() == k.toLowerCase()) {
@@ -141,12 +148,6 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
             lon = object[k];
         } else if (!altField && isAlt(k)) {
             alt = object[k];
-        } else if (!pointField && isPoint(k)) {
-            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
-            if(point) {
-                lat = point[0];
-                lon = point[1];
-            }
         } else {
             props[k] = object[k];
         }
