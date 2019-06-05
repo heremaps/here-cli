@@ -57,7 +57,7 @@ program
     .option('-po, --point [point]', 'points field name')
     .action(async function (path, output, opt) {
         transform.read(path, true).then(result => {
-            const json = JSON.stringify({ features: transform.transform(result, opt.lat, opt.lon, opt.alt), type: "FeatureCollection" }, null, 3); //Converted json object from csv data
+            const json = JSON.stringify({ features: transform.transform(result, opt.lat, opt.lon, opt.alt, opt.point), type: "FeatureCollection" }, null, 3); //Converted json object from csv data
             if(output) {
                 writeToFile(output, json).then(() => {
                     console.log(`exported geojson to ${output}`);
