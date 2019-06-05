@@ -592,7 +592,7 @@ program
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --alt [alt]", "altitude field name")
-    .option('-po, --point [point]', 'points field name')
+    .option('-w, --point [point]', 'points field name')
     .option("-p, --ptag [ptag]", "property names to be used to add tag")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID")
     .option(
