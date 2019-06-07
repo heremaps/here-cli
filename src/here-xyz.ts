@@ -215,7 +215,7 @@ program
     .command("describe <id>")
     .description("gives the summary details of the given space [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
-    .option("-h, --handle <handle>", "The handle to continue the iteration")
+    .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
@@ -231,13 +231,13 @@ function getSpaceDataFromXyz(id: string, options: any) {
         if (!options.limit) {
             options.limit = 5000;
         }
-        const getUrI = function (handle: string) {
+        const getUrI = function (offset: string) {
             let uri = "/hub/spaces/" + id;
             const spFunction = "iterate";
             if (options.limit) {
                 uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
-                if (handle) {
-                    uri = uri + "&handle=" + handle;
+                if (offset) {
+                    uri = uri + "&handle=" + offset;
                 }
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
@@ -291,7 +291,7 @@ program
     .command("analyze <id>")
     .description("property based analysis of the content of the given [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
-    .option("-h, --handle <handle>", "The handle to continue the iteration")
+    .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
@@ -302,13 +302,13 @@ program
         if (!options.limit) {
             options.limit = 5000;
         }
-        const getUrI = function (handle: string) {
+        const getUrI = function (offset: string) {
             let uri = "/hub/spaces/" + id;
             const spFunction = "iterate";
             if (options.limit) {
                 uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
-                if (handle) {
-                    uri = uri + "&handle=" + handle;
+                if (offset) {
+                    uri = uri + "&handle=" + offset;
                 }
                 if (options.tags) {
                     uri = uri + "&tags=" + options.tags;
@@ -367,7 +367,7 @@ program
     .command("show <id>")
     .description("shows the content of the given [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
-    .option("-h, --handle <handle>", "The handle to continue the iteration")
+    .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw xyzspace content")
     .option(
@@ -402,11 +402,11 @@ program
         if (!options.limit) {
             options.limit = 5000;
         }
-        const spFunction = options.handle ? "iterate" : "search";
+        const spFunction = options.offset ? "iterate" : "search";
         if (options.limit) {
             uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
-            if (options.handle) {
-                uri = uri + "&handle=" + options.handle;
+            if (options.offset) {
+                uri = uri + "&handle=" + options.offset;
             }
             if (options.tags) {
                 uri = uri + "&tags=" + options.tags;
@@ -432,7 +432,10 @@ program
                 "createdAt",
                 "updatedAt"
             ];
-            const allFeatures = JSON.parse(body).features;
+            const responseBody = JSON.parse(body);
+            const allFeatures = responseBody.features;
+            const responseHandle = responseBody.handle;
+            console.log("Next Handle / Offset : " + responseHandle);
             if (!options.raw) {
                 allFeatures.forEach((element: any) => {
                     element.tags = element.properties["@ns:com:here:xyz"].tags;
@@ -619,7 +622,7 @@ function collate(result:Array<any>){
 }
 
 function streamingQueue(){
-    let queue = cq(10,function (task:any,done:Function) {    
+    let queue = cq(10,function (task:any,done:Function) {
         uploadData(task.id, task.options, task.tags, task.fc, 
         true, task.options.ptag, task.options.file, task.options.id)
         .then(x=>{
@@ -1250,6 +1253,7 @@ async function launchXYZSpaceInvader(spaceId: string,tags:string) {
 common.validate(
     [
         "list",
+        "ls",
         "show",
         "create",
         "delete",
