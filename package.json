@@ -26,7 +26,6 @@
     "geojson-validation": "^0.2.1",
     "get-stdin": "6.0.0",
     "getmac": "1.4.3",
-    "hexbin": "1.0.9",
     "inquirer": "6.0.0",
     "latest-version": "4.0.0",
     "line-by-line": "^0.1.6",
@@ -37,6 +36,7 @@
     "request": "^2.83.0",
     "shapefile": "0.6.6",
     "tmp": "0.0.33",
+    "@turf/helpers": "6.1.4",
     "user-settings": "0.2.0"
   },
   "devDependencies": {

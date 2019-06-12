@@ -34,13 +34,11 @@ import * as transform from "./transformutil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
-import { deprecate } from "util";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
 //let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
-let hexbin = require('hexbin');
-const md5 = require('md5');
+let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');;
 let choiceList: { name: string, value: string}[] = [];
 const bboxDirections = ["west","south","east","north"];
@@ -531,7 +529,7 @@ program
                 });
                 if (isValidHexagon) { 
                     let geometry = {"type":"Point","coordinates":hexFeatures[i].properties.centroid};
-                    let hashId = md5(JSON.stringify(geometry)+'_'+cellsize);
+                    let hashId = common.md5Sum(JSON.stringify(geometry)+'_'+cellsize);
                     centroidFeatures.push({type:"Feature","geometry":geometry,"properties":hexFeatures[i].properties,"id":hashId});
                 } else {
                     console.log("Invalid hexagon is getting created, ignoring this - " + JSON.stringify(hexFeatures[i]));
