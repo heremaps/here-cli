@@ -756,7 +756,7 @@ async function uploadToXyzSpace(id: string, options: any){
                         options.file,
                         options.id
                 );
-            } else if (options.file.indexOf(".csv") != -1) {
+            } else if (options.file.indexOf(".csv") != -1 || options.file.indexOf(".txt") != -1) {
                 if(!options.stream){
                     let result = await transform.read(
                         options.file,
