@@ -107,6 +107,7 @@ async function execInternal(
         body: method === "GET" ? undefined : data
     };
 
+
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210){
         let message = (response.body && response.body.constructor != String)?JSON.stringify(response.body):response.body;
@@ -471,7 +472,7 @@ program
             cellSizes.push(2000);
         }
         if(!options.latitude){
-            options.latitude = await getCentreLatitudeOfSpace(id);
+            options.latitude = await getCentreLatitudeOfSpace(id,options.readToken);
             if(!options.latitude){
                 options.latitude = 0;
             }
@@ -505,16 +506,12 @@ program
                 cHandle = -1;
             }
         } while (cHandle >= 0);
-        options.token = null;
-        if(options.writeToken){
-            options.token = options.writeToken;
-        }
         /*
         if(options.destSpace){
             id = options.destSpace;
         } else {
         */
-        let sourceSpaceData = await getSpaceMetaData(sourceId);
+        let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
         if(!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId){
             let newSpaceConfig = {
                 title:'hexbin space of ' + sourceSpaceData.title,
@@ -531,6 +528,10 @@ program
         } else {
             console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
             id = sourceSpaceData.client.hexbinSpaceId;
+        }
+        options.token = null;
+        if(options.writeToken){
+            options.token = options.writeToken;
         }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
@@ -616,10 +617,10 @@ async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string){
     return body;
 }
 
-async function getSpaceMetaData(id:string){
+async function getSpaceMetaData(id:string, token: string | null = null){
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
-    const body = await execute(uri, "GET", cType, "");
+    const body = await execute(uri, "GET", cType, "", token);
     return body;
 }
 
@@ -627,20 +628,20 @@ function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
 }
 
-async function getCentreLatitudeOfSpace(spaceId: string){
-    const body = await getStatisticsData(spaceId);
+async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = null){
+    const body = await getStatisticsData(spaceId, token);
     let bbox = body.bbox.value;
     const centreLatitude = (bbox[1] + bbox[3])/ 2;
     return centreLatitude;
 }
 
-async function getStatisticsData(spaceId: string){
+async function getStatisticsData(spaceId: string, token: string | null = null){
     const body = await execute(
         "/hub/spaces/" + spaceId + "/statistics",
         "GET",
         "application/json",
         null,
-        null,
+        token,
         true
     );
     return body;
