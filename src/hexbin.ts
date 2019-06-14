@@ -134,7 +134,16 @@ function getMoldulusHexagon(x:number, y:number, degreesCellSize:number)
 }
 
 function round(value:number, decimals:number) {
-    return Number(Math.round(Number(value+'e'+decimals))+'e-'+decimals);
+    if(!("" + value).includes("e")) {
+        return Number(Math.round(Number(value + 'e' + decimals)) + 'e-' + decimals);
+    } else {
+        var arr = ("" + value).split("e");
+        var sig = "";
+        if(+arr[1] + decimals > 0) {
+          sig = "+";
+        }
+        return Number(+(Math.round(Number(+arr[0] + "e" + sig + (+arr[1] + decimals))) + "e-" + decimals));
+      }
 }
 
 /**
