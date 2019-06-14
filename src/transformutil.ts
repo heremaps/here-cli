@@ -129,7 +129,8 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
     let lon = undefined;
     let alt = undefined;
     for (const k in object) {
-        if (k == pointField) { // we shouldn't automatically look for a field called points
+        let key = k.trim();
+        if (key == pointField) { // we shouldn't automatically look for a field called points
             console.log('extracting lat/lon from',pointField,object[k])
             const point = object[k].match(/([-]?\d+.[.]\d+)/g);
             if(point) {
@@ -143,14 +144,14 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
             lat = object[latField];
         } else if (altField && altField.toLowerCase() == k.toLowerCase()) {
             alt = object[altField];
-        } else if (!latField && isLat(k)) {
+        } else if (!latField && isLat(key)) {
             lat = object[k];
-        } else if (!lonField && isLon(k)) {
+        } else if (!lonField && isLon(key)) {
             lon = object[k];
-        } else if (!altField && isAlt(k)) {
+        } else if (!altField && isAlt(key)) {
             alt = object[k];
         } else {
-            props[k] = object[k];
+            props[key] = object[k].trim();
         }
     }
     if (!lat) {
