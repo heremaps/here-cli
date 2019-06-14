@@ -402,7 +402,7 @@ program
 
     program
     .command('hexbin <id>')
-    .description('create hexgrid out of xyz space data and upload it to space')
+    .description('create hexgrid out of provided xyz space and upload it to its corresponding hexbin space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, you can give multiple values in comma separated way")
     .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
     .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
