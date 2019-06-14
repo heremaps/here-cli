@@ -487,10 +487,12 @@ program
             options.handle = jsonOut.handle;
             if (jsonOut.features) {
                 const features = jsonOut.features;
+                /*
                 if(features.length === 0 && !options.handle){
                     console.log("No features is available to create hexbins");
                     process.exit();
                 }
+                */
                 for(const cellsize of cellSizes){
                     //(async () => {
                     //console.log("Creating hexbins for the space data with size " + cellsize);
