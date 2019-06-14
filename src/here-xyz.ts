@@ -402,17 +402,17 @@ program
 
     program
     .command('hexbin <id>')
-    .description('create hexgrid out of provided xyz space and upload it to its corresponding hexbin space')
-    .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, you can give multiple values in comma separated way")
-    .option("-i, --ids", "add ids of features as array inside property of created hexagon feature")
-    .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
-    .option("-r, --readToken <readToken>", "Token to access source space")
-    .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
+    .description('create hexbins (and their centroids) using points in an XYZ space and upload them to another space')
+    .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, comma-separate multiple values")
+    .option("-i, --ids", "add IDs of features counted within the hexbin as an array inside the property of the hexbin created")
+    .option("-p, --groupBy <groupBy>", "name of the feature property by which hexbin counts will be further grouped")
+    .option("-r, --readToken <readToken>", "token of another user's source space, from which points will be read")
+    .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
-    .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
-    .option("-b, --bbox <bbox>", "Hexbins will be created for only those records which are inside specified bounding box, Bounding box input format - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
-    .option("-l, --latitude <latitude>", "Latitude which will be used for converting cellSize from meters to degrees")
-    .option("-z, --zoomLevels <zoomLevels>", "zoom levels for which hexbins needs to be created, you can give comma seperated values or hypen(-) for continuos values")
+    .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
+    .option("-b, --bbox <bbox>", "only create hexbins for records inside a specified bounding box - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
+    .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
+    .option("-z, --zoomLevels <zoomLevels>", "create hexbins optimized for zoom levels -- comma separate multiple values, (-z 8,10,12) or dash for continuous range (-z 10-15)")
     .action(function (id,options) {
       (async () => {
         try{
