@@ -69,10 +69,11 @@ const questionAnalyze = [
 
 program.version("0.1.0");
 
-function getGeoSpaceProfiles(title: string, description: string) {
+function getGeoSpaceProfiles(title: string, description: string, client: any) {
     return {
         title,
-        description
+        description,
+        client
     };
 }
 
@@ -406,7 +407,7 @@ program
     .option("-p, --groupBy <groupBy>", "Name of the Property using which hexbin counts will be further grouped")
     .option("-r, --readToken <readToken>", "Token to access source space")
     .option("-w, --writeToken <writeToken>", "Token to access Target space where hexbins will be written")
-    .option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
+    //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .option("-t, --tags <tags>", "Hexbins will be created for those records only which matches the tag value in source space ")
     .option("-b, --bbox <bbox>", "Hexbins will be created for only those records which are inside specified bounding box, Bounding box input format - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
     .option("-l, --latitude <latitude>", "Latitude which will be used for converting cellSize from meters to degrees")
@@ -506,8 +507,28 @@ program
         if(options.writeToken){
             options.token = options.writeToken;
         }
+        /*
         if(options.destSpace){
             id = options.destSpace;
+        } else {
+        */
+        let sourceSpaceData = await getSpaceMetaData(sourceId);
+        if(!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId){
+            let newSpaceConfig = {
+                title:'hexbin space of ' + sourceSpaceData.title,
+                description: 'hexbin space of ' + sourceSpaceData.title,
+                client: {
+                    sourceSpaceId: sourceId,
+                    type: 'hexbin'
+                }
+            }
+            console.log("No hexbin space found, creating hexbin space");
+            const newspaceData = await createSpace(newSpaceConfig);
+            id = newspaceData.id;
+            await updateClientHexbinSpaceId(sourceId, id);
+        } else {
+            console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
+            id = sourceSpaceData.client.hexbinSpaceId;
         }
         //cellSizes.forEach(function (cellsize : number) {
         for(const cellsize of cellSizes){
@@ -551,9 +572,9 @@ program
                 const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
                 options.tags += ',zoom'+zoomNumber + ',zoom' + zoomNumber + '_hexbin';
             }
-            if(options.destSpace){
+            //if(options.destSpace){
                 options.tags += ','+sourceId;
-            }
+            //}
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
@@ -565,9 +586,9 @@ program
                 const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
                 options.tags += ',zoom'+zoomNumber + ',zoom' + zoomNumber + '_centroid';
             }
-            if(options.destSpace){
+            //if(options.destSpace){
                 options.tags += ','+sourceId;
-            }
+            //}
             options.file = tmpObj.name;
             options.override = true;
             await uploadToXyzSpace(id,options);
@@ -580,6 +601,25 @@ program
         }
       })();
 });
+
+async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string){
+    const uri = "/hub/spaces/" + sourceId + "?clientId=cli";
+    const cType = "application/json";
+    const data = {
+        client : {
+            hexbinSpaceId:hexbinId
+        }
+    }
+    const body = await execute(uri, "PATCH", cType, data);
+    return body;
+}
+
+async function getSpaceMetaData(id:string){
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const body = await execute(uri, "GET", cType, "");
+    return body;
+}
 
 function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
@@ -728,9 +768,10 @@ program
                 options.message = "a new xyzspace created from commandline";
             }
         }
-        const gp = getGeoSpaceProfiles(options.title, options.message);
+        let gp = getGeoSpaceProfiles(options.title, options.message, options.client);
         const body = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
         console.log("xyzspace '" + body.id + "' created successfully");
+        return body;
     }
 
 program
