@@ -358,42 +358,42 @@ program
         let recordLength = 0;
         let features = new Array();
         //(async () => {
-            try {
-                let cHandle = 0;
-                process.stdout.write("Operation may take a while. Please wait .....");
-                do {
-                    process.stdout.write(".");
-                    let body = await execute(
-                        getUrI(String(cHandle)),
-                        "GET",
-                        cType,
-                        "",
-                        options.token,
-                        true
-                    );
-                    const jsonOut = JSON.parse(body);
-                    cHandle = jsonOut.handle;
-                    if (jsonOut.features) {
-                        recordLength += jsonOut.features.length;
-                        features = features.concat(jsonOut.features);
-                    } else {
-                        cHandle = -1;
-                    }
-                } while (cHandle >= 0 && recordLength < totalRecords);
-                process.stdout.write("\n");
-
-                createQuestionsList({ features: features });
-                let properties: any = null;
-                let answers: any = await inquirer.prompt(questionAnalyze);
-                properties = answers.properties;
-                if (properties && properties.length > 0) {
-                    summary.analyze(features, properties, id);
+        try {
+            let cHandle = 0;
+            process.stdout.write("Operation may take a while. Please wait .....");
+            do {
+                process.stdout.write(".");
+                let body = await execute(
+                    getUrI(String(cHandle)),
+                    "GET",
+                    cType,
+                    "",
+                    options.token,
+                    true
+                );
+                const jsonOut = JSON.parse(body);
+                cHandle = jsonOut.handle;
+                if (jsonOut.features) {
+                    recordLength += jsonOut.features.length;
+                    features = features.concat(jsonOut.features);
                 } else {
-                    console.log("No property selected to analyze");
+                    cHandle = -1;
                 }
-            } catch (error) {
-                console.error(`describe failed: ${error}`);
+            } while (cHandle >= 0 && recordLength < totalRecords);
+            process.stdout.write("\n");
+
+            createQuestionsList({ features: features });
+            let properties: any = null;
+            let answers: any = await inquirer.prompt(questionAnalyze);
+            properties = answers.properties;
+            if (properties && properties.length > 0) {
+                summary.analyze(features, properties, id);
+            } else {
+                console.log("No property selected to analyze");
             }
+        } catch (error) {
+            console.error(`describe failed: ${error}`);
+        }
         //})();
     };
 
