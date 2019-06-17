@@ -510,6 +510,7 @@ program
         } else {
         */
         let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
+        let newspaceData;
         if(!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId){
             let newSpaceConfig = {
                 title:'hexbin space of ' + sourceSpaceData.title,
@@ -520,13 +521,23 @@ program
                 }
             }
             console.log("No hexbin space found, creating hexbin space");
-            const newspaceData = await createSpace(newSpaceConfig);
+            newspaceData = await createSpace(newSpaceConfig);
             id = newspaceData.id;
             await updateClientHexbinSpaceId(sourceId, id);
         } else {
             console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
             id = sourceSpaceData.client.hexbinSpaceId;
+            newspaceData = await getSpaceMetaData(id, options.writeToken);
+        }   
+        let cellSizeSet = new Set<string>();
+        let zoomLevelSet = new Set<string>();
+        if(newspaceData.client && newspaceData.client.cellSizes){
+            newspaceData.client.cellSizes.forEach((item: string) => cellSizeSet.add(item));
         }
+        if(newspaceData.client && newspaceData.client.zoomLevels){
+            newspaceData.client.zoomLevels.forEach((item: string) => zoomLevelSet.add(item));
+        }
+
         options.token = null;
         if(options.writeToken){
             options.token = options.writeToken;
@@ -537,9 +548,11 @@ program
             //console.log("Creating hexbins for the space data with size " + cellsize);
             let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
             let logStat = "uploading the hexagon grids to space with size " + cellsize;
+            cellSizeSet.add(cellsize+"");
             if(options.zoomLevels){
                 const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
                 logStat += " / zoom Level " + zoomNumber;
+                zoomLevelSet.add(zoomNumber+"");
             }
             console.log(logStat);
             //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
@@ -600,6 +613,7 @@ program
             await uploadToXyzSpace(id,options);
         //});
         }
+        await updateCellSizeAndZoomLevelsInHexbinSpace(id, Array.from(zoomLevelSet), Array.from(cellSizeSet));
         console.log("hexbins written to space " +  id + " from points in source space " + sourceId);
         //});
         } catch (error) {
@@ -615,6 +629,19 @@ async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string){
     const data = {
         client : {
             hexbinSpaceId:hexbinId
+        }
+    }
+    const body = await execute(uri, "PATCH", cType, data);
+    return body;
+}
+
+async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: string[], cellSizes: string[]){
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const data = {
+        client : {
+            zoomLevels: zoomLevels,
+            cellSizes: cellSizes
         }
     }
     const body = await execute(uri, "PATCH", cType, data);
