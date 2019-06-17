@@ -37,7 +37,6 @@ import * as summary from "./summary";
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
 
-//let hexbin = require('/Users/nisar/OneDrive - HERE Global B.V/home/github/hexbin');
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');;
 let choiceList: { name: string, value: string}[] = [];
@@ -272,7 +271,6 @@ function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
-            //console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
@@ -359,7 +357,7 @@ program
         const totalRecords = 500000;
         let recordLength = 0;
         let features = new Array();
-        (async () => {
+        //(async () => {
             try {
                 let cHandle = 0;
                 process.stdout.write("Operation may take a while. Please wait .....");
@@ -386,18 +384,17 @@ program
 
                 createQuestionsList({ features: features });
                 let properties: any = null;
-                inquirer.prompt(questionAnalyze).then((answers: any) => {
-                    properties = answers.properties;
-                    if (properties && properties.length > 0) {
-                        summary.analyze(features, properties, id);
-                    } else {
-                        console.log("No property selected to analyze");
-                    }
-                });
+                let answers: any = await inquirer.prompt(questionAnalyze);
+                properties = answers.properties;
+                if (properties && properties.length > 0) {
+                    summary.analyze(features, properties, id);
+                } else {
+                    console.log("No property selected to analyze");
+                }
             } catch (error) {
                 console.error(`describe failed: ${error}`);
             }
-        })();
+        //})();
     };
 
     program
