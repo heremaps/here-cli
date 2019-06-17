@@ -538,7 +538,12 @@ program
            //(async () => {
             //console.log("Creating hexbins for the space data with size " + cellsize);
             let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
-            console.log("uploading the hexagon grids to space with size " + cellsize);
+            let logStat = "uploading the hexagon grids to space with size " + cellsize;
+            if(options.zoomLevels){
+                const zoomNumber = getKeyByValue(zoomLevelsMap,cellsize); 
+                logStat += " / zoom Level " + zoomNumber;
+            }
+            console.log(logStat);
             //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
 
             let centroidFeatures:any[] = [];
@@ -597,6 +602,7 @@ program
             await uploadToXyzSpace(id,options);
         //});
         }
+        console.log("hexbins written to space " +  id + " from points in source space " + sourceId);
         //});
         } catch (error) {
             console.error(`hexbin creation failed: ${error}`);
