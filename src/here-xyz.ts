@@ -410,12 +410,13 @@ program
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
-    .option("-b, --bbox <bbox>", "only create hexbins for records inside a specified bounding box - minLon,minLat,maxLon,maxLat TODO - Fix negative values problem ")
+    .option("-b, --bbox <bbox>", "only create hexbins for records inside a specified bounding box - minLon,minLat,maxLon,maxLat")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
     .option("-z, --zoomLevels <zoomLevels>", "create hexbins optimized for zoom levels -- comma separate multiple values, (-z 8,10,12) or dash for continuous range (-z 10-15)")
     .action(function (id,options) {
       (async () => {
         try{
+        //TODO - Fix negative values problem for bbox options
         const sourceId = id;
         options.totalRecords = Number.MAX_SAFE_INTEGER;
         //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
