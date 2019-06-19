@@ -8,8 +8,8 @@
     "url": "https://github.com/heremaps/here-cli"
   },
   "scripts": {
-    "prepare": "tsc",
-    "test": "tsc && mocha"
+    "prepare": "npx tsc",
+    "test": "npx tsc && npx mocha"
   },
   "license": "MIT",
   "dependencies": {
