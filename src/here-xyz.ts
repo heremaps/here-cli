@@ -592,6 +592,7 @@ program
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --alt [alt]", "altitude field name")
+    .option('-w, --point [point]', 'points field name')
     .option("-p, --ptag [ptag]", "property names to be used to add tag")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID")
     .option(
@@ -604,6 +605,8 @@ program
     )
     .option("-o, --override", "override the data even if it share same id")
     .option("-s, --stream", "streaming data support for large file uploads")
+    .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
     .action(function (id, options) {
         uploadToXyzSpace(id, options);
     });
@@ -756,18 +759,20 @@ async function uploadToXyzSpace(id: string, options: any){
                         options.file,
                         options.id
                 );
-            } else if (options.file.indexOf(".csv") != -1) {
+            } else if (options.file.indexOf(".csv") != -1 || options.file.indexOf(".txt") != -1) {
                 if(!options.stream){
                     let result = await transform.read(
                         options.file,
-                        true
+                        true,
+                        { delimiter: options.delimiter, quote: options.quote }
                     );
                     const object = {
                             features: transform.transform(
                                 result,
                                 options.lat,
                                 options.lon,
-                                options.alt
+                                options.alt,
+                                options.point
                             ),
                             type: "FeatureCollection"
                     };
@@ -792,7 +797,8 @@ async function uploadToXyzSpace(id: string, options: any){
                                             result,
                                             options.lat,
                                             options.lon,
-                                            options.alt
+                                            options.alt,
+                                            options.point
                                         ),
                                         type: "FeatureCollection"
                                     };

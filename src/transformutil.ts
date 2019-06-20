@@ -35,6 +35,7 @@ import { deprecate } from "util";
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
 const altArray = ["z", "zcoord", "zcoordinate", "coordz", "coordinatez", "altitude", "alt"];
+const pointArray = ["p", "point", "points"];
 
 export type FeatureCollection = {
     "type": "FeatureCollection",
@@ -79,73 +80,78 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     }
 }
 
-export async function read(path: string, needConversion: boolean) {
+export async function read(path: string, needConversion: boolean, opt: any = null) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
-        return await readDataFromURL(path, needConversion);
+        return await readDataFromURL(path, needConversion, opt);
     } else {
-        return readDataFromFile(path, needConversion);
+        return readDataFromFile(path, needConversion, opt);
     }
 }
 
-async function readDataFromURL(path: string, needConversion: boolean) {
+async function readDataFromURL(path: string, needConversion: boolean, opt: any = null) {
     const { response, body } = await requestAsync({ url: path });
     if (response.statusCode != 200)
         throw new Error("Error requesting: " + body);
 
     if (needConversion)
-        return dataToJson(body);
+        return dataToJson(body, opt);
     else
         return body;
 }
 
-function readDataFromFile(path: string, needConversion: boolean) {
+function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
     const file_data = fs.readFileSync(path, { encoding: 'utf8' });
     if (needConversion)
-        return dataToJson(file_data);
+        return dataToJson(file_data, opt);
     else
         return file_data;
 }
 
-function dataToJson(file_data: string) {
+function dataToJson(file_data: string, opt: any = null) {
     const csvjson = require('csvjson');
-    const options = {
-        delimiter: ",", // optional
-        quote: '"' // optional
-    };
-    const result = csvjson.toObject(file_data, options);
+    const result = csvjson.toObject(file_data, opt);
     return result;
 }
 
-export function transform(result: any[], latField: string, lonField: string, altField: string) {
+export function transform(result: any[], latField: string, lonField: string, altField: string, pointField: string) {
     const objects: any[] = [];
     result.forEach(function (value) {
-        const ggson = toGeoJsonFeature(value, latField, lonField, altField);
+        const ggson = toGeoJsonFeature(value, latField, lonField, altField, pointField);
         if (ggson)
             objects.push(ggson);
     });
     return objects;
 }
 
-function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string) {
+function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string, pointField: string) {
     const props: any = {};
     let lat = undefined;
     let lon = undefined;
     let alt = undefined;
     for (const k in object) {
+        let key = k.trim();
+        if (key == pointField) { // we shouldn't automatically look for a field called points
+            console.log('extracting lat/lon from',pointField,object[k])
+            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
+            if(point) {
+                lat = point[0];
+                lon = point[1];
+            }
+        }
         if (lonField && lonField.toLowerCase() == k.toLowerCase()) {
             lon = object[lonField];
         } else if (latField && latField.toLowerCase() == k.toLowerCase()) {
             lat = object[latField];
         } else if (altField && altField.toLowerCase() == k.toLowerCase()) {
             alt = object[altField];
-        } else if (!latField && isLat(k)) {
+        } else if (!latField && isLat(key)) {
             lat = object[k];
-        } else if (!lonField && isLon(k)) {
+        } else if (!lonField && isLon(key)) {
             lon = object[k];
-        } else if (!altField && isAlt(k)) {
+        } else if (!altField && isAlt(key)) {
             alt = object[k];
         } else {
-            props[k] = object[k];
+            props[key] = object[k].trim();
         }
     }
     if (!lat) {
@@ -186,6 +192,10 @@ function isAlt(k: string) {
 
 function isLon(k: string) {
     return lonArray.includes(k.toLowerCase());
+}
+
+function isPoint(k: string) {
+    return pointArray.includes(k.toLowerCase())
 }
 
 function readData(path: string, postfix: string): Promise<string> {
