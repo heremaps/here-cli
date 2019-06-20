@@ -7,7 +7,7 @@ here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv
 - longitude ->  "x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"
 - latitudde -> "y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"
 
-##### Options 
+##### Options
 -y, --lat [lat]  latitude field name
 -x, --lon [lon]  longitude field name
 -d, --delimiter [,]  delimiter for parsing csv
