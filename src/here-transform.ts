@@ -27,36 +27,23 @@
 import * as program from 'commander';
 import * as common from './common';
 import * as transform from './transformutil';
-import * as fs from 'fs';
 
 const prompter = require('prompt');
 
 const commands = ["csv2geo", "shp2geo"];
 
-async function writeToFile(output: string, content: any) {
-    return new Promise((resolve, reject) => {
-       fs.writeFile(output, content, 'utf8', err => {
-           if(err) {
-               reject(err);
-           }else {
-               resolve();
-           }
-       });
-    });
-}
-
 program
     .version('0.1.0');
 
 program
-    .command('csv2geo <path> [output]')
+    .command('csv2geo <path>')
     .description('convert csv to geojson')
     .option('-y, --lat [lat]', 'latitude field name')
     .option('-x, --lon [lon]', 'longitude field name')
     .option('-z, --alt [alt]', 'altitude field name')
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
-    .option('-po, --point [point]', 'points field name')
+    .option('-w, --point [point]', 'points field name')
     .action(async function (path, output, opt) {
         transform.read(path, true, { delimiter: opt.delimiter, quote: opt.quote }).then(result => {
             const json = JSON.stringify({ features: transform.transform(result, opt.lat, opt.lon, opt.alt, opt.point), type: "FeatureCollection" }, null, 3); //Converted json object from csv data
@@ -69,24 +56,16 @@ program
             }else {
                 console.log(json)
             }
+
         });
     });
 
 program
-    .command('shp2geo <path> [output]')
+    .command('shp2geo <path>')
     .description('convert shapefile to geojson')
-    .action(function (path, output, opt) {
+    .action(function (path, opt) {
         transform.readShapeFile(path).then(fc =>  {
-            const json = JSON.stringify(fc);
-            if(output) {
-                writeToFile(output, json).then(() => {
-                    console.log(`exported geojson to ${output}`);
-                }).catch(err => {
-                    console.error(err);
-                });
-            }else {
-                console.log(json)
-            }
+            console.log(JSON.stringify(fc));
         });
     });
 
