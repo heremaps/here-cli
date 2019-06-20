@@ -8,7 +8,7 @@ The output file name is optional if not specified the command will log the geojs
 - longitude ->  "x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon"
 - latitudde -> "y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"
 
-##### Options 
+##### Options
 -y, --lat [lat]  latitude field name
 -x, --lon [lon]  longitude field name
 
