@@ -33,6 +33,7 @@ const prompter = require('prompt');
 
 const commands = ["csv2geo", "shp2geo"];
 
+
 async function writeToFile(output, content) {
     return new Promise((resolve, reject) => {
        fs.writeFile(output, content, 'utf8', err => {
