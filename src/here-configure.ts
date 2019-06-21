@@ -71,7 +71,7 @@ program
         setUserPass(env);
     });
 
-async function setUserPass(env?: any) {
+export async function setUserPass(env?: any) {
     prompter.start();
     prompter.get([{
         name: 'Email',
@@ -104,14 +104,17 @@ async function setUserPass(env?: any) {
                     }
                 }
             }
-            if(choiceList.length > 0){
-                inquirer.prompt(questions).then(async (answers: any) => {
-                    let appId = answers.tagChoices;
-                    let appCode = appIdAppCodeMap[appId];
-                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false);
-                    await common.generateToken(cookieData, appId);
-                    await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
-                });        
+            if(choiceList.length > 0) {
+                inquirer.prompt(questions)
+                    .then(async (answers: any) => {
+                        let appId = answers.tagChoices;
+                        let appCode = appIdAppCodeMap[appId];
+                        await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
+                        await common.generateToken(cookieData, appId).catch(err => {throw err});
+                        await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
+                        console.log('Default App Selected - ' + appId);
+                    })
+                    .catch(err => {console.log(err.message)});
             }else{
                 console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
             }
@@ -120,8 +123,6 @@ async function setUserPass(env?: any) {
         }
     });
 }
-
-
 
 program
     .command('verify')

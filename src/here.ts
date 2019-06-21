@@ -108,6 +108,7 @@ async function showLicenseConfirmation() {
     }
 }
 
+
 function getLastAccessVersion(ctime: number, ltime: number | undefined) {
     const time = (ctime - (ltime ? ltime : 0)) / (1000 * 60);
     const lastAccessVersion = settings.get('lastAccessVersion');
