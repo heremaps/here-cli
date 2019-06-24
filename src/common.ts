@@ -95,7 +95,7 @@ async function showLicenseConfirmationForProBeta() {
     console.log(fs.readFileSync(path.resolve(__dirname, 'pro-beta-terms.txt'), 'utf8'));
     try {
         const opn = require("opn");
-        opn("http://explore.xyz.here.com/terms-and-conditions",{wait:false});
+        opn("https://explore.xyz.here.com/pro-beta-terms-and-conditions",{wait:false});
     } catch {
     }
     const answer = await inquirer.prompt<{ license?: string }>(questionLicense);
