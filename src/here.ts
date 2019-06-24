@@ -79,7 +79,7 @@ async function checkVersion() {
     }
 
     const pv = await latestVersion('@here/cli');
-    if (pv !== version) {
+    if (pv > version) {
         console.log("herecli('" + version + "') is out of date. Latest version is " + pv + ". Use command 'npm install -g @here/cli' to update to the latest version");
         process.exit(1);
     }
