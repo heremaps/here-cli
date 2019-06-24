@@ -80,6 +80,8 @@ function handleError(apiError:ApiError) {
     if(apiError.statusCode) {
         if(apiError.statusCode == 401) {
             console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
+        } else if(apiError.statusCode == 403) {
+            console.log("Operation FAILED : Insufficient Rights to perform action");
         } else if(apiError.statusCode == 404) {
             console.log("Operation FAILED : Resource Not found.");
         } else {
@@ -410,7 +412,7 @@ program
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw xyzspace content")
     .option("-p, --prop <prop>","selection of properties")
-    .option("-s, --search <propfilter>", "search expression in \"quotes\", use p.<FEATUREPROP> and f.<id/updatedAt/tags/createdAt> (Use '+' for AND ',' for OR , Operators : >,<,<=,<=,=,!=) (OR is supported only for values within one property)")
+    .option("-s, --search <propfilter>", "search expression in \"quotes\", use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND ',' for OR , Operators : >,<,<=,<=,=,!=) (OR is supported only for values within one property)")
     .option("-w, --web", "display xyzspace on http://geojson.tools")
     .option("-v, --vector", "display xyzspace in Tangram") 
     .action(function(id,options){
@@ -472,7 +474,6 @@ program
             cType = "application/geo+json";
         }
 
-        console.log(uri);
 
         if (options.vector) {
             await launchXYZSpaceInvader(id,options.tags?"&tags="+options.tags:"");
@@ -563,6 +564,7 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
     .option("-d, --message [message]", "Short description ")
+    .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => {
         createSpace(options)
                 .catch(error => {
@@ -578,9 +580,33 @@ program
             }
             if (!options.message) {
                 options.message = "a new xyzspace created from commandline";
+            }   
+        }
+
+        const gp:any = getGeoSpaceProfiles(options.title, options.message);      
+
+        if(options.schema) {
+            
+            if(options.schema == true) {
+                console.log("Please add local filepath / http link for your schema definition")
+                process.exit(1);
+            } else {
+                let schemaDef:string = "";
+                if(options.schema.indexOf("http") == 0) {
+                    schemaDef = options.schema;
+                } else {
+                    schemaDef = await transform.read(options.schema, false);
+                }
+                
+                schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
+                
+                let processors = [];
+                processors.push(getSchemaProcessorProfile(schemaDef));
+                
+                gp['processors'] = processors;
             }
         }
-        const gp = getGeoSpaceProfiles(options.title, options.message);      
+       
         const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
             if (response.statusCode >= 200 && response.statusCode < 210){
                 console.log("xyzspace '" + body.id + "' created successfully");
@@ -719,10 +745,11 @@ program
     .option("-s, --stream", "streaming data support for large file uploads")
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
+
     .action(function (id, options) {
         try {
             uploadToXyzSpace(id, options).catch((err) => handleError(err))
-        } catch (err) {       
+        } catch (err) {
           handleError(err);           
         }
     });
@@ -1377,7 +1404,7 @@ program
     .description("configure/view advanced xyz features for space")
     .option("--shared <flag>", "set your space as shared / public ( by default its false)")
     .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
-    .option("-a,--autotag <tagrules>", "set conditional tagging rules")
+    //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
@@ -1421,7 +1448,7 @@ async function configXyzSpace(id:string, options:any) {
     }
 
     if(options.schema) {
-        console.log(options.schema);
+        
         if(options.schema == true) {
             console.log("Removing schema def for the space.")
             patchRequest['processors'] = [];
@@ -1432,12 +1459,10 @@ async function configXyzSpace(id:string, options:any) {
             } else {
                 schemaDef = await transform.read(options.schema, false);
             }
-            console.log(schemaDef);
             schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
             //console.log(JSON.stringify(schemaDef));
             let processors = [];
             processors.push(getSchemaProcessorProfile(schemaDef));
-            console.log(JSON.stringify(getSchemaProcessorProfile(schemaDef)));
             patchRequest['processors'] = processors;
         }
     }
@@ -1448,8 +1473,6 @@ async function configXyzSpace(id:string, options:any) {
         if(options.stats) {
             console.log("Request of stats will be ignored, stats option can only be used standalone or with -r/--raw")
         }
-
-        console.log(patchRequest);
 
         const url = `/hub/spaces/${id}?clientId=cli`
         const { response, body } = await execute(
@@ -1463,7 +1486,6 @@ async function configXyzSpace(id:string, options:any) {
 
         if(response.statusCode >= 200 && response.statusCode < 210) {
             console.log("space config updated successfully!");
-            console.log(body);
         }
     } else if (options.stats) {
         const url = `/hub/spaces/${id}/statistics?clientId=cli`

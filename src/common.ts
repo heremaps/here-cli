@@ -33,7 +33,7 @@ const path = require('path');
 const settings = require('user-settings').file('.herecli');
 const table = require("console.table");
 // TODO this should go into env config as well
-export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
+export const xyzRoot = () => "https://xyz.api.here.com";
 
 
 export const keySeparator = "%%";

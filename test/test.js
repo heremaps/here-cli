@@ -27,7 +27,7 @@ describe('Configure', function () {
         file: function (a) {
           return {
             get: function (keyName) {
-              return "testing";
+              return "true";
             },
             set: function () {
             }
