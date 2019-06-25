@@ -91,7 +91,15 @@ function handleError(apiError: ApiError) {
             console.log("OPERATION FAILED : " + apiError.message);
         }
     } else {
+<<<<<<< HEAD
         console.log("OPERATION FAILED - " + apiError.message);
+=======
+        if(apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
+            console.log("Operation FAILED - Insufficient Rights to perform action");
+        } else {
+            console.log("OPERATION FAILED - " + apiError.message);
+        }
+>>>>>>> xyz pro features, error handling
     }
 }
 
@@ -129,7 +137,8 @@ async function execInternal(
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
-        throw new Error("Invalid response - " + message);
+        //throw new Error("Invalid response - " + message);
+        throw new ApiError(response.statusCode, message);
     }
     return { response, body };
 }
@@ -176,7 +185,8 @@ async function execInternalGzip(
             await new Promise(done => setTimeout(done, 1000));
             body = execInternalGzip(uri, method, contentType, data, token, retry--);
         } else {
-            throw new Error("Invalid response :" + response.statusCode);
+         //   throw new Error("Invalid response :" + response.statusCode);
+            throw new ApiError(response.statusCode, response.body);
         }
     }
     return { response, body };
@@ -1858,6 +1868,16 @@ function showSpaceConfig(spacedef:any) {
             copr.push(obj.label);
         }        
         spacedef.copyright = copr;
+    }
+
+    if(spacedef.processors) { 
+        let processors:any = [];
+        for(let n=0; n < spacedef.processors.length; n++) {
+            let processor = spacedef.processors[n];
+            processors.push(processor.id)
+        }
+
+        spacedef.processors = JSON.stringify(processors);
     }
 
     if(spacedef.storage) {

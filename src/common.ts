@@ -208,7 +208,6 @@ export async function generateToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.token);
-    console.log('Default App Selected - ' + appId);
     await generateROToken(mainCookie, JSON.parse(maxRights), appId);
     return token;
 }
