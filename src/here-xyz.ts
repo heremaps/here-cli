@@ -68,12 +68,61 @@ const questionAnalyze = [
 
 program.version("0.1.0");
 
-function getGeoSpaceProfiles(title: string, description: string, client: any) {
-    return {
+function getGeoSpaceProfilePatch(id: string, rules: string[]) {
+    let processors = new Array();
+    if (rules.length > 0) {
+        const taggingRules : { [key: string] : string} = {}
+        rules.forEach(function(element: string) {
+            let parts = element.split(":", 2);
+            if (parts.length != 2) throw new Error("Invalid tagging rule format");
+            taggingRules[parts[0]] = parts[1];
+        });
+        const processor = {
+            id: 'rule-tagger',
+            params: {
+                taggingRules
+            }
+        }
+        processors.push(processor);
+    } else {
+        // no rules -> we will delete the params for rule-tagger
+        const processor = {
+            id: 'rule-tagger',
+            params: null
+        }
+        processors.push(processor);
+    }
+    const spaceDefinition = {
+        id,
+        processors
+    };
+    return spaceDefinition;
+}
+
+function getGeoSpaceProfiles(title: string, description: string, rules: string[], client: any) {
+    let processors = new Array();
+    if (rules.length > 0) {
+        const taggingRules : { [key: string] : string} = {}
+        rules.forEach(function(element: string) {
+            let parts = element.split(":", 2);
+            if (parts.length != 2) throw new Error("Invalid tagging rule format");
+            taggingRules[parts[0]] = parts[1];
+        });
+        const processor = {
+            id: 'rule-tagger',
+            params: {
+                taggingRules
+            }
+        }
+        processors.push(processor);
+    }
+    const spaceDefinition = {
         title,
         description,
-        client
+        client,
+        processors
     };
+    return spaceDefinition;
 }
 
 async function execInternal(
@@ -793,7 +842,8 @@ program
     // .option("-tmin, --tileMinLevel [tileMinLevel]", "Minimum Supported Tile Level")
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
-    .option("-d, --message [message]", "Short description ")
+    .option("-d, --message [message]", "Short description")
+    .option("-r, --rule [tagging rule]", "A rule defining how and which features to tag. Can be repeated to set multiple rules", collect, [])
     .action(options => createSpace(options));
 
     async function createSpace(options:any){
@@ -805,9 +855,26 @@ program
                 options.message = "a new xyzspace created from commandline";
             }
         }
-        let gp = getGeoSpaceProfiles(options.title, options.message, options.client);
+        let gp = getGeoSpaceProfiles(options.title, options.message, options.rule, options.client);
         const body = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
         console.log("xyzspace '" + body.id + "' created successfully");
+        return body;
+    }
+
+program
+    .command("update <id>")
+    .description("update the xyzspace with the given id")
+    .option("-r, --rule [tagging rule]", "A rule defining how and which features to tag. Can be repeated to set multiple rules", collect, [])
+    .action(function(id, options){updateSpace(id, options)});
+
+    async function updateSpace(id:string, options:any){
+        if (!options) {
+            throw new Error("No options are specified for update");
+        }
+        let gp = getGeoSpaceProfilePatch(id, options.rule);
+        //console.log(JSON.stringify(gp));
+        const body = await execute("/hub/spaces/" + id + "?clientId=cli", "PATCH", "application/json", gp);
+        console.log("xyzspace '" + body.id + "' updated successfully");
         return body;
     }
 
@@ -1585,7 +1652,8 @@ common.validate(
         "clear",
         "token",
         "analyze",
-        "hexbin"
+        "hexbin",
+        "update"
     ],
     [process.argv[2]],
     program
