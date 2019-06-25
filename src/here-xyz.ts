@@ -91,15 +91,7 @@ function handleError(apiError: ApiError) {
             console.log("OPERATION FAILED : " + apiError.message);
         }
     } else {
-<<<<<<< HEAD
         console.log("OPERATION FAILED - " + apiError.message);
-=======
-        if(apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
-            console.log("Operation FAILED - Insufficient Rights to perform action");
-        } else {
-            console.log("OPERATION FAILED - " + apiError.message);
-        }
->>>>>>> xyz pro features, error handling
     }
 }
 
