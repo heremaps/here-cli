@@ -25,6 +25,10 @@
 import * as sso from "./sso";
 import { requestAsync } from "./requestAsync";
 import * as CryptoJS from "crypto-js";
+import * as inquirer from 'inquirer';
+
+const fs = require('fs');
+const path = require('path');
 
 const settings = require('user-settings').file('.herecli');
 const table = require("console.table");
@@ -34,6 +38,101 @@ export const xyzRoot = () => "https://xyz.api.here.com";
 export const keySeparator = "%%";
 
 export let validated = false;
+
+
+const questionLicense = [
+    {
+        type: 'input',
+        name: 'license',
+        message: 'Enter (A)ccept or (D)ecline to proceed'
+    }
+];
+
+export async function resetTermsFlag() {
+    settings.set('ProBetaLicense', 'false');
+}
+
+
+
+export async function verifyProBetaLicense() {
+    
+    if (settings.get('ProBetaLicense') === 'true') {
+        return;
+    } else {
+        const accountInfo:string = await decryptAndGet("accountInfo","Please run `here configure` command.")
+        const appDataStored:string= await decryptAndGet("appDetails");
+
+        const appDetails = appDataStored.split("%%");        
+        const credentials = accountInfo.split("%%");
+        console.log("Setting up your HERE XYZ Pro beta access..");
+        const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
+        const accountMeStr = await getAppIds(mainCoookie);
+        const accountMe = JSON.parse(accountMeStr);
+        const proTcAcceptedAt = accountMe.proTcAcceptedAt;
+        if(proTcAcceptedAt != null && proTcAcceptedAt > 0) {
+            const newtoken = await generateToken(mainCoookie, appDetails[0]);
+            if(newtoken) {
+                settings.set('ProBetaLicense', 'true');
+                console.log("Successfully obtained HERE XYZ Pro beta access!");
+            }
+            
+        } else {
+           const accepted:boolean = await showLicenseConfirmationForProBeta();
+           if(accepted == true) {
+                await upgradeToProBeta(mainCoookie, accountMe.aid);
+                const newtoken = await generateToken(mainCoookie, appDetails[0]);
+                if(newtoken) {
+                    settings.set('ProBetaLicense', 'true');
+                    console.log("Successfully obtained HERE XYZ Pro beta access!");
+                }
+                
+           } else {
+            console.log("In order to use the HERE XYZ Pro Beta functionality, you will need to accept the Beta license agreement. You can continue using the existing HERE XYZ functionalities");
+            process.exit(1);
+           }
+        }
+        
+    }
+}
+
+async function showLicenseConfirmationForProBeta() {
+    console.log(fs.readFileSync(path.resolve(__dirname, 'pro-beta-terms.txt'), 'utf8'));
+    try {
+        const opn = require("opn");
+        opn("https://explore.xyz.here.com/pro-beta-terms-and-conditions",{wait:false});
+    } catch {
+    }
+    const answer = await inquirer.prompt<{ license?: string }>(questionLicense);
+
+    const termsResp = answer.license ? answer.license.toLowerCase() : 'decline';
+    if (termsResp === "a" || termsResp === "accept") {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+export async function upgradeToProBeta(cookies?: string, accountId?: string) {
+    //proTcAcceptedAt
+    console.log("Requesting XYZ Pro beta access...");
+    const proTS = new Date().getTime();
+    let payload : any = {proTcAcceptedAt: proTS};   
+    
+        var options = {
+            url : xyzRoot()+`/account-api/accounts/${accountId}`,
+            method : 'PATCH',
+            headers : {
+                "Cookie": cookies
+            },
+            json : true,
+            body : payload
+        }
+        const { response, body } = await requestAsync(options);
+        if (response.statusCode < 200 || response.statusCode > 299) {
+            throw new Error("Account operation failed : " + JSON.stringify(body));
+        }
+        return body;
+}
 
 function rightsRequest(appId: string) {
     return {
