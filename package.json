@@ -2,14 +2,14 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "0.2.4",
+  "version": "0.2.6-alpha",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
   },
   "scripts": {
-    "prepare": "tsc",
-    "test": "tsc && mocha"
+    "prepare": "npx tsc",
+    "test": "npx tsc && npx mocha"
   },
   "license": "MIT",
   "dependencies": {
