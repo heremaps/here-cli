@@ -125,6 +125,11 @@ describe('Configure', function () {
         output += stdout;
       });
       let features = await xyz.__get__('getSpaceDataFromXyz')("myspace", { raw: false, prop: [] });
+      
+      if ( features.type == 'FeatureCollection') {
+        features = features.features;
+      }
+
       summary.summarize(features,"myspace", false);
       capcon.stopCapture(process.stdout);
       if (features.length>0) {
