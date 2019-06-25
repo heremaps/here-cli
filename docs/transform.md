@@ -15,6 +15,7 @@ here transform csv2geo /Users/dhatb/mapcli_publish/mapcli/bin/test.csv
 -q, --quote ["]  quote used for parsing csv
 -po, --point [point]  points field name
 
+
 #### Transform shapefile to geojson 
 - ##### Convert the provided shape file as geojson
 ```

@@ -34,9 +34,11 @@ import * as transform from "./transformutil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
+
 import { deprecate, isBoolean } from "util";
 import { ApiError } from "./api-error";
 import { pathMatch } from "tough-cookie";
+
 
 let cq = require("block-queue");
 const gsv = require("geojson-validation");
@@ -126,7 +128,6 @@ async function execInternal(
         body: method === "GET" ? undefined : data
     };
 
-    
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210){
@@ -248,6 +249,7 @@ program
     .option("-p, --token <token>", "a external token to access space")
     .action(function (id, options) {
         (async () => {
+
             try {
                 let featureCollection = await getSpaceDataFromXyz(id,options);
                 summary.summarize(featureCollection.features,id, false);
@@ -259,6 +261,7 @@ program
                 }
             }
            
+
         })();    
     });
 
@@ -321,7 +324,9 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 }
                 do {
                     process.stdout.write(".");
+
                     let { response, body } = await execute(
+
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -431,6 +436,7 @@ program
             } else {
                 console.log("No property selected to analyze");
             }
+
             //});
         
         //})();
@@ -683,14 +689,18 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
             cellSizes: cellSizes
         }
     }
+
     const { response, body } = await execute(uri, "PATCH", cType, data);
+
     return body;
 }
 
 async function getSpaceMetaData(id:string, token: string | null = null){
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
+
     const { response, body } = await execute(uri, "GET", cType, "", token);
+
     return body;
 }
 
@@ -706,7 +716,9 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
 }
 
 async function getStatisticsData(spaceId: string, token: string | null = null){
+
     const {response, body} = await execute(
+
         "/hub/spaces/" + spaceId + "/statistics",
         "GET",
         "application/json",
@@ -716,6 +728,7 @@ async function getStatisticsData(spaceId: string, token: string | null = null){
     );
     return body;
 }
+
 
 function replaceOpearators(expr:string) {
     return expr.replace(">=", "=gte=").replace("<=","=lte=").replace(">","=gt=").replace("<","=lt=").replace("+", "&");
