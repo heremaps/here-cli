@@ -2,7 +2,7 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "0.2.5",
+  "version": "0.2.6-alpha",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
@@ -35,6 +35,7 @@
     "request": "^2.83.0",
     "shapefile": "0.6.6",
     "tmp": "0.0.33",
+    "@turf/helpers": "6.1.4",
     "user-settings": "0.2.0"
   },
   "devDependencies": {
