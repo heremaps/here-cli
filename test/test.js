@@ -175,7 +175,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('showSpace')("myspace", { raw: false, prop: [] });
+      await xyz.__get__('showSpace')("myspace", { raw: false });
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("9376020521  MultiLineString  workspace@weu_bw_1901")!=-1) {
         assert.ok(true, "");
