@@ -916,7 +916,11 @@ async function createSpace(options: any) {
     if (options.autotag) {
         await common.verifyProBetaLicense();
 
-        let processors = [];
+        if (options.autotag == true) {
+            console.log("Please add at least one tagging rule");
+            process.exit(1);
+        }
+        let processors = new Array();
         if (gp['processors']) {
             processors = gp['processors'];
         } else {
@@ -1771,10 +1775,10 @@ async function configXyzSpace(id:string, options:any) {
     }
 
     if(options.autotag) {
-        if(options.schema == true) {
+        if(options.autotag == true) {
             console.log("Removing autotagger from the space.");
         } else {
-            let processors = [];
+            let processors = new Array();
             if (patchRequest['processors']) {
                 processors = patchRequest['processors'];
             } else {
