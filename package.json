@@ -2,7 +2,7 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "0.2.6",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
