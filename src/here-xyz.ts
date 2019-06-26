@@ -1044,6 +1044,7 @@ program
     .option("-s, --stream", "streaming data support for large file uploads")
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option('-e, --errors','print data upload errors')
     .action(function (id, options) {
         uploadToXyzSpace(id, options);
     });
@@ -1065,12 +1066,13 @@ function streamingQueue() {
     let queue = cq(10, function (task: any, done: Function) {
         uploadData(task.id, task.options, task.tags, task.fc,
             true, task.options.ptag, task.options.file, task.options.id)
-            .then(x => {
-                queue.uploadCount += task.fc.features.length;
+            .then((result:any) => {
+                queue.uploadCount += result.success;
+                queue.failedCount += result.failed;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
                 queue.chunksize--;
                 done();
-            }).catch((err) => {
+            }).catch((err:any) => {
                 queue.failedCount += task.fc.features.length;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
                 queue.chunksize--;
@@ -1139,6 +1141,12 @@ async function uploadToXyzSpace(id: string, options: any) {
     if (options.tags) {
         tags = options.tags;
     }
+
+    let printErrors = false;
+    if(options.errors) {
+        printErrors = true;
+    }
+
     //Default chunk size set as 200
     if (!options.chunk) {
         options.chunk = 200;
@@ -1160,12 +1168,13 @@ async function uploadToXyzSpace(id: string, options: any) {
         process.exit(1);
     }
 
+
     if (options.file) {
         const fs = require("fs");
         if (options.file.indexOf(".geojsonl") != -1) {
             if (!options.stream) {
                 const result: any = await transform.readLineFromFile(options.file, 100);
-                await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id);
+                await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
             } else {
                 let queue = streamingQueue();
                 await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
@@ -1340,13 +1349,19 @@ function uploadData(
     isFile: boolean,
     tagProperties: any,
     fileName: string | null,
-    uid: string
-) {
+    uid: string,
+    printFailed: boolean = false
+):any {
     return new Promise((resolve, reject) => {
-
+        let upresult:any = { success: 0, failed: 0, entries: []};
         if (object.type == "Feature") {
             object = { features: [object], type: "FeatureCollection" };
         }
+
+        if(options.errors) {
+            printFailed = true;
+        }
+
         if (options.assign) {
             //console.log("assign mode on");
             const questions = createQuestionsList(object);
@@ -1370,7 +1385,9 @@ function uploadData(
                     false,
                     options.ptag,
                     fileName,
-                    options.id
+                    options.id,
+                    upresult,
+                    printFailed
                 ).then(x => resolve(x)).catch((error) => reject(error));
 
             });
@@ -1383,7 +1400,9 @@ function uploadData(
                 false,
                 options.ptag,
                 fileName,
-                options.id
+                options.id,
+                upresult,
+                printFailed
             ).then(x => resolve(x)).catch((error) => reject(error));
         }
 
@@ -1399,7 +1418,9 @@ async function uploadDataToSpaceWithTags(
     isFile: boolean,
     tagProperties: any,
     fileName: string | null,
-    uid: string
+    uid: string,
+    upresult: any,
+    printFailed: boolean
 ) {
     return new Promise((resolve, reject) => {
         gsv.valid(object, async function (valid: boolean, errs: any) {
@@ -1419,12 +1440,12 @@ async function uploadDataToSpaceWithTags(
 
             try {
                 if (options.stream) {
-                    await iterateChunks([featureOut], "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, 1, options.token);
+                    upresult = await iterateChunks([featureOut], "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, 1, options.token, upresult, printFailed);
                 } else {
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token);
+                   upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1435,6 +1456,7 @@ async function uploadDataToSpaceWithTags(
                 reject(e);
                 return;
             }
+            
             if (!options.stream) {
                 if (isFile)
                     console.log(
@@ -1442,17 +1464,24 @@ async function uploadDataToSpaceWithTags(
                         options.file +
                         "' uploaded to xyzspace '" +
                         id +
-                        "' successfully"
+                        "'"
                     );
                 else
                     console.log(
-                        "data upload to xyzspace '" + id + "' completed successfully"
+                        "data upload to xyzspace '" + id + "' completed"
                     );
 
-                summary.summarize(featureOut, id, true);
+                if(upresult.failed > 0) {
+                    console.log("all the features could not be uploaded successfully, to print rejected features, run command with -e")
+                    console.log("=============== Upload Summary ============= ");
+                    upresult.total = featureOut.length;
+                    console.table(upresult);
+                } else {
+                    summary.summarize(featureOut, id, true);
+                }
 
             }
-            resolve(true);
+            resolve(upresult);
         });
     });
 }
@@ -1625,7 +1654,7 @@ function getFileName(fileName: string) {
     }
 }
 
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string) {
+async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean):Promise<any> {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
     const { response, body }  = await execute(
@@ -1637,14 +1666,30 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         true
     );
 
+    if(response.statusCode >= 200 && response.statusCode < 210) {
+        let res = JSON.parse(body);
+        if(res.features)
+            upresult.success = upresult.success + res.features.length;
+        if(res.failed) {
+            upresult.failed = upresult.failed + res.failed.length;
+            //upresult.entries = upresult.entries.concat(res.failed);
+
+            
+            for(let n=0; n<res.failed.length; n++) {
+                const failedentry = res.failed[n];
+                if(printFailed) {
+                    console.log("Failed to upload : " + JSON.stringify({feature: fc.features[failedentry.position], reason: failedentry.message}));
+                }
+            }
+        }             
+    }
     index++;
     if (index == chunkSize) {
         process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
-        return;
+        return upresult;
     }
-
-    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
-    await iterateChunks(chunks, url, index, chunkSize, token);
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
+    return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
