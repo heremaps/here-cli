@@ -82,6 +82,8 @@ async function setUserPass(env?: any) {
         conform: () => true
     }], async function (err: any, result: any) {
         try{
+            await common.resetTermsFlag();
+
             let cookieData = await common.hereAccountLogin(result['Email'], result['Password']);
             let appsData = await common.getAppIds(cookieData);
             appsData = JSON.parse(appsData);
@@ -108,10 +110,12 @@ async function setUserPass(env?: any) {
                 inquirer.prompt(questions).then(async (answers: any) => {
                     let appId = answers.tagChoices;
                     let appCode = appIdAppCodeMap[appId];
-                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false);
-                    await common.generateToken(cookieData, appId);
-                    await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode);
-                });        
+                    await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
+                    await common.generateToken(cookieData, appId).catch(err => {throw err});
+                    await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
+                    console.log('Default App Selected - ' + appId);
+                })
+                .catch(err => {console.log(err.message)});
             }else{
                 console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
             }
