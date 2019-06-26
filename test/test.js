@@ -266,7 +266,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson"});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to xyzspace 'myspace' completed successfully")!=-1) {
+      if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -290,7 +290,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv"});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to xyzspace 'myspace' completed successfully")!=-1) {
+      if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -317,7 +317,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/shapesample/shapesample.shp"});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to xyzspace 'myspace' completed successfully")!=-1) {
+      if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -343,8 +343,9 @@ describe('Configure', function () {
         output += stdout;
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson",stream:true});
-      capcon.stopCapture(process.stdout);     
-      if (output.indexOf("uploaded feature count :2, failed feature count :0")!=-1) {
+      capcon.stopCapture(process.stdout);    
+      
+      if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -361,7 +362,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("uploaded feature count :1, failed feature count :0")!=-1) {
+      if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -378,7 +379,7 @@ describe('Configure', function () {
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl"});
       capcon.stopCapture(process.stdout);     
       console.log("output::::"+output);
-      if (output.indexOf("data upload to xyzspace 'myspace' completed successfully")!=-1) {
+      if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -394,7 +395,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl",stream:true});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("uploaded feature count :2, failed feature count :0")!=-1) {
+      if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
