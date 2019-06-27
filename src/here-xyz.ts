@@ -918,7 +918,7 @@ async function createSpace(options: any) {
         }
     }
 
-    if (options.autotag.length > 0) {
+    if (options.autotag && options.autotag.length > 0) {
         await common.verifyProBetaLicense();
 
         if (options.autotag === true) {
@@ -1835,7 +1835,7 @@ async function configXyzSpace(id:string, options:any) {
         }
     }
 
-    if(options.autotag.length > 0) {
+    if(options.autotag && options.autotag.length > 0) {
         if (patchRequest['processors']) {
             let i = patchRequest['processors'].length;
             while (i--) {
