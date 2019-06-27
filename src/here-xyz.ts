@@ -276,7 +276,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
             let spFunction;
             if (options.bbox) {
                 spFunction = "bbox";
-                options.limit = 100000;//Max limit of records space api supports 
+                options.limit = 100000;//Max limit of records space api supports
             } else {
                 spFunction = "iterate";
             }
@@ -620,8 +620,8 @@ program
                     }
 
                     //hexFeatures = hexFeatures.concat(centroidFeatures);
-                    /*  
-                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+                    /*
+                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {
                         if (err) throw err;
                     });
                     */
@@ -865,8 +865,8 @@ async function deleteSpace(geospaceId: string) {
         "application/json",
         "",
     );
-    if(response.statusCode >= 200 && response.statusCode < 210) 
-        console.log("xyzspace '" + geospaceId + "' deleted successfully");         
+    if(response.statusCode >= 200 && response.statusCode < 210)
+        console.log("xyzspace '" + geospaceId + "' deleted successfully");
 }
 
 program
@@ -876,6 +876,7 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for xyzspace")
     .option("-d, --message [message]", "Short description ")
+    .option("-a, --autotag [tagging rule]", "A rule defining how and which features to tag. Can be repeated to set multiple rules", collect, [])
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => createSpace(options)
         .catch(error => {
@@ -917,6 +918,21 @@ async function createSpace(options: any) {
         }
     }
 
+    if (options.autotag.length > 0) {
+        await common.verifyProBetaLicense();
+
+        if (options.autotag === true) {
+            console.log("Please add at least one tagging rule");
+            process.exit(1);
+        }
+        let processors = new Array();
+        if (gp['processors']) {
+            processors = gp['processors'];
+        } else {
+            gp['processors'] = processors;
+        }
+        processors.push(getRuleTaggerProcessorProfile(options.autotag));
+    }
 
     const { response, body }  = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
     console.log("xyzspace '" + body.id + "' created successfully");
@@ -1461,7 +1477,7 @@ async function uploadDataToSpaceWithTags(
                 reject(e);
                 return;
             }
-            
+
             if (!options.stream) {
                 if (isFile)
                     console.log(
@@ -1679,14 +1695,14 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
             upresult.failed = upresult.failed + res.failed.length;
             //upresult.entries = upresult.entries.concat(res.failed);
 
-            
+
             for(let n=0; n<res.failed.length; n++) {
                 const failedentry = res.failed[n];
                 if(printFailed) {
                     console.log("Failed to upload : " + JSON.stringify({feature: fc.features[failedentry.position], reason: failedentry.message}));
                 }
             }
-        }             
+        }
     }
     index++;
     if (index == chunkSize) {
@@ -1750,7 +1766,7 @@ program
     .description("configure/view advanced xyz features for space")
     .option("--shared <flag>", "set your space as shared / public ( by default its false)")
     .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
-    //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
+    .option("-a,--autotag [tagrules]", "set conditional tagging rules", collect, [])
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
@@ -1758,18 +1774,17 @@ program
     .option("-r, --raw", "show raw output")
     .action(function (id, options) {
         configXyzSpace(id, options).catch((err) => handleError(err));
-    })
+    });
 
 async function configXyzSpace(id:string, options:any) {
 
     await common.verifyProBetaLicense();
-    
+
+    let originalSpace = await getSpaceMetaData(id);
+
     let patchRequest:any = {};
 
-    if(options.autotag) {
-        console.log("Sorry! autotag is not available. It's WIP")
-        process.exit(1);
-    }
+    patchRequest['processors'] = originalSpace['processors'];
 
     if(options.title) {
         patchRequest['title'] = options.title;
@@ -1782,7 +1797,7 @@ async function configXyzSpace(id:string, options:any) {
         copyright.push({label: options.copyright});
         patchRequest['copyright'] = copyright;
     }
-    
+
     if(options.shared) {
         if(options.shared == 'true') {
             console.log("setting the space SHARED");
@@ -1794,10 +1809,18 @@ async function configXyzSpace(id:string, options:any) {
     }
 
     if(options.schema) {
-        
-        if(options.schema == true) {
-            console.log("Removing schema def for the space.")
-            patchRequest['processors'] = [];
+        if (patchRequest['processors']) {
+            let i = patchRequest['processors'].length;
+            while (i--) {
+                let processor = patchRequest['processors'][i];
+                if (processor.id === 'schema-validator') {
+                    patchRequest['processors'].splice(i, 1);
+                }
+            }
+        }
+
+        if(options.schema === true) {
+            console.log("Removing schema def from the space.");
         } else {
             let schemaDef:string = "";
             if(options.schema.indexOf("http") == 0) {
@@ -1807,13 +1830,32 @@ async function configXyzSpace(id:string, options:any) {
             }
             schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
             //console.log(JSON.stringify(schemaDef));
-            let processors = [];
-            processors.push(getSchemaProcessorProfile(schemaDef));
-            patchRequest['processors'] = processors;
+            if (!patchRequest['processors']) patchRequest['processors'] = [];
+            patchRequest['processors'].push(getSchemaProcessorProfile(schemaDef));
         }
     }
-        
-    
+
+    if(options.autotag.length > 0) {
+        if (patchRequest['processors']) {
+            let i = patchRequest['processors'].length;
+            while (i--) {
+                let processor = patchRequest['processors'][i];
+                if (processor.id === 'rule-tagger') {
+                    patchRequest['processors'].splice(i, 1);
+                }
+            }
+        }
+
+        if(options.autotag === true) {
+            console.log("Removing autotagger from the space.");
+        } else {
+            if (!patchRequest['processors']) patchRequest['processors'] = [];
+            patchRequest['processors'].push(getRuleTaggerProcessorProfile(options.autotag));
+        }
+    }
+
+
+
     if(Object.keys(patchRequest).length > 0) {
 
         if(options.stats) {
@@ -1839,13 +1881,13 @@ async function configXyzSpace(id:string, options:any) {
                 url,
                 "GET",
                 "application/json",
-                ""                
+                ""
             );
 
         if(response.statusCode >= 200 && response.statusCode < 210) {
             if(options.raw) {
                 console.log(body);
-            } else {                
+            } else {
                 showSpaceStats(body);
             }
         }
@@ -1855,17 +1897,17 @@ async function configXyzSpace(id:string, options:any) {
                 url,
                 "GET",
                 "application/json",
-                ""                
+                ""
             );
 
         if(response.statusCode >= 200 && response.statusCode < 210) {
             if(options.raw) {
                 console.log(body);
             } else {
-                showSpaceConfig(body);                
+                showSpaceConfig(body);
             }
         }
-    }    
+    }
 }
 
 function showSpaceStats(spacestatsraw:any) {
@@ -1906,17 +1948,17 @@ function showSpaceStats(spacestatsraw:any) {
 
 function showSpaceConfig(spacedef:any) {
     console.log("=========== SPACE CONFIG INFO ===========")
-    
+
     if(spacedef.copyright) {
         let copr = [];
         for(let n=0; n < spacedef.copyright.length; n++) {
             const obj = spacedef.copyright[n];
             copr.push(obj.label);
-        }        
+        }
         spacedef.copyright = copr;
     }
 
-    if(spacedef.processors) { 
+    if(spacedef.processors) {
         let processors:any = [];
         for(let n=0; n < spacedef.processors.length; n++) {
             let processor = spacedef.processors[n];
@@ -1941,7 +1983,7 @@ function showSpaceConfig(spacedef:any) {
 program
     .command("virtualize")
     .alias("vs")
-    .description("{xyz pro} create a new virtual xyzspace")    
+    .description("{xyz pro} create a new virtual xyzspace")
     .option("-t, --title [title]", "Title for virtualxyzspace")
     .option("-d, --message [message]", "set description for the space")
     .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response), enter comma separated space ids")
@@ -1977,7 +2019,7 @@ program
 
         spaceids = spaceids.split(",");
         const relationship = options.group ? "group" : "merge";
-        
+
         const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
         const {response, body} = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
         if ( response.statusCode >= 200 && response.statusCode < 210 )
@@ -1995,29 +2037,37 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
         "storage": {
             "id": "virtualspace",
             "params": {
-                virtualspace                
+                virtualspace
             }
         }
     }
 }
 
-function getRuleTaggerProcessorProfile(taggingRules:string) {
-  return  {
+function getRuleTaggerProcessorProfile(rules:string[]) {
+    const taggingRules : { [key: string] : string} = {};
+
+    if (rules.length > 0) {
+        rules.forEach(function (element: string) {
+            let parts = element.split(":", 2);
+            if (parts.length != 2) throw new Error("Invalid tagging rule format");
+            taggingRules[parts[0]] = parts[1];
+        });
+    }
+
+    return {
         "id": "rule-tagger",
         "params": {
-          "taggingRules": {
-            "sport": "$.features[?(@.properties.buildingType==\"stadium\")]"
-          }
+            taggingRules
         }
       }
 }
 
 function getSchemaProcessorProfile(schema:string) {
-   return  { 
-            "id": "schema-validator", 
-            "eventTypes": [ "ModifyFeaturesEvent.request", "ModifySpaceEvent.request" ], 
+   return  {
+            "id": "schema-validator",
+            "eventTypes": [ "ModifyFeaturesEvent.request", "ModifySpaceEvent.request" ],
             "params": {
-                    "schema": schema 
+                    "schema": schema
                 }
            }
 }
