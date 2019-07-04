@@ -1051,7 +1051,7 @@ program
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
     .action(function (id, options) {
-        uploadToXyzSpace(id, options);
+        uploadToXyzSpace(id, options).catch(err => handleError(err));
     });
 
 function collate(result: Array<any>) {
