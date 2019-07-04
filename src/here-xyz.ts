@@ -855,6 +855,16 @@ program
     .description("delete the xyzspace with the given id")
     .action(async geospaceId => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
+
+    console.log("Are you sure you want to delete the given space ?");
+    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+    if (termsResp !== "y" && termsResp !== "yes") {
+        console.log("CANCELLED !");
+        process.exit(1);
+    }
+
         deleteSpace(geospaceId)
             .catch((error) => {
                 if (error.statusCode == 404) {
@@ -868,15 +878,7 @@ program
 
 async function deleteSpace(geospaceId: string) {
     
-    console.log("Are you sure you want to delete the given space ?");
-    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-    if (termsResp !== "y" && termsResp !== "yes") {
-        console.log("CANCELLED !");
-        process.exit(1);
-    }
-
+    
     const { response, body } = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
         "DELETE",
@@ -946,26 +948,26 @@ program
     .description("clear data from xyz space")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
-    .action((id, options) => {
+    .action( async (id, options) => {        
+        console.log("Are you sure you want to clear data of the given space ?");
+        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+    
+        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+        if (termsResp !== "y" && termsResp !== "yes") {
+            console.log("CANCELLED !");
+            process.exit(1);
+        }
+
         clearSpace(id, options).catch((error) => {
             if (error.statusCode == 404) {
                 console.log("Operation FAILED: space does not exist");
             } else {
                 handleError(error);
             }
-        })
+        })    
     });
 
 async function clearSpace(id: string, options: any) {
-
-    console.log("Are you sure you want to clear data of the given space ?");
-    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-    if (termsResp !== "y" && termsResp !== "yes") {
-        console.log("CANCELLED !");
-        process.exit(1);
-    }
 
     if (!options.ids && !options.tags) {
         options.tags = "*";
