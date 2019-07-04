@@ -60,6 +60,14 @@ const questions = [
     }
 ];
 
+const questionConfirm = [
+    {
+        type: 'input',
+        name: 'confirmed',
+        message: 'Enter (Y)es to continue or (N)o to cancel'
+    }
+];
+
 const questionAnalyze = [
     {
         type: "checkbox",
@@ -859,6 +867,16 @@ program
     });
 
 async function deleteSpace(geospaceId: string) {
+    
+    console.log("Are you sure you want to delete the given space ?");
+    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+    if (termsResp !== "y" && termsResp !== "yes") {
+        console.log("CANCELLED !");
+        process.exit(1);
+    }
+
     const { response, body } = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
         "DELETE",
@@ -939,6 +957,16 @@ program
     });
 
 async function clearSpace(id: string, options: any) {
+
+    console.log("Are you sure you want to clear data of the given space ?");
+    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+    if (termsResp !== "y" && termsResp !== "yes") {
+        console.log("CANCELLED !");
+        process.exit(1);
+    }
+
     if (!options.ids && !options.tags) {
         options.tags = "*";
     }
@@ -1794,10 +1822,18 @@ async function configXyzSpace(id:string, options:any) {
     }
 
     if(options.schema) {
-        
         if(options.schema == true) {
+            console.log("Are you sure you want to remove the schema definition of the given space ?");
+            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+            if (termsResp !== "y" && termsResp !== "yes") {
+                console.log("CANCELLED !");
+                process.exit(1);
+            }
             console.log("Removing schema def for the space.")
             patchRequest['processors'] = [];
+
         } else {
             let schemaDef:string = "";
             if(options.schema.indexOf("http") == 0) {
