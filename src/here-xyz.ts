@@ -969,14 +969,6 @@ program
 
 async function clearSpace(id: string, options: any) {
 
-    console.log("Are you sure you want to clear data of the given space ?");
-    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-    if (termsResp !== "y" && termsResp !== "yes") {
-        console.log("CANCELLED !");
-        process.exit(1);
-    }
 
     if (!options.ids && !options.tags) {
         options.tags = "*";
