@@ -87,14 +87,23 @@ function getGeoSpaceProfiles(title: string, description: string, client: any) {
     };
 }
 
-function handleError(apiError: ApiError) {
+/**
+ * 
+ * @param apiError error object
+ * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
+ */
+function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
     if (apiError.statusCode) {
         if (apiError.statusCode == 401) {
             console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
         } else if (apiError.statusCode == 403) {
             console.log("Operation FAILED : Insufficient Rights to perform action");
         } else if (apiError.statusCode == 404) {
-            console.log("Operation FAILED : Resource Not found.");
+            if(isIdSpaceId){
+                console.log("Operation FAILED: space does not exist");
+            } else {
+                console.log("Operation FAILED : Resource Not found.");
+            }
         } else {
             console.log("OPERATION FAILED : " + apiError.message);
         }
@@ -264,11 +273,7 @@ program
                 let featureCollection = await getSpaceDataFromXyz(id, options);
                 summary.summarize(featureCollection.features, id, false);
             } catch (error) {
-                if (error.statusCode == 404) {
-                    console.log("Operation FAILED: space does not exist");
-                } else {
-                    handleError(error);
-                }
+                handleError(error, true);
             }
         })();
     });
@@ -377,11 +382,7 @@ program
     .action(function (id, options) {
         analyzeSpace(id, options)
             .catch((error) => {
-                if (error.statusCode == 404) {
-                    console.log("Operation FAILED: space does not exist");
-                } else {
-                    handleError(error);
-                }
+                handleError(error, true);
             });
     });
 
@@ -532,6 +533,10 @@ program
                 console.log("Creating hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
+                    if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
+                        console.log("No features is available to create hexbins");
+                        process.exit();
+                    }
                     cHandle = jsonOut.handle;
                     options.handle = jsonOut.handle;
                     if (jsonOut.features) {
@@ -562,22 +567,23 @@ program
                 let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
                 let newspaceData;
                 if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
-                    let newSpaceConfig = {
-                        title: 'hexbin space of ' + sourceSpaceData.title,
-                        description: 'hexbin space of ' + sourceSpaceData.title,
-                        client: {
-                            sourceSpaceId: sourceId,
-                            type: 'hexbin'
+                    console.log("No hexbin space found, creating hexbin space");
+                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData);
+                    id = newspaceData.id;
+                } else {
+                    try{
+                        console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
+                        id = sourceSpaceData.client.hexbinSpaceId;
+                        newspaceData = await getSpaceMetaData(id, options.writeToken);
+                    } catch (error){
+                        if(error.statusCode && error.statusCode == 404){
+                            console.log("looks like existing Hexbin space " + id + " is deleted, creating new one ");
+                            newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData);
+                            id = newspaceData.id;
+                        } else {
+                            throw error;
                         }
                     }
-                    console.log("No hexbin space found, creating hexbin space");
-                    newspaceData = await createSpace(newSpaceConfig);
-                    id = newspaceData.id;
-                    await updateClientHexbinSpaceId(sourceId, id);
-                } else {
-                    console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
-                    id = sourceSpaceData.client.hexbinSpaceId;
-                    newspaceData = await getSpaceMetaData(id, options.writeToken);
                 }
                 let cellSizeSet = new Set<string>();
                 let zoomLevelSet = new Set<string>();
@@ -597,15 +603,6 @@ program
                     //(async () => {
                     //console.log("Creating hexbins for the space data with size " + cellsize);
                     let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
-                    let logStat = "uploading the hexagon grids to space with size " + cellsize;
-                    cellSizeSet.add(cellsize + "");
-                    if (options.zoomLevels) {
-                        const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                        logStat += " / zoom Level " + zoomNumber;
-                        zoomLevelSet.add(zoomNumber + "");
-                    }
-                    console.log(logStat);
-                    //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
 
                     let centroidFeatures: any[] = [];
                     var i = hexFeatures.length;
@@ -616,6 +613,12 @@ program
                                 isValidHexagon = false;
                                 console.log("Invalid hexagon which is created outside of permissable range - " + coordinate);
                             }
+                            /*
+                            coordinate[0] = coordinate[0] < -180 ? -179.999999 : coordinate[0];
+                            coordinate[0] = coordinate[0] > 180 ? 179.999999 : coordinate[0];
+                            coordinate[1] = coordinate[1] < -90 ? -89.999999 : coordinate[1];
+                            coordinate[1] = coordinate[1] > 90 ? 89.999999 : coordinate[1];
+                            */
                         });
                         if (isValidHexagon) {
                             let geometry = { "type": "Point", "coordinates": hexFeatures[i].properties.centroid };
@@ -633,45 +636,71 @@ program
                         if (err) throw err;
                     });
                     */
+                    if (hexFeatures.length > 0) {
+                        let logStat = "uploading the hexagon grids to space with size " + cellsize;
+                        cellSizeSet.add(cellsize + "");
+                        if (options.zoomLevels) {
+                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            logStat += " / zoom Level " + zoomNumber;
+                            zoomLevelSet.add(zoomNumber + "");
+                        }
+                        console.log(logStat);
+                        //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
 
-                    let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
-                    fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
-                    options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
-                    if (options.zoomLevels) {
-                        const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                        options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
-                    }
-                    //if(options.destSpace){
-                    options.tags += ',' + sourceId;
-                    //}
-                    options.file = tmpObj.name;
-                    options.override = true;
-                    await uploadToXyzSpace(id, options);
+                        let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+                        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
+                        options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
+                        if (options.zoomLevels) {
+                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+                        }
+                        //if(options.destSpace){
+                        options.tags += ',' + sourceId;
+                        //}
+                        options.file = tmpObj.name;
+                        options.override = true;
+                        await uploadToXyzSpace(id, options);
 
-                    tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
-                    fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
-                    options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
-                    if (options.zoomLevels) {
-                        const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                        options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                        tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
+                        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
+                        options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
+                        if (options.zoomLevels) {
+                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                        }
+                        //if(options.destSpace){
+                        options.tags += ',' + sourceId;
+                        //}
+                        options.file = tmpObj.name;
+                        options.override = true;
+                        await uploadToXyzSpace(id, options);
+                        //});
+                    } else {
+                        console.log("No valid Hexbins can be created for space with size " + cellsize);
                     }
-                    //if(options.destSpace){
-                    options.tags += ',' + sourceId;
-                    //}
-                    options.file = tmpObj.name;
-                    options.override = true;
-                    await uploadToXyzSpace(id, options);
-                    //});
                 }
                 await updateCellSizeAndZoomLevelsInHexbinSpace(id, Array.from(zoomLevelSet), Array.from(cellSizeSet));
                 console.log("hexbins written to space " + id + " from points in source space " + sourceId);
                 //});
             } catch (error) {
-                console.error(`hexbin creation failed: ${error}`);
-                process.exit(1);
+                handleError(error);
             }
         })();
     });
+
+async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any){
+    let newSpaceConfig = {
+        title: 'hexbin space of ' + sourceSpaceData.title,
+        description: 'hexbin space of ' + sourceSpaceData.title,
+        client: {
+            sourceSpaceId: sourceId,
+            type: 'hexbin'
+        }
+    }
+    let newspaceData = await createSpace(newSpaceConfig);
+    await updateClientHexbinSpaceId(sourceId, newspaceData.id);
+    return newspaceData;
+}
 
 async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string) {
     const uri = "/hub/spaces/" + sourceId + "?clientId=cli";
@@ -746,11 +775,7 @@ program
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
-                if (error.statusCode == 404) {
-                    console.log("Operation FAILED: space does not exist");
-                } else {
-                    handleError(error);
-                }
+                handleError(error, true);
             });
     });
 async function showSpace(id: string, options: any) {
@@ -867,11 +892,7 @@ program
 
         deleteSpace(geospaceId)
             .catch((error) => {
-                if (error.statusCode == 404) {
-                    console.log("Operation FAILED: space does not exist");
-                } else {
-                    handleError(error);
-                }
+                handleError(error, true);
             })
 
     });
@@ -959,11 +980,7 @@ program
         }
 
         clearSpace(id, options).catch((error) => {
-            if (error.statusCode == 404) {
-                console.log("Operation FAILED: space does not exist");
-            } else {
-                handleError(error);
-            }
+            handleError(error, true);
         })    
     });
 
@@ -1081,7 +1098,9 @@ program
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
     .action(function (id, options) {
-        uploadToXyzSpace(id, options).catch(err => handleError(err));
+        uploadToXyzSpace(id, options).catch((error) => {
+            handleError(error, true);
+        });
     });
 
 function collate(result: Array<any>) {
@@ -1787,7 +1806,9 @@ program
     .option("--stats", "see detailed space statistics")
     .option("-r, --raw", "show raw output")
     .action(function (id, options) {
-        configXyzSpace(id, options).catch((err) => handleError(err));
+        configXyzSpace(id, options).catch((error) => {
+            handleError(error, true);
+        });
     })
 
 async function configXyzSpace(id:string, options:any) {
