@@ -1,3 +1,3 @@
 In order to use the HERE XYZ Pro Beta functionality, you will need to (A)ccept the Beta license agreement 
-( https://explore.xyz.here.com/pro-beta-terms-and-conditions )
+( https://legal.here.com/en-gb/HERE-XYZ-Pro-Beta-Terms-and-Conditions )
 
