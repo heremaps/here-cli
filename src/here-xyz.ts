@@ -1124,7 +1124,11 @@ program
             const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
             options.message = descInput.description ? descInput.description : options.file; 
 
-            const response:any = await createSpace(options);
+            const response:any = await createSpace(options)
+                                        .catch(err => { 
+                                                handleError(err);
+                                                process.exit(1);                                           
+                                            });
             id = response.id;
             
         }
