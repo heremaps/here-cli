@@ -60,6 +60,14 @@ const questions = [
     }
 ];
 
+const titlePrompt = [
+    {
+        type: 'input',
+        name: 'title',
+        message: 'Enter a title for the new space : '
+    }
+];
+
 const questionConfirm = [
     {
         type: 'input',
@@ -878,16 +886,18 @@ async function showSpace(id: string, options: any) {
 program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
-    .action(async geospaceId => {
+    .option("--force", "skip the confirmation prompt")
+    .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
+    if(!options.force) {
+        console.log("Are you sure you want to delete the given space ?");
+        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
-    console.log("Are you sure you want to delete the given space ?");
-    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-    if (termsResp !== "y" && termsResp !== "yes") {
-        console.log("CANCELLED !");
-        process.exit(1);
+        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+        if (termsResp !== "y" && termsResp !== "yes") {
+            console.log("CANCELLED !");
+            process.exit(1);
+        }
     }
 
         deleteSpace(geospaceId)
@@ -969,16 +979,18 @@ program
     .description("clear data from xyz space")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-i, --ids [ids]", "ids for the xyz space")
-    .action( async (id, options) => {        
-        console.log("Are you sure you want to clear data of the given space ?");
-        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-    
-        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-        if (termsResp !== "y" && termsResp !== "yes") {
-            console.log("CANCELLED !");
-            process.exit(1);
+    .option("--force", "skip the confirmation prompt")
+    .action( async (id, options) => {
+        if(!options.force) {
+            console.log("Are you sure you want to clear data of the given space ?");
+            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+        
+            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+            if (termsResp !== "y" && termsResp !== "yes") {
+                console.log("CANCELLED !");
+                process.exit(1);
+            }
         }
-
         clearSpace(id, options).catch((error) => {
             handleError(error, true);
         })    
@@ -1073,8 +1085,8 @@ async function listTokens() {
 }
 
 program
-    .command("upload <id>")
-    .description("upload a local geojson file to the given id")
+    .command("upload [id]")
+    .description("upload a local geojson file to the given id, if executed without spaceid with a file, new space will be created")
     .option("-f, --file <file>", "geojson file to upload")
     .option("-c, --chunk [chunk]", "chunk size")
     .option("-t, --tags [tags]", "tags for the xyz space")
@@ -1097,7 +1109,25 @@ program
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
-    .action(function (id, options) {
+    .action(async function (id, options) {
+        if(!id && options.file) {            
+            console.log("You have not supplied any space id, creating a new xyz space for this upload..");
+            const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
+            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
+
+            const descPrompt = [{
+                type: 'input',
+                name: 'description',
+                message: 'Enter a description for the new space : ',
+                default: options.file
+            }]
+            const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
+            options.message = descInput.description ? descInput.description : options.file; 
+
+            const response:any = await createSpace(options);
+            id = response.id;
+            
+        }
         uploadToXyzSpace(id, options).catch((error) => {
             handleError(error, true);
         });
