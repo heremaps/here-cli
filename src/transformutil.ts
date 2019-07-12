@@ -30,12 +30,14 @@ import * as tmp from "tmp";
 import * as request from "request";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
+import * as proj4 from "proj4";
 import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
 const altArray = ["z", "zcoord", "zcoordinate", "coordz", "coordinatez", "altitude", "alt"];
 const pointArray = ["p", "point", "points"];
+const wgs84prjString = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
 
 export type FeatureCollection = {
     "type": "FeatureCollection",
@@ -68,16 +70,68 @@ export function readShapeFile(path: string) {
 
 async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
+    let isPrjFilePresent : boolean = false;
+    let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
+    let prjFile: string = '';
+    if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
+        console.log(prjFilePath + " file exists, using this file for crs transformation");
+        prjFile = readDataFromFile(prjFilePath, false);
+    }
     const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
 
     while (true) {
         const result = await source.read();
 
-        if (result.done)
+        if (result.done){
             return fc;
+        }
+        let feature = result.value;
+        if(isPrjFilePresent){
+            feature = convertFeatureToPrjCrs(prjFile, feature);
+        }
 
-        fc.features.push(result.value);
+        fc.features.push(feature);
     }
+}
+
+function convertFeatureToPrjCrs(prjFile: string, feature: any){
+    if(feature.geometry.type == "Point"){
+        feature.geometry.coordinates = proj4(prjFile, wgs84prjString, feature.geometry.coordinates);
+    } else if(feature.geometry.type == "MultiPoint" || feature.geometry.type == "LineString"){        
+        let newCoordinates: any[] = [];
+        feature.geometry.coordinates.forEach(function (value: number[]) {
+            newCoordinates.push(proj4(prjFile, wgs84prjString,value));
+        });
+        feature.geometry.coordinates = newCoordinates;
+    } else if(feature.geometry.type == "MultiLineString" || feature.geometry.type == "Polygon"){
+        let newCoordinatesList: any[][] = [];
+        feature.geometry.coordinates.forEach(function (coordinateList: number[][]) {
+            let newCoordinates: any[] = [];
+            newCoordinatesList.push(newCoordinates);
+            coordinateList.forEach(function (value: number[]) {
+                newCoordinates.push(proj4(prjFile, wgs84prjString,value));
+            });
+        });
+        feature.geometry.coordinates = newCoordinatesList;
+    } else if(feature.geometry.type == "MultiPolygon"){
+        let newCoordinatesListArray: any[][][] = [];
+        feature.geometry.coordinates.forEach(function (coordinateListArray: number[][][]) {
+            let newCoordinatesList: any[][] = [];
+            newCoordinatesListArray.push(newCoordinatesList);
+            coordinateListArray.forEach(function (coordinateList: number[][]) {
+                let newCoordinates: any[] = [];
+                newCoordinatesList.push(newCoordinates);
+                coordinateList.forEach(function (value: number[]) {
+                    newCoordinates.push(proj4(prjFile, wgs84prjString,value));
+                });
+            });
+        });
+        feature.geometry.coordinates = newCoordinatesListArray;
+    } else {
+        console.log("Unsupported Geometry type - " + feature.geometry.type);
+        process.exit(1);
+    }
+    return feature;
 }
 
 export async function read(path: string, needConversion: boolean, opt: any = null) {
