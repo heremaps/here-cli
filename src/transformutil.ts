@@ -86,7 +86,7 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
             return fc;
         }
         let feature = result.value;
-        if(isPrjFilePresent && prjFile != wgs84prjString){
+        if(isPrjFilePresent && prjFile.toString().trim() != wgs84prjString.toString().trim()){
             feature = convertFeatureToPrjCrs(prjFile, feature);
         }
 
