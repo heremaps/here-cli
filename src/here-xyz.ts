@@ -1109,6 +1109,7 @@ program
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
+    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers e.g. postal code')
     .action(async function (id, options) {
         if(!id && options.file) {            
             console.log("You have not supplied any space id, creating a new xyz space for this upload..");
@@ -1306,7 +1307,8 @@ async function uploadToXyzSpace(id: string, options: any) {
                         options.lat,
                         options.lon,
                         options.alt,
-                        options.point
+                        options.point,
+                        options.stringFields
                     ),
                     type: "FeatureCollection"
                 };
@@ -1332,7 +1334,8 @@ async function uploadToXyzSpace(id: string, options: any) {
                                         options.lat,
                                         options.lon,
                                         options.alt,
-                                        options.point
+                                        options.point,
+                                        options.stringFields
                                     ),
                                     type: "FeatureCollection"
                                 };

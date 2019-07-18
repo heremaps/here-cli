@@ -167,17 +167,17 @@ function dataToJson(file_data: string, opt: any = null) {
     return result;
 }
 
-export function transform(result: any[], latField: string, lonField: string, altField: string, pointField: string) {
+export function transform(result: any[], latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const objects: any[] = [];
     result.forEach(function (value) {
-        const ggson = toGeoJsonFeature(value, latField, lonField, altField, pointField);
+        const ggson = toGeoJsonFeature(value, latField, lonField, altField, pointField, stringFields);
         if (ggson)
             objects.push(ggson);
     });
     return objects;
 }
 
-function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string, pointField: string) {
+function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
     let lon = undefined;
@@ -204,7 +204,11 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
         } else if (!altField && isAlt(key)) {
             alt = object[k];
         } else {
-            props[key] = object[k].trim();
+            if(!(stringFields && stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
+                props[key] = parseFloat(object[k]);
+            } else {
+                props[key] = object[k].trim();
+            }
         }
     }
     if (!lat) {
@@ -215,6 +219,10 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
         return null;
     }
     return { type: "Feature", geometry: toGeometry(lat, lon, alt), properties: props };
+}
+
+function isNumeric(n: string) { 
+    return !isNaN(Number(n)) && !isNaN(parseFloat(n)) && isFinite(parseFloat(n)); 
 }
 
 function toGeometry(lat: string, lon: string, alt?: string | undefined) {
