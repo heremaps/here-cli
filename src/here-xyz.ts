@@ -1109,7 +1109,7 @@ program
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
-    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers e.g. postal code')
+    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (id, options) {
         if(!id && options.file) {            
             console.log("You have not supplied any space id, creating a new xyz space for this upload..");
