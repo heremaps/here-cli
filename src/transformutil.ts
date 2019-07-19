@@ -206,6 +206,8 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
         } else {
             if(!(stringFields && stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
                 props[key] = parseFloat(object[k]);
+            } else if(!(stringFields && stringFields.split(",").includes(object[k])) && isBoolean(object[k].trim())){
+                props[key] = object[k].trim() == 'true' ? true : false;
             } else {
                 props[key] = object[k].trim();
             }
@@ -223,6 +225,10 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
 
 function isNumeric(n: string) { 
     return !isNaN(Number(n)) && !isNaN(parseFloat(n)) && isFinite(parseFloat(n)); 
+}
+
+function isBoolean(n: string) { 
+    return n == 'true' || n == 'false';
 }
 
 function toGeometry(lat: string, lon: string, alt?: string | undefined) {
