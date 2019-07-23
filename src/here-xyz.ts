@@ -1104,14 +1104,14 @@ async function listTokens() {
 
 program
     .command("upload [id]")
-    .description("upload a local geojson file to the given id, if executed without spaceid with a file, new space will be created")
-    .option("-f, --file <file>", "geojson file to upload")
+    .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
+    .option("-f, --file <file>", "GeoJSON, CSV, or Shapefile to upload -- put quotes around geojson and CSV URLs")
     .option("-c, --chunk [chunk]", "chunk size")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
-    .option("-z, --alt [alt]", "altitude field name")
-    .option('-w, --point [point]', 'points field name')
+//     .option("-z, --alt [alt]", "altitude field name") // this is not used in geojson
+    .option('-z, --point [point]', 'points field name')
     .option("-p, --ptag [ptag]", "property names to be used to add tag")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID")
     .option(
@@ -1124,13 +1124,13 @@ program
     )
     .option("-o, --override", "override the data even if it share same id")
     .option("-s, --stream", "streaming data support for large file uploads")
-    .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ';')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (id, options) {
         if(!id && options.file) {            
-            console.log("You have not supplied any space id, creating a new xyz space for this upload..");
+            console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
             options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
 
@@ -1261,7 +1261,7 @@ async function uploadToXyzSpace(id: string, options: any) {
 
     if (options.unique && options.override) {
         console.log(
-            "conflicting options together. You may need to use either unique or override. Refer to 'here xyz upload -h' for help"
+            "conflicting options -- you must use either unique or override. Refer to 'here xyz upload -h' for help"
         );
         process.exit(1);
     } else if (!options.override) {
@@ -1270,7 +1270,7 @@ async function uploadToXyzSpace(id: string, options: any) {
 
     if (options.assign && options.stream) {
         console.log(
-            "conflicting options together. You cannot choose assign mode while selecting streaming option"
+            "conflicting options - you cannot choose assign mode while selecting streaming option"
         );
         process.exit(1);
     }
@@ -1698,7 +1698,7 @@ async function mergeAllTags(
             "***************************************************************"
         );
         console.log(
-            "We detected duplicate records, only the first was uploaded.\nFind the below records which are duplicated\n"
+            "We detected duplicate records, only the first was uploaded. Duplicates listed below.\n"
         );
         common.drawTable(duplicates, ["id", "geometry", "properties"]);
         console.log(
@@ -1844,7 +1844,7 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string) {
 program
     .command("config <id>")
     .description("configure/view advanced xyz features for space")
-    .option("--shared <flag>", "set your space as shared / public ( by default its false)")
+    .option("--shared <flag>", "set your space as shared / public (default is false)")
     .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
@@ -1996,7 +1996,7 @@ function showSpaceStats(spacestatsraw: any) {
     let spacestats: any = [];
     let allSearchable = false;
     spacestats.push({ property: 'BBox', value: spacestatsraw.bbox.value, estimated: spacestatsraw.bbox.estimated });
-    spacestats.push({ property: 'Byte Size', value: spacestatsraw.byteSize.value, estimated: spacestatsraw.byteSize.estimated });
+    spacestats.push({ property: 'MB Size', value: spacestatsraw.byteSize.value/1024/1024.toFixed(2), estimated: spacestatsraw.byteSize.estimated });
     spacestats.push({ property: 'Feature Count', value: spacestatsraw.count.value, estimated: spacestatsraw.count.estimated });
     spacestats.push({ property: 'Geometry Types', value: spacestatsraw.geometryTypes.value, estimated: spacestatsraw.geometryTypes.estimated });
     spacestats.push({ property: 'Properties Searchable', value: spacestatsraw.properties.searchable, estimated: '' });
@@ -2063,7 +2063,7 @@ program
     .command("virtualize")
     .alias("vs")
     .description("{xyz pro} create a new virtual xyzspace")    
-    .option("-t, --title [title]", "Title for virtualxyzspace")
+    .option("-t, --title [title]", "Title for virtual xyzspace")
     .option("-d, --message [message]", "set description for the space")
     .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response), enter comma separated space ids")
     .option("-a, --associate [spaceids]", "Associate the spaces (The features with same id will be merged into a single feature), enter comma separated space ids")
