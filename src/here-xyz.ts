@@ -1960,8 +1960,15 @@ function showSpaceStats(spacestatsraw:any) {
     console.log("=========== SPACE MAIN STATS INFO ===========")
     let spacestats:any = [];
     let allSearchable = false;
+    const kbSize = spacestatsraw.byteSize.value/1024.toFixed(2);
+    const mbSize = kbSize/1024.toFixed(2);
+    const gbSize = mbSize/1024.toFixed(2);
+    var size = spacestatsraw.byteSize.value + ' bytes';
+    if ((gbSize < 1) && (kbSize > 1024){size = mbSize + 'MB'};
+    if (kbSize =< 1024){size = kbSize + 'KB'};
+    if (gbSize >= 1){size = gbSize + 'GB'};
     spacestats.push({ property: 'BBox', value: spacestatsraw.bbox.value, estimated: spacestatsraw.bbox.estimated });
-    spacestats.push({ property: 'MB Size', value: spacestatsraw.byteSize.value/1024/1024.toFixed(2), estimated: spacestatsraw.byteSize.estimated });
+    spacestats.push({ property: 'Size', value: size, estimated: spacestatsraw.byteSize.estimated });
     spacestats.push({ property: 'Feature Count', value: spacestatsraw.count.value, estimated: spacestatsraw.count.estimated });
     spacestats.push({ property: 'Geometry Types', value: spacestatsraw.geometryTypes.value, estimated: spacestatsraw.geometryTypes.estimated });
     spacestats.push({ property: 'Properties Searchable', value: spacestatsraw.properties.searchable, estimated: '' });
