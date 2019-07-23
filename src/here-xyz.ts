@@ -1961,10 +1961,10 @@ function showSpaceStats(spacestatsraw:any) {
     let spacestats:any = [];
     let allSearchable = false;
     var size = spacestatsraw.byteSize.value
-    var kbSize = size/1024.toFixed(2);
-    var mbSize = kbSize/1024.toFixed(2);
-    var gbSize = mbSize/1024.toFixed(2);
-    if ((gbSize < 1) && (kbSize > 1024){size = mbSize + 'MB'};
+    var kbSize = (size/1024).toFixed(2);
+    var mbSize = (kbSize/1024).toFixed(2);
+    var gbSize = (mbSize/1024).toFixed(2);
+    if ((gbSize < 1) && (kbSize > 1024)){size = mbSize + 'MB'};
     if (kbSize =< 1024){size = kbSize + 'KB'};
     if (gbSize >= 1){size = gbSize + 'GB'};
     if (kbSize < 1){size = size + ' bytes'};
