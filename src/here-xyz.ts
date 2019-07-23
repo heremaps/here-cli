@@ -1302,13 +1302,9 @@ async function uploadToXyzSpace(id: string, options: any) {
                     { delimiter: options.delimiter, quote: options.quote }
                 );
                 const object = {
-                    features: transform.transform(
+                    features: await transform.transform(
                         result,
-                        options.lat,
-                        options.lon,
-                        options.alt,
-                        options.point,
-                        options.stringFields
+                        options
                     ),
                     type: "FeatureCollection"
                 };
@@ -1329,13 +1325,9 @@ async function uploadToXyzSpace(id: string, options: any) {
                         (async () => {
                             if (result.length > 0) {
                                 const fc = {
-                                    features: transform.transform(
+                                    features: await transform.transform(
                                         result,
-                                        options.lat,
-                                        options.lon,
-                                        options.alt,
-                                        options.point,
-                                        options.stringFields
+                                        options
                                     ),
                                     type: "FeatureCollection"
                                 };
@@ -1972,14 +1964,12 @@ function showSpaceStats(spacestatsraw:any) {
     spacestats.push({ property: 'Byte Size', value: spacestatsraw.byteSize.value, estimated: spacestatsraw.byteSize.estimated });
     spacestats.push({ property: 'Feature Count', value: spacestatsraw.count.value, estimated: spacestatsraw.count.estimated });
     spacestats.push({ property: 'Geometry Types', value: spacestatsraw.geometryTypes.value, estimated: spacestatsraw.geometryTypes.estimated });
-    spacestats.push({ property: 'Properties Searchable', value: spacestatsraw.searchable, estimated: '' });
+    spacestats.push({ property: 'Properties Searchable', value: spacestatsraw.properties.searchable, estimated: '' });
 
-    if(spacestatsraw.searchable === 'ALL') {
+    if(spacestatsraw.properties.searchable === 'ALL') {
         allSearchable = true;
     }
     console.table(spacestats);
-
-    let tagstats:any = [];
 
     if(spacestatsraw.tags && spacestatsraw.tags.value) {
         console.log("=========== FEATURES' TAGS STATS INFO ===========")

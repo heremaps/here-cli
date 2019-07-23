@@ -31,6 +31,7 @@ import * as request from "request";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
 import * as proj4 from "proj4";
+import * as inquirer from "inquirer";
 import { deprecate } from "util";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
@@ -167,46 +168,48 @@ function dataToJson(file_data: string, opt: any = null) {
     return result;
 }
 
-export function transform(result: any[], latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
+export async function transform(result: any[], options: any) {
     const objects: any[] = [];
-    result.forEach(function (value) {
-        const ggson = toGeoJsonFeature(value, latField, lonField, altField, pointField, stringFields);
-        if (ggson)
+    for (const i in result) {
+        const ggson = await toGeoJsonFeature(result[i], options);
+        if (ggson) {
             objects.push(ggson);
-    });
+        }
+    }
     return objects;
 }
 
-function toGeoJsonFeature(object: any, latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
+async function toGeoJsonFeature(object: any, options: any) {
+    //latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
     let lon = undefined;
     let alt = undefined;
     for (const k in object) {
         let key = k.trim();
-        if (key == pointField) { // we shouldn't automatically look for a field called points
+        if (key == options.pointField) { // we shouldn't automatically look for a field called points
             //console.log('extracting lat/lon from',pointField,object[k])
             const point = object[k].match(/([-]?\d+.[.]\d+)/g);
             if(point) {
                 lat = point[0];
                 lon = point[1];
             }
-        }else if (lonField && lonField.toLowerCase() == k.toLowerCase()) {
-            lon = object[lonField];
-        } else if (latField && latField.toLowerCase() == k.toLowerCase()) {
-            lat = object[latField];
-        } else if (altField && altField.toLowerCase() == k.toLowerCase()) {
-            alt = object[altField];
-        } else if (!latField && isLat(key)) {
+        }else if (options.lonField && options.lonField.toLowerCase() == k.toLowerCase()) {
+            lon = object[options.lonField];
+        } else if (options.latField && options.latField.toLowerCase() == k.toLowerCase()) {
+            lat = object[options.latField];
+        } else if (options.altField && options.altField.toLowerCase() == k.toLowerCase()) {
+            alt = object[options.altField];
+        } else if (!options.latField && isLat(key)) {
             lat = object[k];
-        } else if (!lonField && isLon(key)) {
+        } else if (!options.lonField && isLon(key)) {
             lon = object[k];
-        } else if (!altField && isAlt(key)) {
+        } else if (!options.altField && isAlt(key)) {
             alt = object[k];
         } else {
-            if(!(stringFields && stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
+            if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
                 props[key] = parseFloat(object[k]);
-            } else if(!(stringFields && stringFields.split(",").includes(object[k])) && isBoolean(object[k].trim())){
+            } else if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isBoolean(object[k].trim())){
                 props[key] = object[k].trim() == 'true' ? true : false;
             } else {
                 props[key] = object[k].trim();
@@ -214,13 +217,46 @@ function toGeoJsonFeature(object: any, latField: string, lonField: string, altFi
         }
     }
     if (!lat) {
-        console.log("Could not identify latitude");
-        return null;
-    } else if (!lon) {
-        console.log("Could not identify longitude");
-        return null;
+        let choiceList = createQuestionsList(object);
+        console.log(JSON.stringify(choiceList));
+        const questions = [
+            {
+                type: "list",
+                name: "latChoice",
+                message: "Select property which should be be used for Latitude",
+                choices: choiceList
+            }
+        ];
+        let latAnswer : any = await inquirer.prompt(questions);
+        console.log("new Latitude field selected - " + latAnswer.latChoice);
+        options.latField = latAnswer.latChoice;
+        lat = object[options.latField];
+    } 
+    if (!lon) {
+        let choiceList = createQuestionsList(object);
+        console.log(JSON.stringify(choiceList));
+        const questions = [
+            {
+                type: "list",
+                name: "lonChoice",
+                message: "Select property which should be be used for Longitude",
+                choices: choiceList
+            }
+        ];
+        let lonAnswer : any = await inquirer.prompt(questions);
+        console.log("new Longitude field selected - " + lonAnswer.lonChoice);
+        options.lonField = lonAnswer.lonChoice;
+        lon = object[options.lonField];
     }
     return { type: "Feature", geometry: toGeometry(lat, lon, alt), properties: props };
+}
+
+function createQuestionsList(object: any) {
+    let choiceList: { name: string, value: string }[] = [];
+    for (const k in object) {
+        choiceList.push({ name: k + ' : ' + object[k], value: k });
+    }
+    return choiceList;
 }
 
 function isNumeric(n: string) { 
