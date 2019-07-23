@@ -210,7 +210,7 @@ async function toGeoJsonFeature(object: any, options: any) {
             if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
                 props[key] = parseFloat(object[k]);
             } else if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isBoolean(object[k].trim())){
-                props[key] = object[k].trim() == 'true' ? true : false;
+                props[key] = object[k].trim().toLowerCase() == 'true' ? true : false;
             } else {
                 props[key] = object[k].trim();
             }
@@ -218,7 +218,6 @@ async function toGeoJsonFeature(object: any, options: any) {
     }
     if (!lat) {
         let choiceList = createQuestionsList(object);
-        console.log(JSON.stringify(choiceList));
         const questions = [
             {
                 type: "list",
@@ -234,7 +233,6 @@ async function toGeoJsonFeature(object: any, options: any) {
     } 
     if (!lon) {
         let choiceList = createQuestionsList(object);
-        console.log(JSON.stringify(choiceList));
         const questions = [
             {
                 type: "list",
@@ -264,7 +262,7 @@ function isNumeric(n: string) {
 }
 
 function isBoolean(n: string) { 
-    return n == 'true' || n == 'false';
+    return n.toLowerCase() == 'true' || n.toLowerCase() == 'false';
 }
 
 function toGeometry(lat: string, lon: string, alt?: string | undefined) {
