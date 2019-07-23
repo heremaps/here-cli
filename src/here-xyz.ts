@@ -1960,10 +1960,10 @@ function showSpaceStats(spacestatsraw:any) {
     console.log("=========== SPACE MAIN STATS INFO ===========")
     let spacestats:any = [];
     let allSearchable = false;
-    var size = spacestatsraw.byteSize.value
-    var kbSize = (size/1024).toFixed(2);
-    var mbSize = (kbSize/1024).toFixed(2);
-    var gbSize = (mbSize/1024).toFixed(2);
+    let size = spacestatsraw.byteSize.value
+    let kbSize : any = (size/1024).toFixed(2);
+    var mbSize : any = (kbSize/1024).toFixed(2);
+    var gbSize : any = (mbSize/1024).toFixed(2);
     if ((gbSize < 1) && (kbSize > 1024)){size = mbSize + 'MB'};
     if (kbSize <= 1024){size = kbSize + 'KB'};
     if (gbSize >= 1){size = gbSize + 'GB'};
