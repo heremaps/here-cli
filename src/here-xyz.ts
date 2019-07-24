@@ -48,14 +48,14 @@ const questions = [
     {
         type: "checkbox",
         name: "tagChoices",
-        message: "Select attributes which needs to be added as tags like key@value",
+        message: "Select attributes to be added as tags like key@value",
         choices: choiceList
     },
     {
         type: "checkbox",
         name: "idChoice",
         message:
-            "Select attributes which would be used as Id, please note that ID field has to be unique",
+            "Select attributes which would be used as the GeoJSON Feature ID (must be unique)",
         choices: choiceList
     }
 ];
@@ -64,7 +64,7 @@ const titlePrompt = [
     {
         type: 'input',
         name: 'title',
-        message: 'Enter a title for the new space : '
+        message: 'Enter a title for the new space: '
     }
 ];
 
@@ -123,12 +123,12 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
         if (apiError.statusCode == 401) {
             console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
         } else if (apiError.statusCode == 403) {
-            console.log("Operation FAILED : Insufficient Rights to perform action");
+            console.log("Operation FAILED : Insufficient rights to perform action");
         } else if (apiError.statusCode == 404) {
             if(isIdSpaceId){
-                console.log("Operation FAILED: space does not exist");
+                console.log("Operation FAILED: Space does not exist");
             } else {
-                console.log("Operation FAILED : Resource Not found.");
+                console.log("Operation FAILED : Resource not found.");
             }
         } else {
             console.log("OPERATION FAILED : " + apiError.message);
@@ -241,8 +241,8 @@ async function execute(uri: string, method: string, contentType: string, data: a
 program
     .command("list")
     .alias("ls")
-    .description("information about available xyz spaces")
-    .option("-r, --raw", "show raw xyzspace definition")
+    .description("information about available XYZ spaces")
+    .option("-r, --raw", "show raw XYZ space definition")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -292,7 +292,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access space")
+    .option("-p, --token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         (async () => {
             try {
@@ -332,7 +332,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                         if (item && item != "") {
                             let number = parseInt(item.toLowerCase());
                             if (isNaN(number)) {
-                                console.error(`Loading space data using boudning box failed - boundingbox input "${item}" is not a valid number`);
+                                console.error(`Loading space data using bounding box failed - "${item}" is not a valid number`);
                                 process.exit(1);
                             }
                             uri = uri + "&" + bboxDirections[i] + "=" + number;
@@ -359,7 +359,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
             try {
                 let cHandle = options.handle ? options.handle : 0;
                 if (cHandle === 0) {
-                    process.stdout.write("Operation may take a while. Please wait .....");
+                    process.stdout.write("Operation may take a while. Please wait...");
                 }
                 do {
                     process.stdout.write(".");
@@ -391,7 +391,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`getting data from xyz space failed: ${error}`);
+                console.error(`getting data from XYZ space failed: ${error}`);
                 reject(error);
             }
         })();
@@ -404,7 +404,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access space")
+    .option("-p, --token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         analyzeSpace(id, options)
             .catch((error) => {
@@ -438,7 +438,7 @@ async function analyzeSpace(id: string, options: any) {
     //(async () => {
 
     let cHandle = 0;
-    process.stdout.write("Operation may take a while. Please wait .....");
+    process.stdout.write("Operation may take a while. Please wait...");
     do {
         process.stdout.write(".");
         let { response, body } = await execute(
@@ -477,7 +477,7 @@ program
     .command('hexbin <id>')
     .description('create hexbins (and their centroids) using points in an XYZ space and upload them to another space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, comma-separate multiple values")
-    .option("-i, --ids", "add IDs of features counted within the hexbin as an array inside the property of the hexbin created")
+    .option("-i, --ids", "add IDs of features counted within the hexbin as an array in the hexbin's feature property")
     .option("-p, --groupBy <groupBy>", "name of the feature property by which hexbin counts will be further grouped")
     .option("-r, --readToken <readToken>", "token of another user's source space, from which points will be read")
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
@@ -511,7 +511,7 @@ program
                             let zoomLevels = item.split("-");
                             if (zoomLevels.length === 1) {
                                 let number = parseInt(zoomLevels[0].toLowerCase());
-                                if (isNaN(number) || number < 1 || number > 16) {
+                                if (isNaN(number) || number < 1 || number >= 16) {
                                     console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
                                     process.exit(1);
                                 }
@@ -523,7 +523,7 @@ program
                                 let lowNumber = parseInt(zoomLevels[0].toLowerCase());
                                 let highNumber = parseInt(zoomLevels[1].toLowerCase());
                                 if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 16 || highNumber < 1 || highNumber > 16) {
-                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" is not a valid sequence between 1-16`);
+                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" must be between 1-16`);
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
@@ -560,7 +560,7 @@ program
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
                     if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
-                        console.log("No features is available to create hexbins");
+                        console.log("No features are available to create hexbins (only points are supported)");
                         process.exit();
                     }
                     cHandle = jsonOut.handle;
@@ -603,7 +603,7 @@ program
                         newspaceData = await getSpaceMetaData(id, options.writeToken);
                     } catch (error){
                         if(error.statusCode && error.statusCode == 404){
-                            console.log("looks like existing Hexbin space " + id + " is deleted, creating new one ");
+                            console.log("looks like existing hexbin space " + id + " has been deleted, creating new one ");
                             newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData);
                             id = newspaceData.id;
                         } else {
@@ -637,7 +637,7 @@ program
                         hexFeatures[i].geometry.coordinates[0].forEach(function (coordinate: Array<number>) {
                             if (coordinate[0] < -180 || coordinate[0] > 180 || coordinate[1] > 90 || coordinate[1] < -90) {
                                 isValidHexagon = false;
-                                console.log("Invalid hexagon which is created outside of permissable range - " + coordinate);
+                                console.log("Invalid hexagon, created outside of permissible range - " + coordinate);
                             }
                             /*
                             coordinate[0] = coordinate[0] < -180 ? -179.999999 : coordinate[0];
@@ -651,7 +651,7 @@ program
                             let hashId = common.md5Sum(JSON.stringify(geometry) + '_' + cellsize);
                             centroidFeatures.push({ type: "Feature", "geometry": geometry, "properties": hexFeatures[i].properties, "id": hashId });
                         } else {
-                            console.log("Invalid hexagon is getting created, ignoring this - " + JSON.stringify(hexFeatures[i]));
+                            console.log("Invalid hexagon created, ignoring it - " + JSON.stringify(hexFeatures[i]));
                             hexFeatures.splice(i, 1);
                         }
                     }
@@ -702,7 +702,7 @@ program
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {
-                        console.log("No valid Hexbins can be created for space with size " + cellsize);
+                        console.log("No valid hexbins can be created for space with size " + cellsize);
                     }
                 }
                 await updateCellSizeAndZoomLevelsInHexbinSpace(id, Array.from(zoomLevelSet), Array.from(cellSizeSet));
@@ -793,11 +793,11 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-r, --raw", "show raw xyzspace content")
+    .option("-r, --raw", "show raw XYZ space content")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
-    .option("-w, --web", "display xyzspace on http://geojson.tools")
-    .option("-v, --vector", "display xyzspace in Tangram")
+    .option("-w, --web", "display  XYZ space on http://geojson.tools")
+    .option("-v, --vector", "analzye XYZ Space Invader and tangram.js")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -908,7 +908,7 @@ program
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
     if(!options.force) {
-        console.log("Are you sure you want to delete the given space ?");
+        console.log("Are you sure you want to delete the given space?");
         const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
         const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -943,7 +943,7 @@ program
     .description("create a new xyzspace")
     // .option("-tmin, --tileMinLevel [tileMinLevel]", "Minimum Supported Tile Level")
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
-    .option("-t, --title [title]", "Title for xyzspace")
+    .option("-t, --title [title]", "Title for XYZ space")
     .option("-d, --message [message]", "Short description ")
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => createSpace(options)
@@ -995,8 +995,8 @@ async function createSpace(options: any) {
 program
     .command("clear <id>")
     .description("clear data from xyz space")
-    .option("-t, --tags [tags]", "tags for the xyz space")
-    .option("-i, --ids [ids]", "ids for the xyz space")
+    .option("-t, --tags [tags]", "tags for the XYZ space")
+    .option("-i, --ids [ids]", "ids for the XYZ space")
     .option("--force", "skip the confirmation prompt")
     .action( async (id, options) => {
         if(!options.force) {
@@ -1053,7 +1053,7 @@ async function clearSpace(id: string, options: any) {
 
 program
     .command("token")
-    .description("list all xyz token ")
+    .description("list all XYZ tokens ")
     .action(() => {
         listTokens().catch((error) => {
             handleError(error);
@@ -1106,24 +1106,24 @@ program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
     .option("-f, --file <file>", "GeoJSON, CSV, or Shapefile to upload -- put quotes around geojson and CSV URLs")
-    .option("-c, --chunk [chunk]", "chunk size")
+    .option("-c, --chunk [chunk]", "chunk size, default 200")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
-//     .option("-z, --alt [alt]", "altitude field name") // this is not used in geojson
-    .option('-z, --point [point]', 'points field name')
-    .option("-p, --ptag [ptag]", "property names to be used to add tag")
-    .option("-i, --id [id]", "property name(s) to be used as the feature ID")
+//     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
+    .option('-z, --point [point]', 'points field name with coordinates like `(37.7,-122.4)`')
+    .option("-p, --ptag [ptag]", "property names to be used to add tags")
+    .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
         "-a, --assign",
-        "list the sample data and allows you to assign fields which needs to be selected as tags,id and string-fields"
+        "lists sample data assign fields which needs to be selected as tags"
     )
     .option(
         "-u, --unique",
         "option to enforce uniqueness to the id by creating a hash of feature and use that as id"
     )
-    .option("-o, --override", "override the data even if it share same id")
-    .option("-s, --stream", "streaming data support for large file uploads")
+    .option("-o, --override", "override the data even if it shares the same feature id")
+    .option("-s, --stream", "streaming data support for large csv and geojson uploads")
     .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ';')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
@@ -1212,12 +1212,12 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
             .then(x => {
                 queue.uploadCount += 1;
                 queue.chunksize--;
-                process.stdout.write("\ruploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(2) + "%");
+                process.stdout.write("\ruploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(1) + "%");
                 done();
             }).catch((err) => {
                 queue.failedCount += 1;
                 queue.chunksize--;
-                console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(2) + "%");
+                console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(1) + "%");
                 done();
             });
     });
@@ -1720,7 +1720,7 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
-    finalTags.push(value);
+    finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
 }
@@ -1843,7 +1843,7 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string) {
 
 program
     .command("config <id>")
-    .description("configure/view advanced xyz features for space")
+    .description("configure/view advanced XYZ features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
     .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
@@ -1909,7 +1909,7 @@ async function configXyzSpace(id: string, options: any) {
             }
         }
         if(options.schema == true) {
-            console.log("Are you sure you want to remove the schema definition of the given space ?");
+            console.log("Are you sure you want to remove the schema definition of the given space?");
             const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
             const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -1917,7 +1917,8 @@ async function configXyzSpace(id: string, options: any) {
                 console.log("CANCELLED !");
                 process.exit(1);
             }
-            console.log("Removing schema def for the space.")
+            console.log("Removing schema definition for the space.")
+            patchRequest['processors'] = [];
 
         } else {
             let schemaDef:string = "";
@@ -1996,6 +1997,7 @@ function showSpaceStats(spacestatsraw: any) {
     let spacestats: any = [];
     let allSearchable = false;
     let size = spacestatsraw.byteSize.value
+    // convert to KB/MB/GB as appropriate
     let kbSize : any = (size/1024).toFixed(1);
     var mbSize : any = (kbSize/1024).toFixed(1);
     var gbSize : any = (mbSize/1024).toFixed(1);
@@ -2070,11 +2072,11 @@ function showSpaceConfig(spacedef: any) {
 program
     .command("virtualize")
     .alias("vs")
-    .description("{xyz pro} create a new virtual xyzspace")    
-    .option("-t, --title [title]", "Title for virtual xyzspace")
+    .description("{xyz pro} create a new virtual XYZ space")    
+    .option("-t, --title [title]", "Title for virtual XYZ space")
     .option("-d, --message [message]", "set description for the space")
-    .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response), enter comma separated space ids")
-    .option("-a, --associate [spaceids]", "Associate the spaces (The features with same id will be merged into a single feature), enter comma separated space ids")
+    .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response) - enter comma separated space ids")
+    .option("-a, --associate [spaceids]", "Associate the spaces. Features same id will be merged into one feature. Enter comma separated space ids, space1,space2. space1 properties will be merged into space2 features.")
     .action(options => createVirtualSpace(options).catch((err) => { handleError(err) }));
 
     async function createVirtualSpace(options:any){
@@ -2083,10 +2085,10 @@ program
 
         if (options) {
             if (!options.title) {
-                options.title = "a new virtual xyzspace created from commandline";
+                options.title = "a new virtual XYZ space created from commandline";
             }
             if (!options.message) {
-                options.message = "a new virtual xyzspace created from commandline";
+                options.message = "a new virtual XYZ space created from commandline";
             }
             if(options.group && options.associate) {
                 console.log("ERROR : please select either associate or group");
