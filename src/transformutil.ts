@@ -207,9 +207,9 @@ async function toGeoJsonFeature(object: any, options: any) {
         } else if (!options.altField && isAlt(key)) {
             alt = object[k];
         } else {
-            if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isNumeric(object[k])){
+            if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isNumeric(object[k])){
                 props[key] = parseFloat(object[k]);
-            } else if(!(options.stringFields && options.stringFields.split(",").includes(object[k])) && isBoolean(object[k].trim())){
+            } else if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isBoolean(object[k].trim())){
                 props[key] = object[k].trim().toLowerCase() == 'true' ? true : false;
             } else {
                 props[key] = object[k].trim();
