@@ -85,6 +85,16 @@ const questionAnalyze = [
     }
 ];
 
+
+const tagruleDeletePrompt = [
+    {
+        type: "checkbox",
+        name: "tagruleChoices",
+        message: "Select tag rule(s) to be deleted",
+        choices: choiceList
+    }
+]
+
 program.version("0.1.0");
 
 function getGeoSpaceProfiles(title: string, description: string, client: any) {
@@ -1840,31 +1850,38 @@ program
         });
     })
 
-async function configXyzSpace(id:string, options:any) {
+async function configXyzSpace(id: string, options: any) {
 
     await common.verifyProBetaLicense();
-    
-    let patchRequest:any = {};
 
-    if(options.autotag) {
-        console.log("Sorry! autotag is not available. It's WIP")
-        process.exit(1);
+    let patchRequest: any = {};
+    let spacedef:any = null;
+
+    if(options.schema) {
+        const url = `/hub/spaces/${id}?clientId=cli`
+        const { response, body } = await execute(
+                url,
+                "GET",
+                "application/json",
+                ""                
+            );
+        spacedef = body;
     }
 
-    if(options.title) {
+    if (options.title) {
         patchRequest['title'] = options.title;
     }
-    if(options.message) {
+    if (options.message) {
         patchRequest['description'] = options.message;
     }
-    if(options.copyright) {
-        let copyright:any = [];
-        copyright.push({label: options.copyright});
+    if (options.copyright) {
+        let copyright: any = [];
+        copyright.push({ label: options.copyright });
         patchRequest['copyright'] = copyright;
     }
-    
-    if(options.shared) {
-        if(options.shared == 'true') {
+
+    if (options.shared) {
+        if (options.shared == 'true') {
             console.log("setting the space SHARED");
             patchRequest['shared'] = true;
         } else {
@@ -1874,6 +1891,15 @@ async function configXyzSpace(id:string, options:any) {
     }
 
     if(options.schema) {
+        if (spacedef.processors) {
+            let i = spacedef.processors.length;
+            while (i--) {
+                let processor = spacedef.processors[i];
+                if (processor.id === 'schema-validator') {
+                    spacedef.processors.splice(i, 1);
+                }
+            }
+        }
         if(options.schema == true) {
             console.log("Are you sure you want to remove the schema definition of the given space ?");
             const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
@@ -1884,7 +1910,6 @@ async function configXyzSpace(id:string, options:any) {
                 process.exit(1);
             }
             console.log("Removing schema def for the space.")
-            patchRequest['processors'] = [];
 
         } else {
             let schemaDef:string = "";
@@ -1895,70 +1920,72 @@ async function configXyzSpace(id:string, options:any) {
             }
             schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
             //console.log(JSON.stringify(schemaDef));
-            let processors = [];
-            processors.push(getSchemaProcessorProfile(schemaDef));
-            patchRequest['processors'] = processors;
+            
+            if(!spacedef.processors)
+                spacedef.processors = [];
+            spacedef.processors.push(getSchemaProcessorProfile(schemaDef));
+            
         }
+        patchRequest['processors'] = spacedef.processors;
     }
-        
-    
-    if(Object.keys(patchRequest).length > 0) {
 
-        if(options.stats) {
+    if (Object.keys(patchRequest).length > 0) {
+
+        if (options.stats) {
             console.log("Request of stats will be ignored, stats option can only be used standalone or with -r/--raw")
         }
 
         const url = `/hub/spaces/${id}?clientId=cli`
         const { response, body } = await execute(
-                url,
-                "PATCH",
-                "application/json",
-                patchRequest,
-                null,
-                false
-            );
+            url,
+            "PATCH",
+            "application/json",
+            patchRequest,
+            null,
+            false
+        );
 
-        if(response.statusCode >= 200 && response.statusCode < 210) {
+        if (response.statusCode >= 200 && response.statusCode < 210) {
             console.log("space config updated successfully!");
         }
     } else if (options.stats) {
         const url = `/hub/spaces/${id}/statistics?clientId=cli`
         const { response, body } = await execute(
-                url,
-                "GET",
-                "application/json",
-                ""                
-            );
+            url,
+            "GET",
+            "application/json",
+            ""
+        );
 
-        if(response.statusCode >= 200 && response.statusCode < 210) {
-            if(options.raw) {
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            if (options.raw) {
                 console.log(body);
-            } else {                
+            } else {
                 showSpaceStats(body);
             }
         }
     } else {
         const url = `/hub/spaces/${id}?clientId=cli`
         const { response, body } = await execute(
-                url,
-                "GET",
-                "application/json",
-                ""                
-            );
+            url,
+            "GET",
+            "application/json",
+            ""
+        );
 
-        if(response.statusCode >= 200 && response.statusCode < 210) {
-            if(options.raw) {
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            if (options.raw) {
                 console.log(body);
             } else {
-                showSpaceConfig(body);                
+                showSpaceConfig(body);
             }
         }
-    }    
+    }
 }
 
-function showSpaceStats(spacestatsraw:any) {
+function showSpaceStats(spacestatsraw: any) {
     console.log("=========== SPACE MAIN STATS INFO ===========")
-    let spacestats:any = [];
+    let spacestats: any = [];
     let allSearchable = false;
     spacestats.push({ property: 'BBox', value: spacestatsraw.bbox.value, estimated: spacestatsraw.bbox.estimated });
     spacestats.push({ property: 'Byte Size', value: spacestatsraw.byteSize.value, estimated: spacestatsraw.byteSize.estimated });
@@ -1966,19 +1993,19 @@ function showSpaceStats(spacestatsraw:any) {
     spacestats.push({ property: 'Geometry Types', value: spacestatsraw.geometryTypes.value, estimated: spacestatsraw.geometryTypes.estimated });
     spacestats.push({ property: 'Properties Searchable', value: spacestatsraw.properties.searchable, estimated: '' });
 
-    if(spacestatsraw.properties.searchable === 'ALL') {
+    if (spacestatsraw.properties.searchable === 'ALL') {
         allSearchable = true;
     }
     console.table(spacestats);
 
-    if(spacestatsraw.tags && spacestatsraw.tags.value) {
+    if (spacestatsraw.tags && spacestatsraw.tags.value) {
         console.log("=========== FEATURES' TAGS STATS INFO ===========")
         console.log("Estimated : " + spacestatsraw.tags.estimated)
         console.table(spacestatsraw.tags.value);
     }
 
 
-    if(spacestatsraw.properties && spacestatsraw.properties.value) {
+    if (spacestatsraw.properties && spacestatsraw.properties.value) {
         console.log("=========== FEATURES' PROPERTIES STATS INFO ===========")
         console.log("Estimated : " + spacestatsraw.properties.estimated)
         if (allSearchable) {
@@ -1990,21 +2017,21 @@ function showSpaceStats(spacestatsraw:any) {
     }
 }
 
-function showSpaceConfig(spacedef:any) {
+function showSpaceConfig(spacedef: any) {
     console.log("=========== SPACE CONFIG INFO ===========")
-    
-    if(spacedef.copyright) {
+
+    if (spacedef.copyright) {
         let copr = [];
-        for(let n=0; n < spacedef.copyright.length; n++) {
+        for (let n = 0; n < spacedef.copyright.length; n++) {
             const obj = spacedef.copyright[n];
             copr.push(obj.label);
-        }        
+        }
         spacedef.copyright = copr;
     }
 
-    if(spacedef.processors) { 
-        let processors:any = [];
-        for(let n=0; n < spacedef.processors.length; n++) {
+    if (spacedef.processors) {
+        let processors: any = [];
+        for (let n = 0; n < spacedef.processors.length; n++) {
             let processor = spacedef.processors[n];
             processors.push(processor.id)
         }
@@ -2012,10 +2039,10 @@ function showSpaceConfig(spacedef:any) {
         spacedef.processors = JSON.stringify(processors);
     }
 
-    if(spacedef.storage) {
+    if (spacedef.storage) {
         spacedef.storageid = spacedef.storage.id;
 
-        if(spacedef.storage.params)
+        if (spacedef.storage.params)
             spacedef.storageparam = JSON.stringify(spacedef.storage.params);
 
         delete spacedef.storage;
@@ -2081,31 +2108,249 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
         "storage": {
             "id": "virtualspace",
             "params": {
-                virtualspace                
+                virtualspace
             }
         }
     }
 }
 
-function getRuleTaggerProcessorProfile(taggingRules:string) {
-  return  {
-        "id": "rule-tagger",
+function getSchemaProcessorProfile(schema: string) {
+    return {
+        "id": "schema-validator",
+        "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
         "params": {
-          "taggingRules": {
-            "sport": "$.features[?(@.properties.buildingType==\"stadium\")]"
-          }
+            "schema": schema
         }
-      }
+    }
 }
 
-function getSchemaProcessorProfile(schema:string) {
-   return  { 
-            "id": "schema-validator", 
-            "eventTypes": [ "ModifyFeaturesEvent.request", "ModifySpaceEvent.request" ], 
-            "params": {
-                    "schema": schema 
+function getEmptyRuleTaggerProfile(id:string) {
+    return {
+        "id": id,
+        "eventTypes": ["ModifyFeaturesEvent.request"],
+        "params": {
+            "taggingRules": {
+
+            }
+        }
+    }
+}
+
+function getEmptyRuleTaggerAsyncProcessorProfile() {
+    return getEmptyRuleTaggerProfile("rule-tagger-async");
+}
+
+function getEmptyRuleTaggerProcessorProfile() {
+    return getEmptyRuleTaggerProfile("rule-tagger");
+}
+
+function composeJsonPath(condition: string) {
+    condition = condition.toString();
+    condition = condition.replace(/p\./g, "@.properties.").replace(/f\./g, "@.");
+    let jsonPath: string = "$.features[?(" + condition + ")]";
+    return jsonPath;
+}
+
+function parseJsonPath(jsonPath: string) {
+    let myRegexp = /.\.features\[\?\((.*)\)\]/g;
+    let match: any = myRegexp.exec(jsonPath);
+    let expression = match[1];
+    let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
+    return condition;
+}
+
+function isValidTagName(tagName:string) {
+    return tagName && tagName.trim().length > 0 && tagName.indexOf(",") == -1
+}
+
+function isValidRuleExpression(ruleExpression:string) {
+    return ruleExpression && ruleExpression.trim().length > 4
+}
+
+program
+    .command("tagrules <id>")
+    .description("add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
+    .option("--add", "add new entries ( applicable for autotag option only )")
+    .option("--delete", "delete entries ( applicable for autotag option only )")
+    .option("--view", "view entries ( applicable for autotag option only )")
+    // .option("--async", "tag rule will be applied asynchronously after features are written to the storage")
+    // .option("--sync", " [DEFAULT] tag rule will be applied synchronously before features are written to the storage")
+    .action(function (id, options) {
+        tagRuleConfig(id, options).catch((error) => handleError(error))
+    })
+
+async function tagRuleConfig(id: string, options: any) {
+    await common.verifyProBetaLicense();
+    let patchRequest: any = {};
+    let spacedef: any = {};
+    const url = `/hub/spaces/${id}?clientId=cli`
+    const { response, body } = await execute(
+        url,
+        "GET",
+        "application/json",
+        ""
+    );
+    spacedef = body;
+
+    if (spacedef != null) {
+        let ruleTagger = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger' }) : null;
+        let ruleTaggerAsync = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger-async' }) : null;
+        let taggingRules: any;
+        let taggingRulesAsync: any;
+        if (ruleTagger) {
+            taggingRules = ruleTagger['params'].taggingRules;
+        }
+        if(ruleTaggerAsync) {
+            taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
+        }
+
+        if (options.delete) {
+            if((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
+                console.log("tagrules are not defined for this space yet..!")
+            }
+            else {
+                if (taggingRules && Object.keys(taggingRules).length > 0) {
+                    Object.keys(taggingRules).forEach(key => {
+                        choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRules[key]) + ' , mode : sync', 'value': "sync_" + key });
+                    })
                 }
-           }
+                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length > 0) {
+                    Object.keys(taggingRulesAsync).forEach(key => {
+                        choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRulesAsync[key]) + ' , mode : async  ', 'value': "async_" + key });
+                    })
+                }
+                    
+                let answers: any = await inquirer.prompt(tagruleDeletePrompt);
+                answers.tagruleChoices.forEach((key: string) => {
+                    if(key.startsWith("sync_")) {
+                        delete taggingRules[key.substring(5)];
+                    }
+                    if(key.startsWith("async_")) {
+                        delete taggingRulesAsync[key.substring(6)];
+                    }
+                })
+
+                if(taggingRules && Object.keys(taggingRules).length == 0) {
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'rule-tagger') {
+                            spacedef.processors.splice(i, 1);
+                        }
+                    }
+                }
+                if(taggingRulesAsync && Object.keys(taggingRulesAsync).length == 0) {
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'rule-tagger-async') {
+                            spacedef.processors.splice(i, 1);
+                        }
+                    }
+                }
+                patchRequest['processors'] = spacedef.processors;                    
+            } 
+        }
+        else if (options.add) {
+            if (!spacedef.processors)
+                spacedef.processors = [];
+
+            if(options.async) {
+                console.log("Starting to add a new asynchronous rule to automatically tag features..")   
+            } else {
+                console.log("Starting to add a new synchronous rule to automatically tag features..")
+            }
+                       
+            const tagNamePrompt = [{
+                type: 'input',
+                name: 'tagname',
+                message: 'Enter a tag name you would like to assign : '
+            }]
+            const tagNameInput = await inquirer.prompt<{ tagname: string }>(tagNamePrompt);
+            const tagName = tagNameInput.tagname;
+
+            if(isValidTagName(tagName)) {
+                if((!options.async && taggingRules && taggingRules[tagName]) || (options.async && taggingRulesAsync && taggingRulesAsync[tagName])) {
+                    console.log('there already exists a tag rule for tag `'+tagName+'`, if you continue, the existing tagrule will be replaced')
+                    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+                    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+                    if (termsResp !== "y" && termsResp !== "yes") {
+                        console.log("CANCELLED !");
+                        process.exit(1);
+                    }
+                }
+                console.log("Please enter condition(s) for the auto tagging your features with  `" + tagName +
+                    "` e.g. \"f.id == 123 || (p.country=='USA' & p.count<=100)\"")
+                const tagconditionPrompt = [{
+                    type: 'input',
+                    name: 'tagcondition',
+                    message: 'condition :  '
+                }]
+                const tagConditionInput: any = await inquirer.prompt<{ tagcondition?: string }>(tagconditionPrompt);
+                const tagCondition = tagConditionInput.tagcondition;
+                if(isValidRuleExpression(tagCondition)) {
+                const jsonPath = composeJsonPath(tagCondition);
+
+                if(options.async) {
+                    if(!ruleTaggerAsync) {
+                        ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
+                        spacedef.processors.push(ruleTaggerAsync);
+                    }
+                    taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
+                    taggingRulesAsync[tagName] = jsonPath;
+                } else {
+                    if(!ruleTagger) {
+                        ruleTagger = getEmptyRuleTaggerProcessorProfile();
+                        spacedef.processors.push(ruleTagger);
+                    }
+                    taggingRules = ruleTagger['params'].taggingRules;
+                    taggingRules[tagName] = jsonPath;
+                }
+                patchRequest['processors'] = spacedef.processors;
+                } else {
+                    console.log("invalid condition entered, please try again.");
+                    process.exit(1);
+                }
+            } else {
+                console.log("invalid tag name entered, please try again.");
+                process.exit(1);
+            }
+        } else { //also for --view
+            if((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
+                console.log("tagrules are not defined for this space yet..!")
+            } else {
+                let printdata: any = [];
+                if (taggingRules && Object.keys(taggingRules).length > 0) {
+                    Object.keys(taggingRules).forEach(key => {
+                        printdata.push({ 'tag_name': key, 'mode': 'sync', 'auto_tag_condition': parseJsonPath(taggingRules[key]) });
+                    })
+                }
+                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length > 0) {
+                    Object.keys(taggingRulesAsync).forEach(key => {
+                        printdata.push({ 'tag_name': key, 'mode': 'async', 'auto_tag_condition': parseJsonPath(taggingRulesAsync[key]) });
+                    })
+                }
+                console.table(printdata);
+            }  
+        }
+    }
+
+    if (Object.keys(patchRequest).length > 0) {
+
+        const url = `/hub/spaces/${id}?clientId=cli`
+        const { response, body } = await execute(
+            url,
+            "PATCH",
+            "application/json",
+            patchRequest,
+            null,
+            false
+        );
+
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("tagrules updated successfully!");
+        }
+    }
 }
 
 common.validate(
@@ -2123,7 +2368,8 @@ common.validate(
         "hexbin",
         "config",
         "vs",
-        "virtualize"
+        "virtualize",
+        "tagrules"
     ],
     [process.argv[2]],
     program
