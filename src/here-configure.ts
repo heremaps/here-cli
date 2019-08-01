@@ -33,7 +33,7 @@ const prompter = require('prompt');
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
     {
-        type: "rawlist",
+        type: "list",
         name: "tagChoices",
         message: "Select default AppId.",
         choices: choiceList
