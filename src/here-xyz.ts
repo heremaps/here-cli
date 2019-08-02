@@ -85,6 +85,14 @@ const questionAnalyze = [
     }
 ];
 
+const tagruleUpdatePrompt = [
+    {
+        type: "list",
+        name: "tagruleChoices",
+        message: "Select tag rule to be updated",
+        choices: choiceList
+    }
+]
 
 const tagruleDeletePrompt = [
     {
@@ -2170,9 +2178,10 @@ function isValidRuleExpression(ruleExpression:string) {
 program
     .command("tagrules <id>")
     .description("add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
-    .option("--add", "add new entries ( applicable for autotag option only )")
-    .option("--delete", "delete entries ( applicable for autotag option only )")
-    .option("--view", "view entries ( applicable for autotag option only )")
+    .option("--add", "add new tag rules")
+    .option("--delete", "delete tag rules")
+    .option("--update", "update existing tag rules")
+    .option("--view", "view existing tag rules")
     // .option("--async", "tag rule will be applied asynchronously after features are written to the storage")
     // .option("--sync", " [DEFAULT] tag rule will be applied synchronously before features are written to the storage")
     .action(function (id, options) {
@@ -2191,7 +2200,6 @@ async function tagRuleConfig(id: string, options: any) {
         ""
     );
     spacedef = body;
-
     if (spacedef != null) {
         let ruleTagger = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger' }) : null;
         let ruleTaggerAsync = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger-async' }) : null;
@@ -2200,17 +2208,15 @@ async function tagRuleConfig(id: string, options: any) {
         if (ruleTagger) {
             taggingRules = ruleTagger['params'].taggingRules;
         }
-        if(ruleTaggerAsync) {
+        if (ruleTaggerAsync) {
             taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
         }
 
         if (options.delete) {
-            if((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
+            if ((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
                 console.log("tagrules are not defined for this space yet..!");
-                // exiting
                 process.exit(1);
-            }
-            else {
+            } else {
                 if (taggingRules && Object.keys(taggingRules).length > 0) {
                     Object.keys(taggingRules).forEach(key => {
                         choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRules[key]) + ' , mode : sync', 'value': "sync_" + key });
@@ -2221,18 +2227,18 @@ async function tagRuleConfig(id: string, options: any) {
                         choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRulesAsync[key]) + ' , mode : async  ', 'value': "async_" + key });
                     })
                 }
-                    
+
                 let answers: any = await inquirer.prompt(tagruleDeletePrompt);
                 answers.tagruleChoices.forEach((key: string) => {
-                    if(key.startsWith("sync_")) {
+                    if (key.startsWith("sync_")) {
                         delete taggingRules[key.substring(5)];
                     }
-                    if(key.startsWith("async_")) {
+                    if (key.startsWith("async_")) {
                         delete taggingRulesAsync[key.substring(6)];
                     }
                 })
 
-                if(taggingRules && Object.keys(taggingRules).length == 0) {
+                if (taggingRules && Object.keys(taggingRules).length == 0) {
                     let i = spacedef.processors.length;
                     while (i--) {
                         let processor = spacedef.processors[i];
@@ -2241,7 +2247,7 @@ async function tagRuleConfig(id: string, options: any) {
                         }
                     }
                 }
-                if(taggingRulesAsync && Object.keys(taggingRulesAsync).length == 0) {
+                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length == 0) {
                     let i = spacedef.processors.length;
                     while (i--) {
                         let processor = spacedef.processors[i];
@@ -2250,19 +2256,86 @@ async function tagRuleConfig(id: string, options: any) {
                         }
                     }
                 }
-                patchRequest['processors'] = spacedef.processors;                    
-            } 
-        }
-        else if (options.add) {
+                patchRequest['processors'] = spacedef.processors;
+            }
+        } else if (options.update) {
+            if ((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
+                console.log("tagrules are not defined for this space yet..!");
+                process.exit(1);
+            } else {
+                // scope of improvement: can create a common method to load rules in choiceList to reuse in update, delete options.
+                if (taggingRules && Object.keys(taggingRules).length > 0) {
+                    Object.keys(taggingRules).forEach(key => {
+                        choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRules[key]) + ' , mode : sync', 'value': "sync_" + key });
+                    })
+                }
+                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length > 0) {
+                    Object.keys(taggingRulesAsync).forEach(key => {
+                        choiceList.push({ 'name': key + " , rule : " + parseJsonPath(taggingRulesAsync[key]) + ' , mode : async  ', 'value': "async_" + key });
+                    })
+                }
+
+                let answers: any = await inquirer.prompt(tagruleUpdatePrompt);
+                let key: string = answers.tagruleChoices;
+
+                let existingTag = "";
+                let existingCondition = "";
+                if (key.startsWith("sync_")) {
+                    existingTag = key.substring(5);
+                    existingCondition = parseJsonPath(taggingRules[key.substring(5)]);
+                }
+                if (key.startsWith("async_")) {
+                    existingTag = key.substring(6);
+                    existingCondition = parseJsonPath(taggingRules[key.substring(6)]);
+                }
+
+                const tagNamePrompt = [{
+                    type: 'input',
+                    name: 'tagname',
+                    message: 'Press ENTER to keep existing tag name OR type new tag name',
+                    default: existingTag
+                }]
+                const tagNameInput = await inquirer.prompt<{ tagname: string }>(tagNamePrompt);
+                const tagName = tagNameInput.tagname;
+
+                if (isValidTagName(tagName)) {
+                    console.log("Press ENTER OR type condition(s) for this tag rule. e.g. \"f.id == 123 || (p.country=='USA' & p.count<=100)\"")
+                    const tagconditionPrompt = [{
+                        type: 'input',
+                        name: 'tagcondition',
+                        message: 'condition : ',
+                        default: existingCondition
+                    }]
+
+                    const tagConditionInput: any = await inquirer.prompt<{ tagcondition?: string }>(tagconditionPrompt);
+                    const tagCondition = tagConditionInput.tagcondition;
+                    if (isValidRuleExpression(tagCondition)) {
+                        const jsonPath = composeJsonPath(tagCondition);
+                        if (key.startsWith("sync_")) {
+                            delete taggingRules[key.substring(5)];
+                            taggingRules[tagName] = jsonPath;
+                        }
+                        if (key.startsWith("async_")) {
+                            delete taggingRulesAsync[key.substring(6)];
+                            taggingRulesAsync[tagName] = jsonPath;
+                        }
+                    } else {
+                        console.log("invalid condition entered, please try again.");
+                        process.exit(1);
+                    }
+                    patchRequest['processors'] = spacedef.processors;
+                }
+            }
+        } else if (options.add) {
             if (!spacedef.processors)
                 spacedef.processors = [];
 
-            if(options.async) {
-                console.log("Starting to add a new asynchronous rule to automatically tag features..")   
+            if (options.async) {
+                console.log("Starting to add a new asynchronous rule to automatically tag features..")
             } else {
                 console.log("Starting to add a new synchronous rule to automatically tag features..")
             }
-                       
+
             const tagNamePrompt = [{
                 type: 'input',
                 name: 'tagname',
@@ -2271,9 +2344,9 @@ async function tagRuleConfig(id: string, options: any) {
             const tagNameInput = await inquirer.prompt<{ tagname: string }>(tagNamePrompt);
             const tagName = tagNameInput.tagname;
 
-            if(isValidTagName(tagName)) {
-                if((!options.async && taggingRules && taggingRules[tagName]) || (options.async && taggingRulesAsync && taggingRulesAsync[tagName])) {
-                    console.log('there already exists a tag rule for tag `'+tagName+'`, if you continue, the existing tagrule will be replaced')
+            if (isValidTagName(tagName)) {
+                if ((!options.async && taggingRules && taggingRules[tagName]) || (options.async && taggingRulesAsync && taggingRulesAsync[tagName])) {
+                    console.log('there already exists a tag rule for tag `' + tagName + '`, if you continue, the existing tagrule will be replaced')
                     const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
                     const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
                     if (termsResp !== "y" && termsResp !== "yes") {
@@ -2290,25 +2363,25 @@ async function tagRuleConfig(id: string, options: any) {
                 }]
                 const tagConditionInput: any = await inquirer.prompt<{ tagcondition?: string }>(tagconditionPrompt);
                 const tagCondition = tagConditionInput.tagcondition;
-                if(isValidRuleExpression(tagCondition)) {
-                const jsonPath = composeJsonPath(tagCondition);
+                if (isValidRuleExpression(tagCondition)) {
+                    const jsonPath = composeJsonPath(tagCondition);
 
-                if(options.async) {
-                    if(!ruleTaggerAsync) {
-                        ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
-                        spacedef.processors.push(ruleTaggerAsync);
+                    if (options.async) {
+                        if (!ruleTaggerAsync) {
+                            ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
+                            spacedef.processors.push(ruleTaggerAsync);
+                        }
+                        taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
+                        taggingRulesAsync[tagName] = jsonPath;
+                    } else {
+                        if (!ruleTagger) {
+                            ruleTagger = getEmptyRuleTaggerProcessorProfile();
+                            spacedef.processors.push(ruleTagger);
+                        }
+                        taggingRules = ruleTagger['params'].taggingRules;
+                        taggingRules[tagName] = jsonPath;
                     }
-                    taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
-                    taggingRulesAsync[tagName] = jsonPath;
-                } else {
-                    if(!ruleTagger) {
-                        ruleTagger = getEmptyRuleTaggerProcessorProfile();
-                        spacedef.processors.push(ruleTagger);
-                    }
-                    taggingRules = ruleTagger['params'].taggingRules;
-                    taggingRules[tagName] = jsonPath;
-                }
-                patchRequest['processors'] = spacedef.processors;
+                    patchRequest['processors'] = spacedef.processors;
                 } else {
                     console.log("invalid condition entered, please try again.");
                     process.exit(1);
@@ -2318,7 +2391,7 @@ async function tagRuleConfig(id: string, options: any) {
                 process.exit(1);
             }
         } else { //also for --view
-            if((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
+            if ((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
                 console.log("tagrules are not defined for this space yet..!")
             } else {
                 let printdata: any = [];
@@ -2333,7 +2406,7 @@ async function tagRuleConfig(id: string, options: any) {
                     })
                 }
                 console.table(printdata);
-            }  
+            }
         }
     }
 
@@ -2354,7 +2427,6 @@ async function tagRuleConfig(id: string, options: any) {
         }
     }
 }
-
 common.validate(
     [
         "list",
