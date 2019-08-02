@@ -2207,6 +2207,7 @@ async function tagRuleConfig(id: string, options: any) {
         if (options.delete) {
             if((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
                 console.log("tagrules are not defined for this space yet..!")
+                process.exit(1);
             }
             else {
                 if (taggingRules && Object.keys(taggingRules).length > 0) {
