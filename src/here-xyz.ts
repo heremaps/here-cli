@@ -511,7 +511,7 @@ program
                             let zoomLevels = item.split("-");
                             if (zoomLevels.length === 1) {
                                 let number = parseInt(zoomLevels[0].toLowerCase());
-                                if (isNaN(number) || number < 1 || number >= 16) {
+                                if (isNaN(number) || number < 1 || number > 16) {
                                     console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
                                     process.exit(1);
                                 }
