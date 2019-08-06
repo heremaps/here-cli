@@ -511,7 +511,7 @@ program
                             let zoomLevels = item.split("-");
                             if (zoomLevels.length === 1) {
                                 let number = parseInt(zoomLevels[0].toLowerCase());
-                                if (isNaN(number) || number < 1 || number >= 16) {
+                                if (isNaN(number) || number < 1 || number > 16) {
                                     console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
                                     process.exit(1);
                                 }
@@ -1111,7 +1111,7 @@ program
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
 //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
-    .option('-z, --point [point]', 'points field name with coordinates like `(37.7,-122.4)`')
+    .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
@@ -1124,7 +1124,7 @@ program
     )
     .option("-o, --override", "override the data even if it shares the same feature id")
     .option("-s, --stream", "streaming data support for large csv and geojson uploads")
-    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ';')
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
