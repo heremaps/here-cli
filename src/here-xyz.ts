@@ -1116,7 +1116,7 @@ program
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
         "-a, --assign",
-        "lists sample data assign fields which needs to be selected as tags"
+        "list the sample data and allows you to assign fields which needs to be selected as tags,id and string-fields"
     )
     .option(
         "-u, --unique",

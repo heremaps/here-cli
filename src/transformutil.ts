@@ -170,6 +170,9 @@ function dataToJson(file_data: string, opt: any = null) {
 
 export async function transform(result: any[], options: any) {
     const objects: any[] = [];
+    if(options.assign && result.length > 0){
+        await setStringFieldsFromUser(result[0],options);
+    }
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options);
         if (ggson) {
@@ -177,6 +180,26 @@ export async function transform(result: any[], options: any) {
         }
     }
     return objects;
+}
+
+async function setStringFieldsFromUser(object:any, options: any){
+    let choiceList = createQuestionsList(object);
+    const stringFieldQuestion = [
+        {
+            type: "checkbox",
+            name: "stringFieldChoice",
+            message:
+                "Select attributes which should be stored as String even though they are numbers/boolean (especially where leading zeros are important e.g. postal codes, FIPS codes)",
+            choices: choiceList
+        }
+    ];
+    let answers: any = await inquirer.prompt(stringFieldQuestion);
+    if (options.stringFields === undefined || options.stringFields == '') {
+        options.stringFields = "";
+    } else {
+        options.stringFields = options.stringFields + ",";
+    }
+    options.stringFields = options.stringFields + answers.stringFieldChoice;
 }
 
 async function toGeoJsonFeature(object: any, options: any) {
