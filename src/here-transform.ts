@@ -40,10 +40,10 @@ program
     .description('convert csv to geojson')
     .option('-y, --lat [lat]', 'latitude field name')
     .option('-x, --lon [lon]', 'longitude field name')
-    .option('-z, --alt [alt]', 'altitude field name')
+//     .option('-z, --alt [alt]', 'altitude field name') // not used in geojson
     .option('-d, --delimiter [,]', 'delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
-    .option('-w, --point [point]', 'points field name')
+    .option('-z, --point [point]', 'points field name')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (path, opt) {
         transform.read(path, true, { delimiter: opt.delimiter, quote: opt.quote }).then(async result => {
