@@ -210,7 +210,7 @@ async function toGeoJsonFeature(object: any, options: any) {
     let alt = undefined;
     for (const k in object) {
         let key = k.trim();
-        if (key == options.pointField) { // we shouldn't automatically look for a field called points
+        if (key == options.point) { // we shouldn't automatically look for a field called points
             //console.log('extracting lat/lon from',pointField,object[k])
             const point = object[k].match(/([-]?\d+.[.]\d+)/g);
             if(point) {
