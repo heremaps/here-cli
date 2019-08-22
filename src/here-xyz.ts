@@ -708,7 +708,7 @@ program
                         console.log("No valid hexbins can be created for space with size " + cellsize);
                     }
                 }
-                await updateCellSizeAndZoomLevelsInHexbinSpace(id, Array.from(zoomLevelSet), Array.from(cellSizeSet));
+                await updateCellSizeAndZoomLevelsInHexbinSpace(id, Array.from(zoomLevelSet), Array.from(cellSizeSet), options.token);
                 console.log("hexbins written to space " + id + " from points in source space " + sourceId);
                 //});
             } catch (error) {
@@ -746,7 +746,7 @@ async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string) {
     return body;
 }
 
-async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: string[], cellSizes: string[]) {
+async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: string[], cellSizes: string[], token: string | null = null) {
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
     const data = {
@@ -755,7 +755,7 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
             cellSizes: cellSizes
         }
     }
-    const { response, body } = await execute(uri, "PATCH", cType, data);
+    const { response, body } = await execute(uri, "PATCH", cType, data, token);
     return body;
 }
 
