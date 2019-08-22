@@ -593,7 +593,11 @@ program
                 let newspaceData;
                 if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
                     console.log("No hexbin space found, creating hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData);
+                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
+                    id = newspaceData.id;
+                } else if(sourceSpaceData.shared == true || options.readToken) {
+                    console.log("shared space or readToken found, creating new hexbin space");
+                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, false, options.writeToken);
                     id = newspaceData.id;
                 } else {
                     try{
@@ -603,7 +607,7 @@ program
                     } catch (error){
                         if(error.statusCode && error.statusCode == 404){
                             console.log("looks like existing hexbin space " + id + " has been deleted, creating new one ");
-                            newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData);
+                            newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData,true, options.writeToken);
                             id = newspaceData.id;
                         } else {
                             throw error;
@@ -713,17 +717,20 @@ program
         })();
     });
 
-async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any){
+async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null){
     let newSpaceConfig = {
         title: 'hexbin space of ' + sourceSpaceData.title,
         message: 'hexbin space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
         client: {
             sourceSpaceId: sourceId,
             type: 'hexbin'
-        }
+        },
+        token: newSpacetoken
     }
     let newspaceData = await createSpace(newSpaceConfig);
-    await updateClientHexbinSpaceId(sourceId, newspaceData.id);
+    if(updateSourceMetadata){
+        await updateClientHexbinSpaceId(sourceId, newspaceData.id);
+    }
     return newspaceData;
 }
 
@@ -986,7 +993,7 @@ async function createSpace(options: any) {
     }
 
 
-    const { response, body }  = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    const { response, body }  = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
     console.log("xyzspace '" + body.id + "' created successfully");
     return body;
 }
