@@ -391,7 +391,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`getting data from XYZ space failed: ${error}`);
+                console.error(`getting data from XYZ space failed: ${JSON.stringify(error)}`);
                 reject(error);
             }
         })();
@@ -546,8 +546,8 @@ program
                 } else {
                     cellSizes.push(2000);
                 }
-                if (!options.latitude) {
-                    options.latitude = await getCentreLatitudeOfSpace(id, options.readToken);
+                if (!options.latitude && !options.readToken) {
+                    options.latitude = await getCentreLatitudeOfSpace(id);
                     if (!options.latitude) {
                         options.latitude = 0;
                     }
