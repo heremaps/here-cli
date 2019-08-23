@@ -27,18 +27,32 @@ import { requestAsync } from "./requestAsync";
 import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
 
+import {table,getBorderCharacters} from 'table';
+
 const fs = require('fs');
 const path = require('path');
 
 const settings = require('user-settings').file('.herecli');
-const table = require("console.table");
+const tableConsole = require("console.table");
+//const tableNew = require("table");
+
 // TODO this should go into env config as well
 export const xyzRoot = () => "https://xyz.api.here.com";
 
 export const keySeparator = "%%";
 
 export let validated = false;
+let rows = 100;
 
+const tableConfig:any = {
+    border: getBorderCharacters(`norc`),
+    columnDefault: {
+        wrapWord: true
+    },
+    drawHorizontalLine: (index:number, size:number) => {
+        return index === 0 || index === 1 || index === rows || index === size;
+    }
+};
 
 const questionLicense = [
     {
@@ -51,8 +65,6 @@ const questionLicense = [
 export async function resetTermsFlag() {
     settings.set('ProBetaLicense', 'false');
 }
-
-
 
 export async function verifyProBetaLicense() {
     
@@ -351,8 +363,45 @@ export function timeStampToLocaleString(timeStamp: number) {
     });
 }
 
+export function drawNewTable(data: any, columns: any, columnWidth?: any) {
+    if(!columnWidth && columns && columns.length > 2) {
+        columnWidth = [];
+        let size = Math.floor(115 / columns.length);
+        for(let n in columns) {
+            columnWidth.push(size);
+        }
+    }
+    if(columnWidth && columnWidth.length > 0 && columns && columns.length == columnWidth.length) {
+        const obj:any = {};
+        for(let i = 0; i < columnWidth.length; i++) {
+            obj[i] = { width: columnWidth[i] }
+        }
+        tableConfig['columns'] = obj;
+    }
+    rows = data.length + 1 ; // +1 for header
+    let output = table(extractTableData(columns, data),tableConfig);
+    console.log(output);
+}
+
 export function drawTable(data: any, columns: any) {
-    console.table(extractData(columns, data));
+
+    //console.table(extractData(columns, data));
+    drawNewTable(data, columns);
+}
+
+function extractTableData(fields: any, data: any) {
+    const rowArr = new Array();
+    rowArr.push(fields);
+    for(const r in data) {
+        const colArr = new Array();
+        for(const c in fields) {
+            const fieldname = fields[c];
+            //colArr.push(data[r][fieldname]);
+            colArr.push(resolveObject(fieldname, data[r]));
+        }
+        rowArr.push(colArr);
+    }
+    return rowArr;
 }
 
 function extractData(fields: any, data: any) {
