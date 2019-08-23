@@ -60,6 +60,7 @@ const questions = [
     }
 ];
 
+
 const titlePrompt = [
     {
         type: 'input',
@@ -258,17 +259,7 @@ program
 
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
-    const cType = "application/json";
-    let tableFunction = common.drawTable;
-    if (options.raw) {
-        tableFunction = function (data: any, columns: any) {
-            try {
-                console.log(JSON.stringify(JSON.parse(data), null, 2));
-            } catch (e) {
-                console.log(JSON.stringify(data, null, 2));
-            }
-        };
-    }
+    const cType = "application/json";   
     const { response, body } = await execute(uri, "GET", cType, "");
     if (body.length == 0) {
         console.log("No xyzspace found");
@@ -277,7 +268,15 @@ async function listSpaces(options: any) {
         if (options.prop.length > 0) {
             fields = options.prop;
         }
-        tableFunction(body, fields);
+        if (options.raw) {
+            try {
+                    console.log(JSON.stringify(JSON.parse(body), null, 2));
+                } catch (e) {
+                    console.log(JSON.stringify(body, null, 2));
+            }
+        } else {
+            common.drawNewTable(body, fields, [10,40,60]);
+        }
     }
 }
 
@@ -1094,12 +1093,7 @@ async function listTokens() {
     console.log(
         "===================================================="
     );
-    common.drawTable(tokenInfo.tokens, [
-        "id",
-        "type",
-        "iat",
-        "description"
-    ]);
+    common.drawNewTable(tokenInfo.tokens, ["id","type","iat","description"], [25,10,10,70]);
 }
 
 program
@@ -2014,12 +2008,13 @@ function showSpaceStats(spacestatsraw: any) {
     if (spacestatsraw.properties.searchable === 'ALL') {
         allSearchable = true;
     }
-    console.table(spacestats);
+    //console.table(spacestats);
+    common.drawNewTable(spacestats, ['property', 'value', 'estimated'], [20,30,10]);
 
     if (spacestatsraw.tags && spacestatsraw.tags.value) {
         console.log("=========== FEATURES' TAGS STATS INFO ===========")
         console.log("Estimated : " + spacestatsraw.tags.estimated)
-        console.table(spacestatsraw.tags.value);
+        common.drawNewTable(spacestatsraw.tags.value, ['key','count'],[50,10]);
     }
 
 
@@ -2027,16 +2022,23 @@ function showSpaceStats(spacestatsraw: any) {
         console.log("=========== FEATURES' PROPERTIES STATS INFO ===========")
         console.log("Estimated : " + spacestatsraw.properties.estimated)
         if (allSearchable) {
-            console.log("All Properties searchable")
-            common.drawTable(spacestatsraw.properties.value, ['key', 'count'])
+            console.log("ALL Properties searchable")
+            common.drawNewTable(spacestatsraw.properties.value, ['key', 'count'])
         } else {
-            console.table(spacestatsraw.properties.value);
+            common.drawNewTable(spacestatsraw.properties.value, ['key', 'count','searchable'], [50,15,10]);
         }
     }
 }
 
 function showSpaceConfig(spacedef: any) {
     console.log("=========== SPACE CONFIG INFO ===========")
+    let spaceconfigs: any = [];
+    spaceconfigs.push({property: 'id', value:  spacedef.id});
+    spaceconfigs.push({property: 'title', value:  spacedef.title});
+    spaceconfigs.push({property: 'description', value:  spacedef.description});
+    spaceconfigs.push({property: 'owner', value:  spacedef.owner});
+    spaceconfigs.push({property: 'cid/app_id', value:  spacedef.cid});
+
 
     if (spacedef.copyright) {
         let copr = [];
@@ -2045,6 +2047,7 @@ function showSpaceConfig(spacedef: any) {
             copr.push(obj.label);
         }
         spacedef.copyright = copr;
+        spaceconfigs.push({property: 'copyright', value: spacedef.copyright});
     }
 
     if (spacedef.processors) {
@@ -2055,6 +2058,18 @@ function showSpaceConfig(spacedef: any) {
         }
 
         spacedef.processors = JSON.stringify(processors);
+        spaceconfigs.push({property: 'processors', value: JSON.stringify(processors)});
+    }
+
+    if (spacedef.listeners) {
+        let listeners: any = [];
+        for (let n = 0; n < spacedef.listeners.length; n++) {
+            let listener = spacedef.listeners[n];
+            listeners.push(listener.id)
+        }
+
+        spacedef.processors = JSON.stringify(listeners);
+        spaceconfigs.push({property: 'listeners', value: JSON.stringify(listeners)});
     }
 
     if (spacedef.storage) {
@@ -2063,10 +2078,14 @@ function showSpaceConfig(spacedef: any) {
         if (spacedef.storage.params)
             spacedef.storageparam = JSON.stringify(spacedef.storage.params);
 
+     
+        spaceconfigs.push({property: 'storageparam', value:  JSON.stringify(spacedef.storage.params)});
+        spaceconfigs.push({property: 'storageid', value:  spacedef.storageid});
+
         delete spacedef.storage;
     }
-
-    console.table(spacedef);
+    common.drawNewTable(spaceconfigs, ['property','value'], [30,80])
+    //console.table(spacedef);
 }
 
 program
@@ -2415,7 +2434,7 @@ async function tagRuleConfig(id: string, options: any) {
                         printdata.push({ 'tag_name': key, 'mode': 'async', 'auto_tag_condition': parseJsonPath(taggingRulesAsync[key]) });
                     })
                 }
-                console.table(printdata);
+                common.drawNewTable(printdata, ['tag_name','mode','auto_tag_condition'],[35,5,75]);
             }
         }
     }
