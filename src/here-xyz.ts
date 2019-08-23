@@ -716,7 +716,7 @@ program
 async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any){
     let newSpaceConfig = {
         title: 'hexbin space of ' + sourceSpaceData.title,
-        description: 'hexbin space of ' + sourceSpaceData.title,
+        message: 'hexbin space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
         client: {
             sourceSpaceId: sourceId,
             type: 'hexbin'
