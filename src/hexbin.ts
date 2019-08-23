@@ -184,7 +184,7 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     let groupPropertyCount: any = {};
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
-      if (feature.geometry.type.toLowerCase() === 'point') {
+      if (feature.geometry != null && feature.geometry.type != null && feature.geometry.type.toLowerCase() === 'point') {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
         let x = getHexBin(feature, degreesCellSize, false);
