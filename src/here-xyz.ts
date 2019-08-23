@@ -592,13 +592,13 @@ program
                 */
                 let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
                 let newspaceData;
-                if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
-                    console.log("No hexbin space found, creating hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
-                    id = newspaceData.id;
-                } else if(sourceSpaceData.shared == true || options.readToken) {
+                if(sourceSpaceData.shared == true || options.readToken) {
                     console.log("shared space or readToken found, creating new hexbin space");
                     newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, false, options.writeToken);
+                    id = newspaceData.id;
+                } else if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
+                    console.log("No hexbin space found, creating hexbin space");
+                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
                     id = newspaceData.id;
                 } else {
                     try{
