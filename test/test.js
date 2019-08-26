@@ -161,7 +161,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('analyzeSpace')("myspace", { raw: false, prop: [] });
       capcon.stopCapture(process.stdout);      
-      if (output.indexOf("ruleId        ADD029  2")!=-1) {
+      if (output.indexOf("ruleId                                 │ ADD029                                 │ 2")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -177,7 +177,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('showSpace')("myspace", { raw: false });
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("9376020521  MultiLineString  workspace@weu_bw_1901")!=-1) {
+      if (output.indexOf("9376020521              │ MultiLineString         │ workspace@weu_bw_1901")!=-1) {        
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -250,7 +250,7 @@ describe('Configure', function () {
       } else {
         assert.fail();
       }
-      if (output.indexOf("a   b     c    d")!=-1) {
+      if (output.indexOf("a                         │ b          │ c          │ d")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -301,7 +301,7 @@ describe('Configure', function () {
       } else {
         assert.fail();
       }
-      if (output.indexOf("sample   1")!=-1) {
+      if (output.indexOf("sample                    │ 1")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
