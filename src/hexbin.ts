@@ -172,7 +172,7 @@ function hexagon(center:number[], rx:number, ry:number, properties:any, cosines:
     return feature;
 }
 
-function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, cellSizeLatitude: number, existingHexFeatures:any[]){
+function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, existingHexFeatures:any[]){
     let gridMap: any={};
     if(existingHexFeatures && Array.isArray(existingHexFeatures)){
         existingHexFeatures.forEach(function (hexFeature){
@@ -180,6 +180,7 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
         });
     }
     let maxCount = 0;
+    let maxSum = 0;
     //let minCount = Number.MAX_SAFE_INTEGER;
     let groupPropertyCount: any = {};
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
@@ -215,6 +216,20 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
           }*/
           if (isAddIds) {
             outGrid.properties.ids.push(feature.id);
+          }
+
+          if(aggregate){
+            if(isNaN(feature.properties[aggregate])){
+                console.error("Property " + aggregate + " is not numeric for feature - " + feature);
+                throw new Error("Property " + aggregate + " is not numeric for feature - " + feature);
+            }
+            if(!outGrid.properties.sum){
+                outGrid.properties.sum = 0;
+            }
+            outGrid.properties.sum += Number(feature.properties[aggregate]);
+            if(outGrid.properties.sum > maxSum){
+              maxSum = outGrid.properties.sum;
+            }
           }
 
           //GroupBy property logic
@@ -253,6 +268,9 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
         feature.properties.maxCount = maxCount;
         feature.properties.occupancy = feature.properties.count/maxCount;
         feature.properties.color = "hsla(" + (200 - Math.round(feature.properties.occupancy*100*2))  + ", 100%, 50%,0.51)";
+        if(aggregate){
+            feature.properties.maxSum = maxSum;
+        }
         hexFeatures.push(feature);
         if(groupByProperty){
             for (const key of Object.keys(feature.properties.subcount)) {

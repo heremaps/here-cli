@@ -478,6 +478,7 @@ program
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, comma-separate multiple values")
     .option("-i, --ids", "add IDs of features counted within the hexbin as an array in the hexbin's feature property")
     .option("-p, --groupBy <groupBy>", "name of the feature property by which hexbin counts will be further grouped")
+    .option("-a, --aggregate <aggregate>", "name of the feature property used for aggregating sum value of all the features inside hexbin")
     .option("-r, --readToken <readToken>", "token of another user's source space, from which points will be read")
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
@@ -576,7 +577,7 @@ program
                             //(async () => {
                             //console.log("Creating hexbins for the space data with size " + cellsize);
                             let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
-                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.latitude, hexFeatures);
+                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.aggregate, options.latitude, hexFeatures);
                             cellSizeHexFeaturesMap.set(cellsize, hexFeatures);
                             //console.log("uploading the hexagon grids to space with size " + cellsize);
                         }
