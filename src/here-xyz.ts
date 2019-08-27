@@ -2016,7 +2016,7 @@ function showSpaceStats(spacestatsraw: any) {
         allSearchable = true;
     }
     //console.table(spacestats);
-    common.drawNewTable(spacestats, ['property', 'value', 'estimated'], [20,30,10]);
+    common.drawNewTable(spacestats, ['property', 'value', 'estimated'], [30,30,10]);
 
     if (spacestatsraw.tags && spacestatsraw.tags.value) {
         console.log("=========== FEATURES' TAGS STATS INFO ===========")
