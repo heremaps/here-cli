@@ -174,13 +174,19 @@ function hexagon(center:number[], rx:number, ry:number, properties:any, cosines:
 
 function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, existingHexFeatures:any[]){
     let gridMap: any={};
+    let maxCount = 0;
+    let maxSum = 0;
     if(existingHexFeatures && Array.isArray(existingHexFeatures)){
         existingHexFeatures.forEach(function (hexFeature){
             gridMap[hexFeature.id] = hexFeature;
+            if(hexFeature.properties.count > maxCount){
+                maxCount = hexFeature.properties.count;
+            }
+            if(hexFeature.properties.sum > maxSum){
+                maxSum = hexFeature.properties.sum;
+            }
         });
     }
-    let maxCount = 0;
-    let maxSum = 0;
     //let minCount = Number.MAX_SAFE_INTEGER;
     let groupPropertyCount: any = {};
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
