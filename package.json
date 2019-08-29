@@ -22,7 +22,7 @@
     "crypto-js": "3.1.9-1",
     "csvjson": "5.1.0",
     "event-stream": "^4.0.1",
-    "fast-csv": "^2.4.1",
+    "fast-csv": "3.4.0",
     "geojson-validation": "^0.2.1",
     "get-stdin": "6.0.0",
     "getmac": "1.4.3",
