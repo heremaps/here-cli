@@ -2045,7 +2045,7 @@ function showSpaceConfig(spacedef: any) {
     spaceconfigs.push({property: 'description', value:  spacedef.description});
     spaceconfigs.push({property: 'owner', value:  spacedef.owner});
     spaceconfigs.push({property: 'cid/app_id', value:  spacedef.cid});
-
+    spaceconfigs.push({property: 'client', value:  JSON.stringify(spacedef.client)});
 
     if (spacedef.copyright) {
         let copr = [];
@@ -2091,7 +2091,7 @@ function showSpaceConfig(spacedef: any) {
 
         delete spacedef.storage;
     }
-    common.drawNewTable(spaceconfigs, ['property','value'], [30,80])
+    common.drawNewTable(spaceconfigs, ['property','value'], [30,90])
     //console.table(spacedef);
 }
 
