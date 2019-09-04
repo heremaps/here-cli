@@ -226,8 +226,8 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
 
           if(aggregate){
             if(isNaN(feature.properties[aggregate])){
-                console.error("Property " + aggregate + " is not numeric for feature - " + feature);
-                throw new Error("Property " + aggregate + " is not numeric for feature - " + feature);
+                console.error("Property " + aggregate + " is not numeric for feature - " + JSON.stringify(feature));
+                throw new Error("Property " + aggregate + " is not numeric for feature - " + JSON.stringify(feature));
             }
             if(!outGrid.properties.sum){
                 outGrid.properties.sum = 0;
