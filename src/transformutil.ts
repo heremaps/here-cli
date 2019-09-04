@@ -293,6 +293,9 @@ function toGeometry(lat: string, lon: string, alt?: string | undefined) {
         const latitude = parseFloat(lat);
         const longitude = parseFloat(lon);
         const altitude = alt ? parseFloat(alt) : undefined;
+        if(latitude == 0 && longitude == 0 && altitude == 0){
+            return null;
+        }
         return toPoint(latitude, longitude, altitude);
     } catch {
     }
