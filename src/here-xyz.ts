@@ -221,9 +221,9 @@ async function execInternalGzip(
 
     let { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
-        if (response.statusCode >= 500) {
+        if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
-            body = execInternalGzip(uri, method, contentType, data, token, retry--);
+            body = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else {
          //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
