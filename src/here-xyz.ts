@@ -2046,6 +2046,7 @@ function showSpaceConfig(spacedef: any) {
     spaceconfigs.push({property: 'owner', value:  spacedef.owner});
     spaceconfigs.push({property: 'cid/app_id', value:  spacedef.cid});
     spaceconfigs.push({property: 'client', value:  JSON.stringify(spacedef.client)});
+    spaceconfigs.push({property: 'shared', value:  spacedef.shared || false});
 
     if (spacedef.copyright) {
         let copr = [];
