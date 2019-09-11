@@ -176,6 +176,7 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     let gridMap: any={};
     let maxCount = 0;
     let maxSum = 0;
+    let groupPropertyCount: any = {};
     if(existingHexFeatures && Array.isArray(existingHexFeatures)){
         existingHexFeatures.forEach(function (hexFeature){
             gridMap[hexFeature.id] = hexFeature;
@@ -185,10 +186,17 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
             if(hexFeature.properties.sum > maxSum){
                 maxSum = hexFeature.properties.sum;
             }
+            if(hexFeature.properties.subcount != null){
+                for (const key of Object.keys(hexFeature.properties.subcount)) {
+                    if(groupPropertyCount[key] == null){
+                        groupPropertyCount[key] = {};
+                        groupPropertyCount[key].maxCount = hexFeature.properties.subcount[key].maxCount;
+                    }
+                }
+            }
         });
     }
     //let minCount = Number.MAX_SAFE_INTEGER;
-    let groupPropertyCount: any = {};
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
       if (feature.geometry != null && feature.geometry.type != null && feature.geometry.type.toLowerCase() === 'point') {
