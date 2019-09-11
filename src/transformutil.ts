@@ -239,7 +239,7 @@ async function toGeoJsonFeature(object: any, options: any) {
             }
         }
     }
-    if (!lat) {
+    if (!lat && !options.latField) {
         let choiceList = createQuestionsList(object);
         const questions = [
             {
@@ -254,7 +254,7 @@ async function toGeoJsonFeature(object: any, options: any) {
         options.latField = latAnswer.latChoice;
         lat = object[options.latField];
     } 
-    if (!lon) {
+    if (!lon && !options.lonField) {
         let choiceList = createQuestionsList(object);
         const questions = [
             {
@@ -269,7 +269,12 @@ async function toGeoJsonFeature(object: any, options: any) {
         options.lonField = lonAnswer.lonChoice;
         lon = object[options.lonField];
     }
-    return { type: "Feature", geometry: toGeometry(lat, lon, alt), properties: props };
+    const geometry = toGeometry(lat, lon, alt);
+    if(geometry == null){
+        props["@ns:com:here:xyz"]={};
+        props["@ns:com:here:xyz"]["tags"] = ['null_island'];
+    }
+    return { type: "Feature", geometry: geometry, properties: props };
 }
 
 function createQuestionsList(object: any) {
@@ -292,7 +297,7 @@ function toGeometry(lat: string, lon: string, alt?: string | undefined) {
     const latitude = parseFloat(lat);
     const longitude = parseFloat(lon);
     const altitude = alt ? parseFloat(alt) : undefined;
-    if((latitude == null || latitude == 0) && (longitude == null || longitude == 0)) {
+    if((isNaN(latitude) || latitude == 0) && (isNaN(longitude) || longitude == 0)) {
         return null;
     }
     return toPoint(latitude, longitude, altitude);
