@@ -289,16 +289,13 @@ function isBoolean(n: string) {
 }
 
 function toGeometry(lat: string, lon: string, alt?: string | undefined) {
-    try {
-        const latitude = parseFloat(lat);
-        const longitude = parseFloat(lon);
-        const altitude = alt ? parseFloat(alt) : undefined;
-        if(latitude == 0 && longitude == 0) || (latitude == null && longitude == null){
-            return null;
-        }
-        return toPoint(latitude, longitude);
-    } catch {
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lon);
+    const altitude = alt ? parseFloat(alt) : undefined;
+    if((latitude == null || latitude == 0) && (longitude == null || longitude == 0)) {
+        return null;
     }
+    return toPoint(latitude, longitude, altitude);
 }
 
 function toPoint(latitude: number, longitude: number, altitude?: number | undefined) {
