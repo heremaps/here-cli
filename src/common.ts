@@ -292,6 +292,31 @@ async function validateToken(token: string) {
     return response;
 }
 
+export async function getAccountId(){
+    try{
+        const accountId = await decryptAndGet("accountId", "No accountId found. Try running 'here configure'");
+        return accountId;
+    } catch(error){
+        const currentToken = await decryptAndGet("keyInfo", "No token found");
+        const tokenBody = await getTokenInformation(currentToken);
+        await encryptAndStore("accountId",tokenBody.aid);
+        return tokenBody.aid;
+    }
+}
+
+async function getTokenInformation(tokenId: string){
+    const { response, body } = await requestAsync({
+        url: xyzRoot() + "/token-api/tokens/" + tokenId,
+        method: "GET",
+        json: true,
+    });
+
+    if (response.statusCode < 200 && response.statusCode > 299) {
+        throw new Error("Fetching token information failed for Token - " + tokenId);
+    }
+    return body;
+}
+
 export async function encryptAndStore(key: string, toEncrypt: string) {
     const secretKey = await getMacAddress();
     const ciphertext = CryptoJS.AES.encrypt(toEncrypt, secretKey);

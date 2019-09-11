@@ -592,7 +592,7 @@ program
                 */
                 let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
                 let newspaceData;
-                if(sourceSpaceData.shared == true || options.readToken) {
+                if((sourceSpaceData.shared == true && await isOtherOwnerSpace(sourceSpaceData.owner))|| options.readToken) {
                     console.log("shared space or readToken found, creating new hexbin space");
                     newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, false, options.writeToken);
                     id = newspaceData.id;
@@ -717,6 +717,11 @@ program
             }
         })();
     });
+
+async function isOtherOwnerSpace(spaceOwner: string){
+    const currentOwner = await common.getAccountId();
+    return currentOwner != spaceOwner;
+}
 
 async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null){
     let newSpaceConfig = {
