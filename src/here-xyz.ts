@@ -160,9 +160,11 @@ async function execInternal(
             token
         );
     }
+    if(!uri.startsWith("http"))
+        uri = common.xyzRoot() + uri;
     const isJson = contentType == "application/json" ? true : false;
     const reqJson = {
-        url: common.xyzRoot() + uri,
+        url: uri,
         method: method,
         json: isJson,
         headers: {
@@ -204,9 +206,10 @@ async function execInternalGzip(
 ) {
     const zippedData = await gzip(data);
     const isJson = contentType == "application/json" ? true : false;
-
+    if(!uri.startsWith("http"))
+        uri = common.xyzRoot() + uri;
     const reqJson = {
-        url: common.xyzRoot() + uri,
+        url: uri,
         method,
         json: isJson,
         headers: {
@@ -1846,13 +1849,16 @@ program
     .command("config <id>")
     .description("configure/view advanced XYZ features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
-    .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
+    .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
+    .option("--delete","use with schema option to remove the existing schema definition associated with the space")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
     .option("-r, --raw", "show raw output")
+    
+    
     .action(function (id, options) {
         configXyzSpace(id, options).catch((error) => {
             handleError(error, true);
@@ -1860,7 +1866,6 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-
     await common.verifyProBetaLicense();
 
     let patchRequest: any = {};
@@ -1875,6 +1880,11 @@ async function configXyzSpace(id: string, options: any) {
                 ""                
             );
         spacedef = body;
+    }
+
+    if(options.delete && !options.schema) {
+        console.log("delete option can only be used with schema option")
+        process.exit(1);
     }
 
     if (options.title) {
@@ -1900,43 +1910,58 @@ async function configXyzSpace(id: string, options: any) {
     }
 
     if(options.schema) {
-        if (spacedef.processors) {
-            let i = spacedef.processors.length;
-            while (i--) {
-                let processor = spacedef.processors[i];
-                if (processor.id === 'schema-validator') {
-                    spacedef.processors.splice(i, 1);
+        if(options.schema == true && options.delete != true) {
+            if(spacedef.processors) {
+                let i = spacedef.processors.length;
+                while (i--) {
+                    let processor = spacedef.processors[i];
+                    if (processor.id === 'schema-validator') {
+                        const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                        console.log(JSON.stringify(body, null, 3));                    
+                        process.exit(1);
+                    }
                 }
             }
-        }
-        if(options.schema == true) {
-            console.log("Are you sure you want to remove the schema definition of the given space?");
-            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-            if (termsResp !== "y" && termsResp !== "yes") {
-                console.log("CANCELLED !");
-                process.exit(1);
-            }
-            console.log("Removing schema definition for the space.")
-            patchRequest['processors'] = [];
-
+            console.log("schema definition not found");
         } else {
-            let schemaDef:string = "";
-            if(options.schema.indexOf("http") == 0) {
-                schemaDef = options.schema;
-            } else {
-                schemaDef = await transform.read(options.schema, false);
+            if (spacedef.processors) {
+                let i = spacedef.processors.length;
+                while (i--) {
+                    let processor = spacedef.processors[i];
+                    if (processor.id === 'schema-validator') {
+                        spacedef.processors.splice(i, 1);
+                    }
+                }
             }
-            schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
-            //console.log(JSON.stringify(schemaDef));
-            
-            if(!spacedef.processors)
-                spacedef.processors = [];
-            spacedef.processors.push(getSchemaProcessorProfile(schemaDef));
-            
+            if(options.schema == true) {
+                if(options.delete == true) {
+                    console.log("Are you sure you want to remove the schema definition of the given space?");
+                    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+    
+                    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+                    if (termsResp !== "y" && termsResp !== "yes") {
+                        console.log("CANCELLED !");
+                        process.exit(1);
+                    }
+                    console.log("Removing schema definition for the space.")
+                    //patchRequest['processors'] = [];
+                }    
+            } else {
+                let schemaDef:string = "";
+                if(options.schema.indexOf("http") == 0) {
+                    schemaDef = options.schema;
+                } else {
+                    schemaDef = await transform.read(options.schema, false);
+                }
+                schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
+                //console.log(JSON.stringify(schemaDef));
+                
+                if(!spacedef.processors)
+                    spacedef.processors = [];
+                spacedef.processors.push(getSchemaProcessorProfile(schemaDef));    
+            }
+            patchRequest['processors'] = spacedef.processors;
         }
-        patchRequest['processors'] = spacedef.processors;
     }
 
     if (Object.keys(patchRequest).length > 0) {
