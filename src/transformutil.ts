@@ -275,8 +275,7 @@ async function toGeoJsonFeature(object: any, options: any, index: number) {
     const geometry = toGeometry(lat, lon, alt);
     if(geometry == null){
         props["@ns:com:here:xyz"]={};
-        if(lat == null || lat == '0' || lon == null || lon == '0')
-        {
+        if(lat == null || lat == '' || lat == '0' || lon == null || lon == '' || lon == '0'){
             props["@ns:com:here:xyz"]["tags"] = ['null_island'];
         } else {
             props["@ns:com:here:xyz"]["tags"] = ['invalid'];
