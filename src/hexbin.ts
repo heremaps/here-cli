@@ -183,8 +183,8 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
             if(hexFeature.properties.count > maxCount){
                 maxCount = hexFeature.properties.count;
             }
-            if(hexFeature.properties.sum > maxSum){
-                maxSum = hexFeature.properties.sum;
+            if(hexFeature.properties.sum && hexFeature.properties.sum.sum > maxSum){
+                maxSum = hexFeature.properties.sum.sum;
             }
             if(hexFeature.properties.subcount != null){
                 for (const key of Object.keys(hexFeature.properties.subcount)) {
@@ -237,11 +237,13 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
                 throw new Error("Property " + aggregate + " is not numeric for feature - " + JSON.stringify(feature));
             }
             if(!outGrid.properties.sum){
-                outGrid.properties.sum = 0;
+                outGrid.properties.sum = {};
+                outGrid.properties.sum.sum = 0;
+                outGrid.properties.sum.property_name = aggregate;
             }
-            outGrid.properties.sum += Number(feature.properties[aggregate]);
-            if(outGrid.properties.sum > maxSum){
-              maxSum = outGrid.properties.sum;
+            outGrid.properties.sum.sum += Number(feature.properties[aggregate]);
+            if(outGrid.properties.sum.sum > maxSum){
+              maxSum = outGrid.properties.sum.sum;
             }
           }
 
@@ -282,7 +284,8 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
         feature.properties.occupancy = feature.properties.count/maxCount;
         feature.properties.color = "hsla(" + (200 - Math.round(feature.properties.occupancy*100*2))  + ", 100%, 50%,0.51)";
         if(aggregate){
-            feature.properties.maxSum = maxSum;
+            feature.properties.sum.maxSum = maxSum;
+            feature.properties.sum.average = feature.properties.sum.sum / feature.properties.count;
         }
         hexFeatures.push(feature);
         if(groupByProperty){
