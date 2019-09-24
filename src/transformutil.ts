@@ -174,7 +174,7 @@ export async function transform(result: any[], options: any) {
         await setStringFieldsFromUser(result[0],options);
     }
     for (const i in result) {
-        const ggson = await toGeoJsonFeature(result[i], options);
+        const ggson = await toGeoJsonFeature(result[i], options, Number(i));
         if (ggson) {
             objects.push(ggson);
         }
@@ -202,7 +202,7 @@ async function setStringFieldsFromUser(object:any, options: any){
     options.stringFields = options.stringFields + answers.stringFieldChoice;
 }
 
-async function toGeoJsonFeature(object: any, options: any) {
+async function toGeoJsonFeature(object: any, options: any, index: number) {
     //latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
@@ -239,40 +239,48 @@ async function toGeoJsonFeature(object: any, options: any) {
             }
         }
     }
-    if (!lat && !options.latField) {
-        let choiceList = createQuestionsList(object);
-        const questions = [
-            {
-                type: "list",
-                name: "latChoice",
-                message: "Select property which should be be used for Latitude",
-                choices: choiceList
-            }
-        ];
-        let latAnswer : any = await inquirer.prompt(questions);
-        console.log("new Latitude field selected - " + latAnswer.latChoice);
-        options.latField = latAnswer.latChoice;
-        lat = object[options.latField];
-    } 
-    if (!lon && !options.lonField) {
-        let choiceList = createQuestionsList(object);
-        const questions = [
-            {
-                type: "list",
-                name: "lonChoice",
-                message: "Select property which should be be used for Longitude",
-                choices: choiceList
-            }
-        ];
-        let lonAnswer : any = await inquirer.prompt(questions);
-        console.log("new Longitude field selected - " + lonAnswer.lonChoice);
-        options.lonField = lonAnswer.lonChoice;
-        lon = object[options.lonField];
+    if (index == 0) {
+        if(lat == null || isNaN(parseFloat(lat))){
+            let choiceList = createQuestionsList(object);
+            const questions = [
+                {
+                    type: "list",
+                    name: "latChoice",
+                    message: "Select property which should be be used for Latitude",
+                    choices: choiceList
+                }
+            ];
+            let latAnswer : any = await inquirer.prompt(questions);
+            console.log("new Latitude field selected - " + latAnswer.latChoice);
+            options.latField = latAnswer.latChoice;
+            lat = object[options.latField];
+        }
+        if(lon == null || isNaN(parseFloat(lon))){
+            let choiceList = createQuestionsList(object);
+            const questions = [
+                {
+                    type: "list",
+                    name: "lonChoice",
+                    message: "Select property which should be be used for Longitude",
+                    choices: choiceList
+                }
+            ];
+            let lonAnswer : any = await inquirer.prompt(questions);
+            console.log("new Longitude field selected - " + lonAnswer.lonChoice);
+            options.lonField = lonAnswer.lonChoice;
+            lon = object[options.lonField];
+        }
     }
+    
     const geometry = toGeometry(lat, lon, alt);
     if(geometry == null){
         props["@ns:com:here:xyz"]={};
-        props["@ns:com:here:xyz"]["tags"] = ['null_island'];
+        if(lat == null || lat == '0' || lon == null || lon == '0')
+        {
+            props["@ns:com:here:xyz"]["tags"] = ['null_island'];
+        } else {
+            props["@ns:com:here:xyz"]["tags"] = ['invalid'];
+        }
     }
     return { type: "Feature", geometry: geometry, properties: props };
 }
