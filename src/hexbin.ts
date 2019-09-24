@@ -258,6 +258,7 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
             }
             if(outGrid.properties.subcount == null) {
                 outGrid.properties.subcount = {};
+                outGrid.properties.subcount.property_name = groupByProperty;
             }
             if(outGrid.properties.subcount[propertyValue] == null){
                 outGrid.properties.subcount[propertyValue] = {};
