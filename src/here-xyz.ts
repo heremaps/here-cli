@@ -35,10 +35,10 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
 let cq = require("block-queue");
-import { deprecate, isBoolean } from "util";
+import { isBoolean } from "util";
 import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
-import { pathMatch } from "tough-cookie";
+const path = require('path');
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -60,6 +60,28 @@ const questions = [
     }
 ];
 
+const bboxQuestions = [
+    {
+        type: "number",
+        name: "miny",
+        message: "Enter the value of minimum Latitude",
+    },
+    {
+        type: "number",
+        name: "minx",
+        message: "Enter the value of minimum Longitude",
+    },
+    {
+        type: "number",
+        name: "maxy",
+        message: "Enter the value of maximum Latitude",
+    },
+    {
+        type: "number",
+        name: "maxx",
+        message: "Enter the value of maximum Longitude",
+    }
+];
 
 const titlePrompt = [
     {
@@ -323,15 +345,14 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 if (options.bbox) {
                     var bboxarray = options.bbox.split(",");
                     if (bboxarray.length !== 4) {
-                        console.error(`boundingbox input size is not proper - "${options.bbox}"`);
+                        console.error(`\nboundingbox input size is not proper - "${options.bbox}"`);
                         process.exit(1);
                     }
-                    console.log(bboxarray);
                     bboxarray.forEach(function (item: string, i: number) {
                         if (item && item != "") {
                             let number = parseInt(item.toLowerCase());
                             if (isNaN(number)) {
-                                console.error(`Loading space data using bounding box failed - "${item}" is not a valid number`);
+                                console.error(`\nLoading space data using bounding box failed - "${item}" is not a valid number`);
                                 process.exit(1);
                             }
                             uri = uri + "&" + bboxDirections[i] + "=" + number;
@@ -386,11 +407,13 @@ function getSpaceDataFromXyz(id: string, options: any) {
                         break;
                     }
                 } while (cHandle >= 0 && recordLength < options.totalRecords);
-                process.stdout.write("\n");
+                if (!options.currentHandleOnly) {
+                    process.stdout.write("\n");
+                }
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`getting data from XYZ space failed: ${JSON.stringify(error)}`);
+                console.error(`\ngetting data from XYZ space failed: ${JSON.stringify(error)}`);
                 reject(error);
             }
         })();
@@ -483,14 +506,13 @@ program
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
-    .option("-b, --bbox <bbox>", "only create hexbins for records inside a specified bounding box - minLon,minLat,maxLon,maxLat")
+    .option("-b, --bbox [bbox]", "only create hexbins for records inside a bounding box - minLon,minLat,maxLon,maxLat (use / for negative numbers)")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
-    .option("-z, --zoomLevels <zoomLevels>", "create hexbins optimized for zoom levels -- comma separate multiple values, (-z 8,10,12) or dash for continuous range (-z 10-15)")
+    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
                 await common.verifyProBetaLicense();
-                //TODO - Fix negative values problem for bbox options
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -504,6 +526,10 @@ program
                     process.exit();
                 }
                 */
+                if(options.bbox == true){
+                   options.bbox = await getBoundingBoxFromUser();
+                }
+
                 let cellSizes: number[] = [];
                 if (options.zoomLevels) {
                     options.zoomLevels.split(",").forEach(function (item: string) {
@@ -556,17 +582,20 @@ program
                 options.currentHandleOnly = true;
                 options.handle = 0;
                 let cHandle;
+                let featureCount = 0;
                 console.log("Creating hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
                     if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
-                        console.log("No features are available to create hexbins (only points are supported)");
+                        console.log("\nNo features are available to create hexbins (only points are supported)");
                         process.exit();
                     }
                     cHandle = jsonOut.handle;
                     options.handle = jsonOut.handle;
                     if (jsonOut.features) {
                         const features = jsonOut.features;
+                        featureCount += features.length;
+                        process.stdout.write("\rhexbin creation done for feature count - " + featureCount);
                         /*
                         if(features.length === 0 && !options.handle){
                             console.log("No features is available to create hexbins");
@@ -585,6 +614,7 @@ program
                         cHandle = -1;
                     }
                 } while (cHandle >= 0);
+                process.stdout.write("\n");
                 /*
                 if(options.destSpace){
                     id = options.destSpace;
@@ -763,6 +793,12 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
     }
     const { response, body } = await execute(uri, "PATCH", cType, data, token);
     return body;
+}
+
+async function getBoundingBoxFromUser(){
+    const answer: any = await inquirer.prompt(bboxQuestions);
+    //bounding box - minLon,minLat,maxLon,maxLat
+    return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
 }
 
 async function getSpaceMetaData(id: string, token: string | null = null) {
@@ -1140,12 +1176,11 @@ program
             console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
             options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
-
             const descPrompt = [{
                 type: 'input',
                 name: 'description',
                 message: 'Enter a description for the new space : ',
-                default: options.file
+                default: path.parse(options.file).name
             }]
             const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
             options.message = descInput.description ? descInput.description : options.file; 
@@ -1796,7 +1831,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
         return upresult;
     }
-    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
 async function iterateChunk(chunk: any, url: string) {
