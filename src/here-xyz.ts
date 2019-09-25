@@ -606,8 +606,8 @@ program
                         id = sourceSpaceData.client.hexbinSpaceId;
                         newspaceData = await getSpaceMetaData(id, options.writeToken);
                     } catch (error){
-                        if(error.statusCode && error.statusCode == 404){
-                            console.log("looks like existing hexbin space " + id + " has been deleted, creating new one ");
+                        if(error.statusCode && (error.statusCode == 404 || error.statusCode == 403)){
+                            console.log("looks like existing hexbin space " + id + " has been deleted or you don't have sufficient rights, creating new one ");
                             newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData,true, options.writeToken);
                             id = newspaceData.id;
                         } else {
