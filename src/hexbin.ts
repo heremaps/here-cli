@@ -291,10 +291,12 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
         hexFeatures.push(feature);
         if(groupByProperty){
             for (const key of Object.keys(feature.properties.subcount)) {
-                feature.properties.subcount[key].maxCount = groupPropertyCount[key].maxCount;
-                feature.properties.subcount[key].occupancy = feature.properties.subcount[key].count/groupPropertyCount[key].maxCount;
-                feature.properties.subcount[key].color = "hsla(" + (200 - Math.round(feature.properties.subcount[key].occupancy*100*2))  + ", 100%, 50%,0.51)";
-                //console.log(key, JSON.stringify(feature.properties.subcount[key]));
+                if(key != 'property_name'){
+                    feature.properties.subcount[key].maxCount = groupPropertyCount[key].maxCount;
+                    feature.properties.subcount[key].occupancy = feature.properties.subcount[key].count/groupPropertyCount[key].maxCount;
+                    feature.properties.subcount[key].color = "hsla(" + (200 - Math.round(feature.properties.subcount[key].occupancy*100*2))  + ", 100%, 50%,0.51)";
+                    //console.log(key, JSON.stringify(feature.properties.subcount[key]));
+                }
             }
         }
     }
