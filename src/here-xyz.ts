@@ -160,8 +160,9 @@ async function execInternal(
             token
         );
     }
-    if(!uri.startsWith("http"))
+    if(!uri.startsWith("http")){
         uri = common.xyzRoot() + uri;
+    }
     const isJson = contentType == "application/json" ? true : false;
     const reqJson = {
         url: uri,
@@ -206,8 +207,9 @@ async function execInternalGzip(
 ) {
     const zippedData = await gzip(data);
     const isJson = contentType == "application/json" ? true : false;
-    if(!uri.startsWith("http"))
+    if(!uri.startsWith("http")){
         uri = common.xyzRoot() + uri;
+    }
     const reqJson = {
         url: uri,
         method,
