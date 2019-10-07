@@ -1380,7 +1380,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 );
             } else {
                 let queue = streamingQueue();
-                await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
+                await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
