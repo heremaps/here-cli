@@ -173,8 +173,11 @@ export async function transform(result: any[], options: any) {
     if(options.assign && result.length > 0){
         await setStringFieldsFromUser(result[0],options);
     }
+    if(!options.stream){
+        await toGeoJsonFeature(result[0], options, true);//calling this to ask Lat Lon question to the user for only one time
+    }
     for (const i in result) {
-        const ggson = await toGeoJsonFeature(result[i], options, Number(i));
+        const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
             objects.push(ggson);
         }
@@ -202,7 +205,7 @@ async function setStringFieldsFromUser(object:any, options: any){
     options.stringFields = options.stringFields + answers.stringFieldChoice;
 }
 
-async function toGeoJsonFeature(object: any, options: any, index: number) {
+async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: boolean = false) {
     //latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
@@ -239,7 +242,7 @@ async function toGeoJsonFeature(object: any, options: any, index: number) {
             }
         }
     }
-    if (index == 0) {
+    if (askLatLonQuestion) {
         if(lat == null || isNaN(parseFloat(lat))){
             let choiceList = createQuestionsList(object);
             const questions = [
@@ -407,13 +410,20 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
 }
 
 
-export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:any, streamFuntion:Function) {
+    let isQuestionAsked : boolean = false;
     return readData(incomingPath, 'csv').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(path);
-            let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+            let csvstream = csv.fromStream(stream, {headers : true}).on("data", async function(data:any){
+                if(!isQuestionAsked){
+                    csvstream.pause();
+                    await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
+                    isQuestionAsked = true;
+                    csvstream.resume();
+                }
                 dataArray.push(data);
                 if(dataArray.length >=chunckSize){
                     //console.log('dataArray '+chunckSize);
