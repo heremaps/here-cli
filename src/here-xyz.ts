@@ -350,7 +350,7 @@ function getSpaceDataFromXyz(id: string, options: any) {
                     }
                     bboxarray.forEach(function (item: string, i: number) {
                         if (item && item != "") {
-                            let number = parseInt(item.toLowerCase());
+                            let number = parseFloat(item.toLowerCase());
                             if (isNaN(number)) {
                                 console.error(`\nLoading space data using bounding box failed - "${item}" is not a valid number`);
                                 process.exit(1);
