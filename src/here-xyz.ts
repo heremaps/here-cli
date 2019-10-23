@@ -2138,6 +2138,44 @@ function showSpaceConfig(spacedef: any) {
 }
 
 program
+    .command("join <id>")
+    .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")    
+    .option("-f, --file <file>", "file that needs to be uploaded to associated space")
+    .option("-k, --keyField <keyField>", "field in csv file to become id")
+    .action(function (id, options) {
+        createJoinSpace(id, options).catch((error) => {
+            handleError(error, true);
+        });
+    })
+
+async function createJoinSpace(id:string, options:any){
+    await common.verifyProBetaLicense();
+    if(!options.file){
+        console.log("ERROR : Please specify file for upload");
+        return;
+    }
+    //setting title and message for new space creation
+    options.title = path.parse(options.file).name + ' data which will be used as assocaited space with ' +  id + ' for virtual space';
+    options.message = 'space data to be joined with ' + id + ' in new virtual space ';
+    const response:any = await createSpace(options).catch(err => 
+        {
+            handleError(err);
+            process.exit(1);                                           
+        });
+    const secondSpaceid = response.id;
+    options.id = options.keyField;
+    options.allowNullValues = true;
+    await uploadToXyzSpace(id, options);
+
+    //setting title and message for virtual space creation
+    options.title = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
+    options.message = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
+    options.associate = id + ',' + secondSpaceid;
+    await createVirtualSpace(options);
+    return;
+}
+
+program
     .command("virtualize")
     .alias("vs")
     .description("{xyz pro} create a new virtual XYZ space")    
@@ -2171,7 +2209,7 @@ program
         let spaceids = options.group ? options.group : options.associate;
         if(isBoolean(spaceids)) {
             console.log("ERROR : please provide the space ids")
-            return
+            return;
         }
 
         spaceids = spaceids.split(",");
@@ -2255,7 +2293,7 @@ function isValidRuleExpression(ruleExpression:string) {
 
 program
     .command("tagrules <id>")
-    .description("add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
+    .description("add, remove, view the conditional rules to tag your features automatically")
     .option("--add", "add new tag rules")
     .option("--delete", "delete tag rules")
     .option("--update", "update existing tag rules")
@@ -2521,7 +2559,8 @@ common.validate(
         "config",
         "vs",
         "virtualize",
-        "tagrules"
+        "tagrules",
+        "join"
     ],
     [process.argv[2]],
     program

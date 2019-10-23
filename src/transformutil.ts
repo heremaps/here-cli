@@ -174,7 +174,7 @@ export async function transform(result: any[], options: any) {
         await setStringFieldsFromUser(result[0],options);
     }
     if(!options.stream){
-        await toGeoJsonFeature(result[0], options, true);//calling this to ask Lat Lon question to the user for only one time
+        await toGeoJsonFeature(result[0], options, options.allowNullValues ? false : true);//calling this to ask Lat Lon question to the user for only one time
     }
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options, false);
@@ -420,7 +420,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
             let csvstream = csv.parseStream(stream, {headers : true}).on("data", async function(data:any){
                 if(!isQuestionAsked){
                     csvstream.pause();
-                    await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
+                    await toGeoJsonFeature(data, options, options.allowNullValues ? false : true);//calling this to ask Lat Lon question to the user for only one time
                     isQuestionAsked = true;
                     csvstream.resume();
                 }
