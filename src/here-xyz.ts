@@ -1320,7 +1320,7 @@ async function uploadToXyzSpace(id: string, options: any) {
 
     if (options.file) {
         const fs = require("fs");
-        if (options.file.indexOf(".geojsonl") != -1) {
+        if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
             if (!options.stream) {
                 const result: any = await transform.readLineFromFile(options.file, 100);
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
@@ -1340,7 +1340,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
-        } else if (options.file.indexOf(".shp") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
             let result = await transform.readShapeFile(
                 options.file,
             );
@@ -1354,7 +1354,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 options.file,
                 options.id
             );
-        } else if (options.file.indexOf(".csv") != -1 || options.file.indexOf(".txt") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
             if (!options.stream) {
                 let result = await transform.read(
                     options.file,
@@ -2165,7 +2165,7 @@ async function createJoinSpace(id:string, options:any){
     const secondSpaceid = response.id;
     options.id = options.keyField;
     options.allowNullValues = true;
-    await uploadToXyzSpace(id, options);
+    await uploadToXyzSpace(secondSpaceid, options);
 
     //setting title and message for virtual space creation
     options.title = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
