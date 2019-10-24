@@ -2170,7 +2170,7 @@ async function createJoinSpace(id:string, options:any){
     //setting title and message for virtual space creation
     options.title = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
     options.message = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
-    options.associate = id + ',' + secondSpaceid;
+    options.associate = secondSpaceid + ',' + id;
     await createVirtualSpace(options);
     return;
 }
