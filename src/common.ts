@@ -202,6 +202,7 @@ export async function login(authId: string, authSecret: string) {
     if (response.statusCode < 200 && response.statusCode > 299)
         throw new Error("Failed to login: " + JSON.stringify(body));
 
+    encryptAndStore('keyInfo', body.tid);
     encryptAndStore('appDetails', authId + keySeparator + authSecret);
 
     console.log("Secrets verified successfully");
