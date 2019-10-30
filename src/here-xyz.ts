@@ -2164,7 +2164,8 @@ async function createJoinSpace(id:string, options:any){
         });
     const secondSpaceid = response.id;
     options.id = options.keyField;
-    options.allowNullValues = true;
+    options.allowNullLatLons = true;
+    options.askUserForId = true;
     await uploadToXyzSpace(secondSpaceid, options);
 
     //setting title and message for virtual space creation
