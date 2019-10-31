@@ -1157,19 +1157,14 @@ program
     .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
-    .option(
-        "-a, --assign",
-        "lists sample data assign fields which needs to be selected as tags"
-    )
-    .option(
-        "-u, --unique",
-        "option to enforce uniqueness to the id by creating a hash of feature and use that as id"
-    )
+    .option("-a, --assign","lists sample data assign fields which needs to be selected as tags")
+    .option("-u, --unique","option to enforce uniqueness to the id by creating a hash of feature and use that as id")
     .option("-o, --override", "override the data even if it shares the same feature id")
     .option("-s, --stream", "streaming data support for large csv and geojson uploads")
     .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option('-e, --errors','print data upload errors')
+    .option('-g, --geocode <geocode>','comma seperated property names property names to be used for geocoding feature and retrieve Lat/Lon values')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (id, options) {
         if(!id && options.file) {            

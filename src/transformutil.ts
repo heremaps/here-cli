@@ -32,7 +32,7 @@ import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
-import { deprecate } from "util";
+import * as geocode from "./geocodeUtil";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -242,8 +242,24 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             }
         }
     }
+    if(options.geocode){
+        let searchValues: Array<string> = [];
+        options.geocode.split(",").forEach(function (item: string) {
+            if (item && item != "" && object[item]) {
+                searchValues.push(object[item]);
+            }
+        });
+        let geoCodeResult = await geocode.geoCode(searchValues.join());
+        if(geoCodeResult == null) {
+            props["@ns:com:here:xyz"]={};
+            props["@ns:com:here:xyz"]["tags"] = ['geocode_failed'];
+        } else {
+            lon = geoCodeResult.features[0].geometry.coordinates[0];
+            lat = geoCodeResult.features[0].geometry.coordinates[1];
+        }
+    }
     if(isAskQuestion){
-        if (!options.allowNullLatLons) {
+        if (!options.allowNullLatLons && !options.geocode) {
             if(lat == null || isNaN(parseFloat(lat))){
                 let choiceList = createQuestionsList(object);
                 const questions = [
@@ -292,8 +308,10 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
     }
     
     const geometry = toGeometry(lat, lon, alt);
-    if(geometry == null){
-        props["@ns:com:here:xyz"]={};
+    if(geometry == null && !options.geocode){
+        if(!props["@ns:com:here:xyz"]) {
+            props["@ns:com:here:xyz"]={};
+        }
         if(lat == null || lat == '' || parseFloat(lat) == 0 || lon == null || lon == '' || parseFloat(lon) == 0){
             props["@ns:com:here:xyz"]["tags"] = ['null_island'];
         } else {

@@ -23,57 +23,18 @@
 */
 
 import * as program from "commander";
-import * as common from "./common";
-import { requestAsync } from "./requestAsync";
+import * as geocode from "./geocodeUtil";
 
 program
     .version('0.1.0')
     .parse(process.argv);
-geoCode(process.argv[2]).catch(err => console.error(err));
+geoCodeLocation(process.argv[2]).catch(err => console.error(err));
 
-function toFeature(result: any) {
-    return {
-        "type": "Feature",
-        "id": result.Location.LocationId,
-        "geometry": {
-            "type": "Point",
-            "coordinates": [result.Location.DisplayPosition.Longitude, result.Location.DisplayPosition.Latitude]
-        },
-        "properties": result
-    }
-}
-
-async function geoCode(locationString: string) {
-    const dataStr = await common.decryptAndGet("appDetails");
-
-    const appInfo = common.getSplittedKeys(dataStr);
-    if (!appInfo) {
-        throw new Error("Account information out of date. Please re-run 'here configure'");
-    }
-    const geocodeURL = 'https://geocoder.cit.api.here.com/6.2/geocode.json' +
-        '?app_id=' + encodeURIComponent(appInfo[0]) +
-        '&app_code=' + encodeURIComponent(appInfo[1]) +
-        '&searchtext=' + encodeURIComponent(locationString);
-
-    const { response, body } = await requestAsync({ url: geocodeURL });
-
-    if (response.statusCode !== 200)
-        throw new Error(response.body);
-    let geocodeJson = JSON.parse(body);
-    if (geocodeJson.Response.View.length == 0) {
+async function geoCodeLocation(locationString: string) {
+    let geoCodeResult = await geocode.geoCode(locationString);
+    if (!geoCodeResult) {
         console.log("Could not geocode the place '" + locationString + "'");
     } else {
-        console.log(JSON.stringify(toGeoJson(geocodeJson), null, 2));
+        console.log(JSON.stringify(geoCodeResult, null, 2));
     }
-}
-
-function toGeoJson(responseJson: any) {
-    const features = new Array();
-    responseJson.Response.View[0].Result.forEach((element: any) => {
-        features.push(toFeature(element));
-    });
-    return {
-        "type": "FeatureCollection",
-        "features": features
-    };
 }
