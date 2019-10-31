@@ -417,7 +417,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(path);
-            let csvstream = csv.parseStream(stream, {headers : true}).on("data", async function(data:any){
+            let csvstream = csv.parseStream(stream, {headers : true, delimiter: options.delimiter, quote: options.quote}).on("data", async function(data:any){
                 if(!isQuestionAsked){
                     csvstream.pause();
                     await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
