@@ -288,7 +288,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv"});
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv", delimiter: ',', quote: '"'});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
@@ -360,7 +360,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true});
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true, delimiter: ',', quote: '"' });
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");
