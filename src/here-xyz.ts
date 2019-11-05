@@ -173,6 +173,7 @@ async function execInternal(
     token: string,
     gzip: boolean
 ) {
+    console.log(JSON.stringify(data));
     if (gzip) {
         return await execInternalGzip(
             uri,
