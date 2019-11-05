@@ -1804,7 +1804,12 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         url,
         "PUT",
         "application/geo+json",
-        JSON.stringify(fc),
+        JSON.stringify(fc,(key, value) => {
+            if (typeof value === 'string') {
+                return value.replace(/\0/g, '');
+            }
+            return value;
+        }),
         token,
         true
     );
