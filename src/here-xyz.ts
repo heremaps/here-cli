@@ -1359,7 +1359,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 let result = await transform.read(
                     options.file,
                     true,
-                    { delimiter: options.delimiter, quote: options.quote }
+                    { headers : true, delimiter: options.delimiter, quote: options.quote }
                 );
                 const object = {
                     features: await transform.transform(
@@ -2157,12 +2157,6 @@ program
         await common.verifyProBetaLicense();
 
         if (options) {
-            if (!options.title) {
-                options.title = "a new virtual XYZ space created from commandline";
-            }
-            if (!options.message) {
-                options.message = "a new virtual XYZ space created from commandline";
-            }
             if(options.group && options.associate) {
                 console.log("ERROR : please select either associate or group");
                 return;
@@ -2181,13 +2175,41 @@ program
 
         spaceids = spaceids.split(",");
         const relationship = options.group ? "group" : "merge";
+        if (!options.title) {
+            options.title = createVirtualSpaceTitle(spaceids, options.associate);
+        }
+        if (!options.message) {
+            options.message = await createVirtualSpaceDescription(spaceids, options.associate);
+        }
         
         const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
         const {response, body} = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
-        if ( response.statusCode >= 200 && response.statusCode < 210 )
+        if ( response.statusCode >= 200 && response.statusCode < 210 ) {
             console.log("virtual xyzspace '" + body.id + "' created successfully");
+        }
     }
 
+function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean){
+    let title = "XYZ Virtual Space, " + spaceids[0];
+    for(let i = 1; i < spaceids.length; i ++){
+        title += isAssociate ? ' -> ' + spaceids[i] : ' + ' + spaceids[i];
+    }
+    title += isAssociate ? ' (associate)' : ' (group)';
+    return title;
+}
+
+async function createVirtualSpaceDescription(spaceids: any[], isAssociate: boolean){
+    let spaceData: any[] = [];
+    let message: string = '';
+    for(let i = 0 ; i < spaceids.length; i ++){
+        spaceData[i] = await getSpaceMetaData(spaceids[i]);
+    };
+    message = isAssociate ? 'association of ' + spaceData[0].id + ' (' + spaceData[0].title + ')' : 'grouping of ' + spaceData[0].id + ' (' + spaceData[0].title + ')';
+    for(let i = 1; i < spaceids.length; i ++){
+        message += ' and ' + spaceData[i].id + ' (' + spaceData[i].title + ')';
+    }
+    return message;
+}
 
 function getVirtualSpaceProfiles(title: string, description: string, spaceids: Array<string>, vspacetype: string) {
     let virtualspace:any =  {};
