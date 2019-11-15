@@ -852,6 +852,7 @@ program
                 handleError(error, true);
             });
     });
+
 async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
     let cType = "application/json";
@@ -1285,6 +1286,7 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
 
 
 async function uploadToXyzSpace(id: string, options: any) {
+    let startTime = new Date();
     //(async () => {
     let tags = "";
     if (options.tags) {
@@ -1326,7 +1328,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
             } else {
                 let queue = streamingQueue();
-                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
+                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options,  function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
@@ -1421,7 +1423,7 @@ async function uploadToXyzSpace(id: string, options: any) {
             } else {
                 let queue = streamingQueue();
                 let c = 0;
-                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, async function (result: any) {
+                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
                     if (result.length > 0) {
                         const fc = {
                             features: result,
@@ -1438,7 +1440,7 @@ async function uploadToXyzSpace(id: string, options: any) {
         }
     } else {
         const getStdin = require("get-stdin");
-        getStdin().then((str: string) => {
+        await getStdin().then((str: string) => {
             try {
                 const obj = JSON.parse(str);
                 uploadData(
@@ -1458,6 +1460,9 @@ async function uploadToXyzSpace(id: string, options: any) {
             }
         });
     }
+
+    let totalTime = ((new Date().getTime() - startTime.getTime())/1000);
+    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount/totalTime) + " features per second");
     //})();
 }
 
@@ -1622,6 +1627,7 @@ async function uploadDataToSpaceWithTags(
                 } else {
                     summary.summarize(featureOut, id, true);
                 }
+                options.totalCount = featureOut.length;
 
             }
             resolve(upresult);
