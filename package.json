@@ -20,7 +20,6 @@
     "commander": "^2.14.1",
     "console.table": "0.10.0",
     "crypto-js": "3.1.9-1",
-    "csvjson": "5.1.0",
     "event-stream": "^4.0.1",
     "fast-csv": "3.4.0",
     "geojson-validation": "^0.2.1",

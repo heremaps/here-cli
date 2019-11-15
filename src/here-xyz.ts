@@ -1594,6 +1594,7 @@ async function uploadDataToSpaceWithTags(
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                   process.stdout.write("\n");
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1750,7 +1751,7 @@ async function mergeAllTags(
         );
         common.drawTable(duplicates, ["id", "geometry", "properties"]);
         console.log(
-            "uploaded " +
+            "uploading " +
             featuresOut.length +
             " out of " +
             features.length +
@@ -1838,11 +1839,10 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         }             
     }
     index++;
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     if (index == chunkSize) {
-        process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
         return upresult;
     }
-    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
 async function iterateChunk(chunk: any, url: string) {
