@@ -524,7 +524,7 @@ program
     .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
     .option("-b, --bbox [bbox]", "only create hexbins for records inside the bounding box specified either by individual coordinates provided interactively or as minLon,minLat,maxLon,maxLat (use “\\ “ to escape a bbox with negative coordinate(s))")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
-    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
+    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels (1-18) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
@@ -553,8 +553,8 @@ program
                             let zoomLevels = item.split("-");
                             if (zoomLevels.length === 1) {
                                 let number = parseInt(zoomLevels[0].toLowerCase());
-                                if (isNaN(number) || number < 1 || number > 16) {
-                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
+                                if (isNaN(number) || number < 1 || number > 18) {
+                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-18`);
                                     process.exit(1);
                                 }
                                 cellSizes.push(parseInt(zoomLevelsMap[number]));
@@ -564,8 +564,8 @@ program
                             } else {
                                 let lowNumber = parseInt(zoomLevels[0].toLowerCase());
                                 let highNumber = parseInt(zoomLevels[1].toLowerCase());
-                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 16 || highNumber < 1 || highNumber > 16) {
-                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" must be between 1-16`);
+                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 18 || highNumber < 1 || highNumber > 18) {
+                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" must be between 1-18`);
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
