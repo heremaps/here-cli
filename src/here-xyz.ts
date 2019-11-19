@@ -35,10 +35,10 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
 let cq = require("block-queue");
-import { deprecate, isBoolean } from "util";
+import { isBoolean } from "util";
 import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
-import { pathMatch } from "tough-cookie";
+const path = require('path');
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -60,6 +60,28 @@ const questions = [
     }
 ];
 
+const bboxQuestions = [
+    {
+        type: "number",
+        name: "miny",
+        message: "Enter the value of minimum Latitude",
+    },
+    {
+        type: "number",
+        name: "minx",
+        message: "Enter the value of minimum Longitude",
+    },
+    {
+        type: "number",
+        name: "maxy",
+        message: "Enter the value of maximum Latitude",
+    },
+    {
+        type: "number",
+        name: "maxx",
+        message: "Enter the value of maximum Longitude",
+    }
+];
 
 const titlePrompt = [
     {
@@ -339,15 +361,14 @@ function getSpaceDataFromXyz(id: string, options: any) {
                 if (options.bbox) {
                     var bboxarray = options.bbox.split(",");
                     if (bboxarray.length !== 4) {
-                        console.error(`boundingbox input size is not proper - "${options.bbox}"`);
+                        console.error(`\nboundingbox input size is not proper - "${options.bbox}"`);
                         process.exit(1);
                     }
-                    console.log(bboxarray);
                     bboxarray.forEach(function (item: string, i: number) {
                         if (item && item != "") {
-                            let number = parseInt(item.toLowerCase());
+                            let number = parseFloat(item.toLowerCase());
                             if (isNaN(number)) {
-                                console.error(`Loading space data using bounding box failed - "${item}" is not a valid number`);
+                                console.error(`\nLoading space data using bounding box failed - "${item}" is not a valid number`);
                                 process.exit(1);
                             }
                             uri = uri + "&" + bboxDirections[i] + "=" + number;
@@ -402,11 +423,13 @@ function getSpaceDataFromXyz(id: string, options: any) {
                         break;
                     }
                 } while (cHandle >= 0 && recordLength < options.totalRecords);
-                process.stdout.write("\n");
+                if (!options.currentHandleOnly) {
+                    process.stdout.write("\n");
+                }
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`getting data from XYZ space failed: ${JSON.stringify(error)}`);
+                console.error(`\ngetting data from XYZ space failed: ${JSON.stringify(error)}`);
                 reject(error);
             }
         })();
@@ -499,14 +522,13 @@ program
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
     .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
-    .option("-b, --bbox <bbox>", "only create hexbins for records inside a specified bounding box - minLon,minLat,maxLon,maxLat")
+    .option("-b, --bbox [bbox]", "only create hexbins for records inside the bounding box specified either by individual coordinates provided interactively or as minLon,minLat,maxLon,maxLat (use “\\ “ to escape a bbox with negative coordinate(s))")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
-    .option("-z, --zoomLevels <zoomLevels>", "create hexbins optimized for zoom levels -- comma separate multiple values, (-z 8,10,12) or dash for continuous range (-z 10-15)")
+    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
                 await common.verifyProBetaLicense();
-                //TODO - Fix negative values problem for bbox options
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -520,6 +542,10 @@ program
                     process.exit();
                 }
                 */
+                if(options.bbox == true){
+                   options.bbox = await getBoundingBoxFromUser();
+                }
+
                 let cellSizes: number[] = [];
                 if (options.zoomLevels) {
                     options.zoomLevels.split(",").forEach(function (item: string) {
@@ -572,17 +598,20 @@ program
                 options.currentHandleOnly = true;
                 options.handle = 0;
                 let cHandle;
+                let featureCount = 0;
                 console.log("Creating hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
-                    if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
-                        console.log("No features are available to create hexbins (only points are supported)");
+                    if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
+                        console.log("\nNo features are available to create hexbins (only points are supported)");
                         process.exit();
                     }
                     cHandle = jsonOut.handle;
                     options.handle = jsonOut.handle;
                     if (jsonOut.features) {
                         const features = jsonOut.features;
+                        featureCount += features.length;
+                        process.stdout.write("\rhexbin creation done for feature count - " + featureCount);
                         /*
                         if(features.length === 0 && !options.handle){
                             console.log("No features is available to create hexbins");
@@ -601,6 +630,7 @@ program
                         cHandle = -1;
                     }
                 } while (cHandle >= 0);
+                process.stdout.write("\n");
                 /*
                 if(options.destSpace){
                     id = options.destSpace;
@@ -781,6 +811,12 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
     return body;
 }
 
+async function getBoundingBoxFromUser(){
+    const answer: any = await inquirer.prompt(bboxQuestions);
+    //bounding box - minLon,minLat,maxLon,maxLat
+    return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
+}
+
 async function getSpaceMetaData(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
@@ -832,6 +868,7 @@ program
                 handleError(error, true);
             });
     });
+
 async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
     let cType = "application/json";
@@ -1155,13 +1192,12 @@ program
         if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
-            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
-
+            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
             const descPrompt = [{
                 type: 'input',
                 name: 'description',
                 message: 'Enter a description for the new space : ',
-                default: options.file
+                default: path.parse(options.file).name
             }]
             const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
             options.message = descInput.description ? descInput.description : options.file;
@@ -1266,6 +1302,7 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
 
 
 async function uploadToXyzSpace(id: string, options: any) {
+    let startTime = new Date();
     //(async () => {
     let tags = "";
     if (options.tags) {
@@ -1307,7 +1344,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
             } else {
                 let queue = streamingQueue();
-                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
+                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options,  function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
@@ -1340,7 +1377,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 let result = await transform.read(
                     options.file,
                     true,
-                    { delimiter: options.delimiter, quote: options.quote }
+                    { headers : true, delimiter: options.delimiter, quote: options.quote }
                 );
                 const object = {
                     features: await transform.transform(
@@ -1361,7 +1398,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 );
             } else {
                 let queue = streamingQueue();
-                await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
+                await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
@@ -1402,7 +1439,7 @@ async function uploadToXyzSpace(id: string, options: any) {
             } else {
                 let queue = streamingQueue();
                 let c = 0;
-                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, async function (result: any) {
+                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
                     if (result.length > 0) {
                         const fc = {
                             features: result,
@@ -1419,7 +1456,7 @@ async function uploadToXyzSpace(id: string, options: any) {
         }
     } else {
         const getStdin = require("get-stdin");
-        getStdin().then((str: string) => {
+        await getStdin().then((str: string) => {
             try {
                 const obj = JSON.parse(str);
                 uploadData(
@@ -1439,6 +1476,9 @@ async function uploadToXyzSpace(id: string, options: any) {
             }
         });
     }
+
+    let totalTime = ((new Date().getTime() - startTime.getTime())/1000);
+    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount/totalTime) + " features per second");
     //})();
 }
 
@@ -1569,7 +1609,8 @@ async function uploadDataToSpaceWithTags(
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                   upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                   process.stdout.write("\n");
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1603,6 +1644,7 @@ async function uploadDataToSpaceWithTags(
                 } else {
                     summary.summarize(featureOut, id, true);
                 }
+                options.totalCount = featureOut.length;
 
             }
             resolve(upresult);
@@ -1725,7 +1767,7 @@ async function mergeAllTags(
         );
         common.drawTable(duplicates, ["id", "geometry", "properties"]);
         console.log(
-            "uploaded " +
+            "uploading " +
             featuresOut.length +
             " out of " +
             features.length +
@@ -1743,7 +1785,7 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
-    finalTags.push(value); // should we add tags with no @ an option?
+    //finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
 }
@@ -1785,7 +1827,12 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         url,
         "PUT",
         "application/geo+json",
-        JSON.stringify(fc),
+        JSON.stringify(fc,(key, value) => {
+            if (typeof value === 'string') {
+                return value.replace(/\0/g, '');
+            }
+            return value;
+        }),
         token,
         true
     );
@@ -1808,11 +1855,10 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         }
     }
     index++;
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     if (index == chunkSize) {
-        process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
         return upresult;
     }
-    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
 async function iterateChunk(chunk: any, url: string) {
@@ -2176,42 +2222,64 @@ program
     .option("-a, --associate [spaceids]", "Associate the spaces. Features same id will be merged into one feature. Enter comma separated space ids, space1,space2. space1 properties will be merged into space2 features.")
     .action(options => createVirtualSpace(options).catch((err) => { handleError(err) }));
 
-async function createVirtualSpace(options: any) {
+async function createVirtualSpace(options:any){
 
-    await common.verifyProBetaLicense();
+        await common.verifyProBetaLicense();
 
-    if (options) {
+        if (options) {
+            if(options.group && options.associate) {
+                console.log("ERROR : please select either associate or group");
+                return;
+            }
+
+            if(!options.group && !options.associate) {
+                console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
+                return;
+            }
+        }
+        let spaceids = options.group ? options.group : options.associate;
+        if(isBoolean(spaceids)) {
+            console.log("ERROR : please provide the space ids")
+            return
+        }
+
+        spaceids = spaceids.split(",");
+        const relationship = options.group ? "group" : "merge";
         if (!options.title) {
-            options.title = "a new virtual XYZ space created from commandline";
+            options.title = createVirtualSpaceTitle(spaceids, options.associate);
         }
         if (!options.message) {
-            options.message = "a new virtual XYZ space created from commandline";
+            options.message = await createVirtualSpaceDescription(spaceids, options.associate);
         }
-        if (options.group && options.associate) {
-            console.log("ERROR : please select either associate or group");
-            return;
-        }
-
-        if (!options.group && !options.associate) {
-            console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
-            return;
+        
+        const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
+        const {response, body} = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+        if ( response.statusCode >= 200 && response.statusCode < 210 ) {
+            console.log("virtual xyzspace '" + body.id + "' created successfully");
         }
     }
-    let spaceids = options.group ? options.group : options.associate;
-    if (isBoolean(spaceids)) {
-        console.log("ERROR : please provide the space ids")
-        return
+
+function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean){
+    let title = "XYZ Virtual Space, " + spaceids[0];
+    for(let i = 1; i < spaceids.length; i ++){
+        title += isAssociate ? ' -> ' + spaceids[i] : ' + ' + spaceids[i];
     }
-
-    spaceids = spaceids.split(",");
-    const relationship = options.group ? "group" : "merge";
-
-    const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
-    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
-    if (response.statusCode >= 200 && response.statusCode < 210)
-        console.log("virtual xyzspace '" + body.id + "' created successfully");
+    title += isAssociate ? ' (associate)' : ' (group)';
+    return title;
 }
 
+async function createVirtualSpaceDescription(spaceids: any[], isAssociate: boolean){
+    let spaceData: any[] = [];
+    let message: string = '';
+    for(let i = 0 ; i < spaceids.length; i ++){
+        spaceData[i] = await getSpaceMetaData(spaceids[i]);
+    };
+    message = isAssociate ? 'association of ' + spaceData[0].id + ' (' + spaceData[0].title + ')' : 'grouping of ' + spaceData[0].id + ' (' + spaceData[0].title + ')';
+    for(let i = 1; i < spaceids.length; i ++){
+        message += ' and ' + spaceData[i].id + ' (' + spaceData[i].title + ')';
+    }
+    return message;
+}
 
 function getVirtualSpaceProfiles(title: string, description: string, spaceids: Array<string>, vspacetype: string) {
     let virtualspace: any = {};

@@ -33,6 +33,7 @@ import { requestAsync } from "./requestAsync";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import { deprecate } from "util";
+import * as csv from 'fast-csv';
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -73,10 +74,10 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
     let isPrjFilePresent : boolean = false;
     let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
-    let prjFile: string = '';
+    let prjFile: any = '';
     if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
         console.log(prjFilePath + " file exists, using this file for crs transformation");
-        prjFile = readDataFromFile(prjFilePath, false);
+        prjFile = await readDataFromFile(prjFilePath, false);
     }
     const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
 
@@ -139,7 +140,7 @@ export async function read(path: string, needConversion: boolean, opt: any = nul
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
         return await readDataFromURL(path, needConversion, opt);
     } else {
-        return readDataFromFile(path, needConversion, opt);
+        return await readDataFromFile(path, needConversion, opt);
     }
 }
 
@@ -149,23 +150,34 @@ async function readDataFromURL(path: string, needConversion: boolean, opt: any =
         throw new Error("Error requesting: " + body);
 
     if (needConversion)
-        return dataToJson(body, opt);
+        return await dataToJson(body, opt);
     else
         return body;
 }
 
-function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
+async function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
     const file_data = fs.readFileSync(path, { encoding: 'utf8' });
     if (needConversion)
-        return dataToJson(file_data, opt);
+        return await dataToJson(file_data, opt);
     else
         return file_data;
 }
 
-function dataToJson(file_data: string, opt: any = null) {
-    const csvjson = require('csvjson');
-    const result = csvjson.toObject(file_data, opt);
+async function dataToJson(file_data: string, opt: any = null) {
+    //const csvjson = require('csvjson');
+    //const result = csvjson.toObject(file_data, opt);
+    const result = await parseCsv(file_data, opt);
     return result;
+}
+
+async function parseCsv(csvStr: string, options: any) {
+    return new Promise<any[]>((res, rej) => {
+        const rows:any[] = [];
+        csv.parseString(csvStr, options)
+            .on('data', (row: any) => rows.push(row))
+            .on('error', (err: any) => rej(err))
+            .on('end', () => res(rows));
+    });
 }
 
 export async function transform(result: any[], options: any) {
@@ -173,8 +185,11 @@ export async function transform(result: any[], options: any) {
     if(options.assign && result.length > 0){
         await setStringFieldsFromUser(result[0],options);
     }
+    if(!options.stream){
+        await toGeoJsonFeature(result[0], options, true);//calling this to ask Lat Lon question to the user for only one time
+    }
     for (const i in result) {
-        const ggson = await toGeoJsonFeature(result[i], options, Number(i));
+        const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
             objects.push(ggson);
         }
@@ -202,7 +217,7 @@ async function setStringFieldsFromUser(object:any, options: any){
     options.stringFields = options.stringFields + answers.stringFieldChoice;
 }
 
-async function toGeoJsonFeature(object: any, options: any, index: number) {
+async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: boolean = false) {
     //latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
@@ -239,7 +254,7 @@ async function toGeoJsonFeature(object: any, options: any, index: number) {
             }
         }
     }
-    if (index == 0) {
+    if (askLatLonQuestion) {
         if(lat == null || isNaN(parseFloat(lat))){
             let choiceList = createQuestionsList(object);
             const questions = [
@@ -375,7 +390,7 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
 }
 
 
-export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readLineAsChunks(incomingPath: string, chunckSize:number, options: any, streamFuntion:Function) {
     return readData(incomingPath, 'geojsonl').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
@@ -398,6 +413,7 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
                 (async()=>{
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
                     console.log("");
                     resolve();
                 })();
@@ -407,13 +423,20 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
 }
 
 
-export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:any, streamFuntion:Function) {
+    let isQuestionAsked : boolean = false;
     return readData(incomingPath, 'csv').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(path);
-            let csvstream = csv.fromStream(stream, {headers : true}).on("data", function(data:any){
+            let csvstream = csv.parseStream(stream, {headers : true, delimiter: options.delimiter, quote: options.quote}).on("data", async function(data:any){
+                if(!isQuestionAsked){
+                    csvstream.pause();
+                    await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
+                    isQuestionAsked = true;
+                    csvstream.resume();
+                }
                 dataArray.push(data);
                 if(dataArray.length >=chunckSize){
                     //console.log('dataArray '+chunckSize);
@@ -428,6 +451,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
                 (async()=>{
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
                     console.log("");
                     resolve();
                 })();
@@ -438,7 +462,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,streamFu
                 
 
 
-export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, options:any, streamFuntion:Function) {
     return readData(incomingPath, 'geojson').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
@@ -462,6 +486,7 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,stre
                     (async()=>{
                         const queue = await streamFuntion(dataArray);
                         await queue.shutdown();
+                        options.totalCount = queue.uploadCount;
                         console.log("");
                         dataArray=new Array<any>();
                     })();
