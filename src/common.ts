@@ -390,11 +390,8 @@ export function timeStampToLocaleString(timeStamp: number) {
 
 export function drawNewTable(data: any, columns: any, columnWidth?: any) {
     if(!columnWidth && columns && columns.length > 2) {
-        columnWidth = [];
         let size = Math.floor(115 / columns.length);
-        for(let n in columns) {
-            columnWidth.push(size);
-        }
+        columnWidth = new Array(columns.length).fill(size);
     }
     if(columnWidth && columnWidth.length > 0 && columns && columns.length == columnWidth.length) {
         const obj:any = {};
