@@ -542,8 +542,8 @@ program
                     process.exit();
                 }
                 */
-                if(options.bbox == true){
-                   options.bbox = await getBoundingBoxFromUser();
+                if (options.bbox == true) {
+                    options.bbox = await getBoundingBoxFromUser();
                 }
 
                 let cellSizes: number[] = [];
@@ -602,7 +602,7 @@ program
                 console.log("Creating hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
-                    if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
+                    if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
                         console.log("\nNo features are available to create hexbins (only points are supported)");
                         process.exit();
                     }
@@ -811,7 +811,7 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
     return body;
 }
 
-async function getBoundingBoxFromUser(){
+async function getBoundingBoxFromUser() {
     const answer: any = await inquirer.prompt(bboxQuestions);
     //bounding box - minLon,minLat,maxLon,maxLat
     return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
@@ -1192,7 +1192,7 @@ program
         if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
-            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
+            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
             const descPrompt = [{
                 type: 'input',
                 name: 'description',
@@ -1344,7 +1344,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
             } else {
                 let queue = streamingQueue();
-                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options,  function (result: any) {
+                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
@@ -1377,7 +1377,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 let result = await transform.read(
                     options.file,
                     true,
-                    { headers : true, delimiter: options.delimiter, quote: options.quote }
+                    { headers: true, delimiter: options.delimiter, quote: options.quote }
                 );
                 const object = {
                     features: await transform.transform(
@@ -1477,8 +1477,8 @@ async function uploadToXyzSpace(id: string, options: any) {
         });
     }
 
-    let totalTime = ((new Date().getTime() - startTime.getTime())/1000);
-    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount/totalTime) + " features per second");
+    let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
+    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     //})();
 }
 
@@ -1609,8 +1609,8 @@ async function uploadDataToSpaceWithTags(
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                   upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
-                   process.stdout.write("\n");
+                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                    process.stdout.write("\n");
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1827,7 +1827,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         url,
         "PUT",
         "application/geo+json",
-        JSON.stringify(fc,(key, value) => {
+        JSON.stringify(fc, (key, value) => {
             if (typeof value === 'string') {
                 return value.replace(/\0/g, '');
             }
@@ -1951,6 +1951,18 @@ async function configXyzSpace(id: string, options: any) {
     if ((options.schema || options.searchable || options.tagrules) &&
         (options.shared || options.title || options.message || options.copyright || options.stats)) {
         console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+        process.exit(1);
+    }
+
+    if (!(options.schema || options.searchable || options.tagrules) &&
+        (options.delete || options.add || options.view)) {
+        console.log("invalid options, add/view/delete options can not be used without searchable/schema/tagrules options")
+        process.exit(1);
+    }
+
+    if (!(options.tagrules) &&
+            (options.update)) {
+        console.log("invalid options, update option can not be used without tagrules options")
         process.exit(1);
     }
 
@@ -2222,60 +2234,60 @@ program
     .option("-a, --associate [spaceids]", "Associate the spaces. Features same id will be merged into one feature. Enter comma separated space ids, space1,space2. space1 properties will be merged into space2 features.")
     .action(options => createVirtualSpace(options).catch((err) => { handleError(err) }));
 
-async function createVirtualSpace(options:any){
+async function createVirtualSpace(options: any) {
 
-        await common.verifyProBetaLicense();
+    await common.verifyProBetaLicense();
 
-        if (options) {
-            if(options.group && options.associate) {
-                console.log("ERROR : please select either associate or group");
-                return;
-            }
-
-            if(!options.group && !options.associate) {
-                console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
-                return;
-            }
-        }
-        let spaceids = options.group ? options.group : options.associate;
-        if(isBoolean(spaceids)) {
-            console.log("ERROR : please provide the space ids")
-            return
+    if (options) {
+        if (options.group && options.associate) {
+            console.log("ERROR : please select either associate or group");
+            return;
         }
 
-        spaceids = spaceids.split(",");
-        const relationship = options.group ? "group" : "merge";
-        if (!options.title) {
-            options.title = createVirtualSpaceTitle(spaceids, options.associate);
-        }
-        if (!options.message) {
-            options.message = await createVirtualSpaceDescription(spaceids, options.associate);
-        }
-        
-        const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
-        const {response, body} = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
-        if ( response.statusCode >= 200 && response.statusCode < 210 ) {
-            console.log("virtual xyzspace '" + body.id + "' created successfully");
+        if (!options.group && !options.associate) {
+            console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
+            return;
         }
     }
+    let spaceids = options.group ? options.group : options.associate;
+    if (isBoolean(spaceids)) {
+        console.log("ERROR : please provide the space ids")
+        return
+    }
 
-function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean){
+    spaceids = spaceids.split(",");
+    const relationship = options.group ? "group" : "merge";
+    if (!options.title) {
+        options.title = createVirtualSpaceTitle(spaceids, options.associate);
+    }
+    if (!options.message) {
+        options.message = await createVirtualSpaceDescription(spaceids, options.associate);
+    }
+
+    const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
+    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    if (response.statusCode >= 200 && response.statusCode < 210) {
+        console.log("virtual xyzspace '" + body.id + "' created successfully");
+    }
+}
+
+function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean) {
     let title = "XYZ Virtual Space, " + spaceids[0];
-    for(let i = 1; i < spaceids.length; i ++){
+    for (let i = 1; i < spaceids.length; i++) {
         title += isAssociate ? ' -> ' + spaceids[i] : ' + ' + spaceids[i];
     }
     title += isAssociate ? ' (associate)' : ' (group)';
     return title;
 }
 
-async function createVirtualSpaceDescription(spaceids: any[], isAssociate: boolean){
+async function createVirtualSpaceDescription(spaceids: any[], isAssociate: boolean) {
     let spaceData: any[] = [];
     let message: string = '';
-    for(let i = 0 ; i < spaceids.length; i ++){
+    for (let i = 0; i < spaceids.length; i++) {
         spaceData[i] = await getSpaceMetaData(spaceids[i]);
     };
     message = isAssociate ? 'association of ' + spaceData[0].id + ' (' + spaceData[0].title + ')' : 'grouping of ' + spaceData[0].id + ' (' + spaceData[0].title + ')';
-    for(let i = 1; i < spaceids.length; i ++){
+    for (let i = 1; i < spaceids.length; i++) {
         message += ' and ' + spaceData[i].id + ' (' + spaceData[i].title + ')';
     }
     return message;
@@ -2337,9 +2349,13 @@ function composeJsonPath(condition: string) {
 function parseJsonPath(jsonPath: string) {
     let myRegexp = /.\.features\[\?\((.*)\)\]/g;
     let match: any = myRegexp.exec(jsonPath);
-    let expression = match[1];
-    let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
-    return condition;
+    if(match) {
+        let expression = match[1];
+        let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
+        return condition;
+    } else {
+        return jsonPath;
+    }
 }
 
 function isValidTagName(tagName: string) {
@@ -2642,7 +2658,7 @@ async function searchableConfig(id: string, options: any) {
     if (spacedef != null) {
         let searchableProperties = spacedef.searchableProperties;
         if (options.delete) {
-            
+
             if (searchableProperties && Object.keys(searchableProperties).length > 0) {
                 Object.keys(searchableProperties).forEach(propertyname => {
                     choiceList.push({ 'name': propertyname + " , mode : manually configured, searchable : " + searchableProperties[propertyname], 'value': propertyname });
@@ -2746,116 +2762,6 @@ async function searchableConfig(id: string, options: any) {
         if (response.statusCode >= 200 && response.statusCode < 210) {
             console.log("searchable configuration updated successfully!");
         }
-    }
-}
-
-
-
-// program
-//     .command("auditlog <id>")
-//     .description("enable, disable or view the auditlog for your xyz space. audit log lets to see thru the history of feature modification")
-//     .option("--enable", "enable auditlog for the space")
-//     .option("--disable", "disable audit log for the space")
-//     .option("--state <state>", "number of history log for a feature you would like to keep, please enter a number")
-//     .option("--diff", "starage mode : store only the changed properties, not full feature")
-//     .option("--full", "storage mode : store full feature, if the feature is modified")
-//     .option("--view", "view the details of audit log for the space")
-//     .action(function (id, options) {
-//         auditlogConfig(id, options).catch((error) => handleError(error, true));
-//     })
-
-async function auditlogConfig(id: string, options: any) {
-    let enableMode = options.enable;
-    await common.verifyProBetaLicense();
-    let patchRequest: any = {};
-
-    if (options.diff && options.full) {
-        console.log("please select either diff or full options")
-        process.exit(1);
-    }
-
-    if (options.state) {
-        if (options.state > 5) {
-            console.log("state value can not be greater than 5");
-            process.exit(1);
-        }
-    }
-
-    let listenerDef: any = getEmptyauditlogListenerProfile();
-
-    if (options.enable) {
-        if (options.diff || options.full || options.state) {
-            listenerDef['params'] = {};
-            if (options.state) {
-                listenerDef['params'].state = options.state
-            }
-            if (options.diff) {
-                listenerDef['params'].storageMode = 'DIFF_ONLY'
-            } else if (options.full) {
-                listenerDef['params'].storageMode = 'FULL'
-            }
-        }
-        patchRequest['listeners'] = [listenerDef];
-    } else if (options.disable) {
-        patchRequest['listeners'] = [];
-    } else if (options.view) {
-        let tabledata: any = {};
-        const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""
-        );
-        let spacedef = body;
-        if (spacedef.listeners) {
-            const listeners: Array<any> = spacedef.listeners;
-            listeners.forEach((listener, index) => {
-                if (listener.id === 'audit-trail-writer') {
-                    tabledata.status = 'ENABLED';
-                    tabledata.storage_mode = listener.params && listener.params.storageMode ? listener.params.storageMode : 'default';
-                    tabledata.audit_space_id = listener.params ? listener.params.auditSpaceId : '';
-                } else if (listener.id === 'audit-trail') {
-                    tabledata.state = listener.params && listener.params.state ? listener.params.state : 'default';
-                }
-            })
-
-            if (Object.keys(tabledata).length > 0) {
-                console.table(tabledata);
-
-            }
-        } else {
-            console.log("audit log for this space is not enabled.")
-        }
-    }
-
-    // console.log(JSON.stringify(patchRequest));
-    if (Object.keys(patchRequest).length > 0) {
-        const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
-            url,
-            "PATCH",
-            "application/json",
-            patchRequest,
-            null,
-            false
-        );
-
-        if (response.statusCode >= 200 && response.statusCode < 210) {
-            console.log("audit trail configuration updated successfully!");
-        }
-    }
-    //console.log(options);
-
-}
-
-function getEmptyauditlogListenerProfile() {
-    return {
-        "id": "audit-trail",
-        "params": null,
-        "eventTypes": [
-            "ModifySpaceEvent.request"
-        ]
     }
 }
 
