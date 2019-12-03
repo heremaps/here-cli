@@ -199,10 +199,10 @@ export async function login(authId: string, authSecret: string) {
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299)
+    if (response.statusCode < 200 || response.statusCode > 299)
         throw new Error("Failed to login: " + JSON.stringify(body));
 
-    encryptAndStore('keyInfo', body.token);
+    encryptAndStore('keyInfo', body.tid);
     encryptAndStore('appDetails', authId + keySeparator + authSecret);
 
     console.log("Secrets verified successfully");
@@ -219,7 +219,7 @@ export async function hereAccountLogin(email: string, password: string) {
 export async function generateToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
-    encryptAndStore('keyInfo', token.token);
+    encryptAndStore('keyInfo', token.tid);
     await generateROToken(mainCookie, JSON.parse(maxRights), appId);
     return token;
 }
@@ -233,7 +233,7 @@ function readOnlyRightsRequest(maxRights:any) {
 }
 export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
     const token = await sso.fetchToken(mainCookie, JSON.stringify(readOnlyRightsRequest(maxRights)), appId);
-    encryptAndStore('roKeyInfo', token.token);
+    encryptAndStore('roKeyInfo', token.tid);
 }
 
 export async function getAppIds(cookies: string) {
@@ -245,7 +245,7 @@ export async function getAppIds(cookies: string) {
         }
     };
     const { response, body } = await requestAsync(options);
-    if (response.statusCode < 200 && response.statusCode > 299)
+    if (response.statusCode < 200 || response.statusCode > 299)
         throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
     return body;
@@ -267,7 +267,7 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             body : payload
         }
         const { response, body } = await requestAsync(options);
-        if (response.statusCode < 200 && response.statusCode > 299)
+        if (response.statusCode < 200 || response.statusCode > 299)
             throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
         return body;
@@ -283,7 +283,7 @@ async function validateToken(token: string) {
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299) {
+    if (response.statusCode < 200 || response.statusCode > 299) {
         console.log("Failed to login : " + JSON.stringify(body));
         throw new Error("Failed to log in");
     }
@@ -311,7 +311,7 @@ async function getTokenInformation(tokenId: string){
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299) {
+    if (response.statusCode < 200 || response.statusCode > 299) {
         throw new Error("Fetching token information failed for Token - " + tokenId);
     }
     return body;
