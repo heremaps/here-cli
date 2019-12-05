@@ -228,9 +228,9 @@ function readOnlyRightsRequest(maxRights:any) {
     return {
           "xyz-hub": {
             "readFeatures": maxRights['xyz-hub'].readFeatures,
-            "useCapabilities": {
+            "useCapabilities": [{
                 "id" : "hexbinClustering"
-            }
+            }]
           }
     };
 }
