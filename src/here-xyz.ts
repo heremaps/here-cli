@@ -2782,7 +2782,7 @@ async function performGisOperation(id:string, options:any){
     options.totalRecords = Number.MAX_SAFE_INTEGER;
     options.currentHandleOnly = true;
     options.handle = 0;
-    options.chunk = 10;
+    options.limit = 10;
     let cHandle;
     let centroidFeatures : any[]= [];
     let featureCount = 0;
