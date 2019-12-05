@@ -227,7 +227,10 @@ export async function generateToken(mainCookie:string, appId : string) {
 function readOnlyRightsRequest(maxRights:any) {
     return {
           "xyz-hub": {
-            "readFeatures": maxRights['xyz-hub'].readFeatures
+            "readFeatures": maxRights['xyz-hub'].readFeatures,
+            "useCapabilities": {
+                "id" : "hexbinClustering"
+            }
           }
     };
 }
