@@ -2026,8 +2026,8 @@ async function configXyzSpace(id: string, options: any) {
                     }
                 } else {
                     let schemaValidatorProcessor = spacedef.processors['schema-validator'];
-                    if(schemaValidatorProcessor){
-                        const { response, body } = await execute(schemaValidatorProcessor.params.schemaUrl, "GET", "application/json", "");
+                    if(schemaValidatorProcessor && schemaValidatorProcessor.length > 0){
+                        const { response, body } = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
                         console.log(JSON.stringify(body, null, 3));
                         process.exit(1);
                     }
@@ -2059,6 +2059,7 @@ async function configXyzSpace(id: string, options: any) {
                         process.exit(1);
                     }
                     console.log("Removing schema definition for the space.")
+                    patchRequest['processors'] = {};
                     patchRequest['processors']['schema-validator'] = null;
                 }
             } else {
@@ -2209,8 +2210,8 @@ function showSpaceConfig(spacedef: any) {
             }
         } else {
             for (var key in spacedef.processors) {
-                if (spacedef.processors.hasOwnProperty(key)) {
-                    processors.push(spacedef.processors[key].id);
+                if (spacedef.processors.hasOwnProperty(key) && spacedef.processors[key].length > 0) {
+                    processors.push(spacedef.processors[key][0].id);
                 }
             }
         }
@@ -2228,8 +2229,8 @@ function showSpaceConfig(spacedef: any) {
             }
         } else {
             for (var key in spacedef.listeners) {
-                if (spacedef.listeners.hasOwnProperty(key)) {
-                    listeners.push(spacedef.listeners[key].id);
+                if (spacedef.processors.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
+                    listeners.push(spacedef.listeners[key][0].id);
                 }
             }
         }
@@ -2341,33 +2342,23 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
 
 function getSchemaProcessorProfile(schema: string) {
     return {
-        "schema-validator" : {
+        "schema-validator" : [{
             "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
             "params": {
                 "schema": schema
             }
-        }
+        }]
     }
 }
 
-function getEmptyRuleTaggerProfile(id: string) {
+function getEmptyRuleTaggerProfile() {
     return {
-        "id": id,
         "eventTypes": ["ModifyFeaturesEvent.request"],
         "params": {
             "taggingRules": {
-
             }
         }
     }
-}
-
-function getEmptyRuleTaggerAsyncProcessorProfile() {
-    return getEmptyRuleTaggerProfile("rule-tagger-async");
-}
-
-function getEmptyRuleTaggerProcessorProfile() {
-    return getEmptyRuleTaggerProfile("rule-tagger");
 }
 
 function composeJsonPath(condition: string) {
@@ -2408,9 +2399,13 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
                 }
             }
         } else {
-            return spacedef.processors[processorName];
+            if(spacedef.processors[processorName] && spacedef.processors[processorName].length > 0){
+                return spacedef.processors[processorName][0];
+            }
+            return null;
         }
     }
+    return null;
 }
 
 // program
@@ -2475,19 +2470,21 @@ async function tagRuleConfig(id: string, options: any) {
                         delete taggingRulesAsync[key.substring(6)];
                     }
                 })
-
+                patchRequest['processors'] = {};
                 if (taggingRules){
                     if(Object.keys(taggingRules).length == 0) {
                         patchRequest['processors']['rule-tagger'] = null;
                     } else {
-                        patchRequest['processors']['rule-tagger'] = ruleTagger;
+                        patchRequest['processors']['rule-tagger'] = [];
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
                     }
                 }
                 if (taggingRulesAsync){
                     if(Object.keys(taggingRulesAsync).length == 0) {
                         patchRequest['processors']['rule-tagger-async'] = null;
                     } else {
-                        patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
                     }
                 }
                 //patchRequest['processors'] = spacedef.processors;
@@ -2558,8 +2555,11 @@ async function tagRuleConfig(id: string, options: any) {
                         process.exit(1);
                     }
                     //patchRequest['processors'] = spacedef.processors;
-                    patchRequest['processors']['rule-tagger'] = ruleTagger;
-                    patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
+                    patchRequest['processors'] = {};
+                    patchRequest['processors']['rule-tagger'] = [];
+                    patchRequest['processors']['rule-tagger'].push(ruleTagger);
+                    patchRequest['processors']['rule-tagger-async'] = [];
+                    patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
                 }
             }
         } else if (options.add) {
@@ -2601,24 +2601,28 @@ async function tagRuleConfig(id: string, options: any) {
                 const tagCondition = tagConditionInput.tagcondition;
                 if (isValidRuleExpression(tagCondition)) {
                     const jsonPath = composeJsonPath(tagCondition);
-
+                    patchRequest['processors'] = {};
                     if (options.async) {
                         if (!ruleTaggerAsync) {
-                            ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
+                            ruleTaggerAsync = getEmptyRuleTaggerProfile();
                             //spacedef.processors.push(ruleTaggerAsync);
                         }
                         taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
                         taggingRulesAsync[tagName] = jsonPath;
-                        patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
                     } else {
                         if (!ruleTagger) {
-                            ruleTagger = getEmptyRuleTaggerProcessorProfile();
+                            ruleTagger = getEmptyRuleTaggerProfile();
                             //spacedef.processors.push(ruleTagger);
                         }
                         taggingRules = ruleTagger['params'].taggingRules;
                         taggingRules[tagName] = jsonPath;
-                        patchRequest['processors']['rule-tagger'] = ruleTagger;
+                        patchRequest['processors']['rule-tagger'] = [];
+                        console.log("inside add tag -  " + JSON.stringify(patchRequest));
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
                     }
+                    console.log(JSON.stringify(patchRequest));
                     //patchRequest['processors'] = spacedef.processors;
                 } else {
                     console.log("invalid condition entered, please try again.");
@@ -2650,7 +2654,8 @@ async function tagRuleConfig(id: string, options: any) {
 
     if (Object.keys(patchRequest).length > 0) {
 
-        const url = `/hub/spaces/${id}?clientId=cli`
+        const url = `/hub/spaces/${id}?clientId=cli`;
+        console.log(JSON.stringify(patchRequest));
         const { response, body } = await execute(
             url,
             "PATCH",
@@ -2659,7 +2664,7 @@ async function tagRuleConfig(id: string, options: any) {
             null,
             false
         );
-
+        console.log(JSON.stringify(body));
         if (response.statusCode >= 200 && response.statusCode < 210) {
             console.log("tagrules updated successfully!");
         }
