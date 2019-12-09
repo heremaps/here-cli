@@ -1044,8 +1044,7 @@ async function createSpace(options: any) {
 
             schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
 
-            let processors = [];
-            processors.push(getSchemaProcessorProfile(schemaDef));
+            let processors = getSchemaProcessorProfile(schemaDef);
 
             gp['processors'] = processors;
         }
@@ -2015,11 +2014,20 @@ async function configXyzSpace(id: string, options: any) {
     if (options.schema) {
         if (options.schema == true && options.delete != true) {
             if (spacedef.processors) {
-                let i = spacedef.processors.length;
-                while (i--) {
-                    let processor = spacedef.processors[i];
-                    if (processor.id === 'schema-validator') {
-                        const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                if(Array.isArray(spacedef.processors)){
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'schema-validator') {
+                            const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                            console.log(JSON.stringify(body, null, 3));
+                            process.exit(1);
+                        }
+                    }
+                } else {
+                    let schemaValidatorProcessor = spacedef.processors['schema-validator'];
+                    if(schemaValidatorProcessor){
+                        const { response, body } = await execute(schemaValidatorProcessor.params.schemaUrl, "GET", "application/json", "");
                         console.log(JSON.stringify(body, null, 3));
                         process.exit(1);
                     }
@@ -2028,12 +2036,16 @@ async function configXyzSpace(id: string, options: any) {
             console.log("schema definition not found");
         } else {
             if (spacedef.processors) {
-                let i = spacedef.processors.length;
-                while (i--) {
-                    let processor = spacedef.processors[i];
-                    if (processor.id === 'schema-validator') {
-                        spacedef.processors.splice(i, 1);
+                if(Array.isArray(spacedef.processors)){
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'schema-validator') {
+                            spacedef.processors.splice(i, 1);
+                        }
                     }
+                } else {
+                    let processor = spacedef.processors['schema-validator'];
                 }
             }
             if (options.schema == true) {
@@ -2047,7 +2059,7 @@ async function configXyzSpace(id: string, options: any) {
                         process.exit(1);
                     }
                     console.log("Removing schema definition for the space.")
-                    //patchRequest['processors'] = [];
+                    patchRequest['processors']['schema-validator'] = null;
                 }
             } else {
                 let schemaDef: string = "";
@@ -2058,12 +2070,14 @@ async function configXyzSpace(id: string, options: any) {
                 }
                 schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
                 //console.log(JSON.stringify(schemaDef));
-
+                /*
                 if (!spacedef.processors)
                     spacedef.processors = [];
                 spacedef.processors.push(getSchemaProcessorProfile(schemaDef));
+                */
+                patchRequest['processors'] = getSchemaProcessorProfile(schemaDef);
             }
-            patchRequest['processors'] = spacedef.processors;
+            //patchRequest['processors'] = spacedef.processors;
         }
     }
 
@@ -2182,29 +2196,45 @@ function showSpaceConfig(spacedef: any) {
             const obj = spacedef.copyright[n];
             copr.push(obj.label);
         }
-        spacedef.copyright = copr;
+        //spacedef.copyright = copr;
         spaceconfigs.push({ property: 'copyright', value: spacedef.copyright });
     }
 
     if (spacedef.processors) {
         let processors: any = [];
-        for (let n = 0; n < spacedef.processors.length; n++) {
-            let processor = spacedef.processors[n];
-            processors.push(processor.id)
+        if(Array.isArray(spacedef.processors)){
+            for (let n = 0; n < spacedef.processors.length; n++) {
+                let processor = spacedef.processors[n];
+                processors.push(processor.id)
+            }
+        } else {
+            for (var key in spacedef.processors) {
+                if (spacedef.processors.hasOwnProperty(key)) {
+                    processors.push(spacedef.processors[key].id);
+                }
+            }
         }
 
-        spacedef.processors = JSON.stringify(processors);
+        //spacedef.processors = JSON.stringify(processors);
         spaceconfigs.push({ property: 'processors', value: JSON.stringify(processors) });
     }
 
     if (spacedef.listeners) {
         let listeners: any = [];
-        for (let n = 0; n < spacedef.listeners.length; n++) {
-            let listener = spacedef.listeners[n];
-            listeners.push(listener.id)
+        if(Array.isArray(spacedef.listeners)){
+            for (let n = 0; n < spacedef.listeners.length; n++) {
+                let listener = spacedef.listeners[n];
+                listeners.push(listener.id)
+            }
+        } else {
+            for (var key in spacedef.listeners) {
+                if (spacedef.listeners.hasOwnProperty(key)) {
+                    listeners.push(spacedef.listeners[key].id);
+                }
+            }
         }
 
-        spacedef.processors = JSON.stringify(listeners);
+        //spacedef.processors = JSON.stringify(listeners);
         spaceconfigs.push({ property: 'listeners', value: JSON.stringify(listeners) });
     }
 
@@ -2311,10 +2341,11 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
 
 function getSchemaProcessorProfile(schema: string) {
     return {
-        "id": "schema-validator",
-        "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
-        "params": {
-            "schema": schema
+        "schema-validator" : {
+            "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
+            "params": {
+                "schema": schema
+            }
         }
     }
 }
@@ -2366,6 +2397,22 @@ function isValidRuleExpression(ruleExpression: string) {
     return ruleExpression && ruleExpression.trim().length > 4
 }
 
+function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
+    if (spacedef.processors) {
+        if(Array.isArray(spacedef.processors)){
+            let i = spacedef.processors.length;
+            while (i--) {
+                let processor = spacedef.processors[i];
+                if (processor.id === processorName) {
+                    return spacedef.processors.splice(i, 1)[0];
+                }
+            }
+        } else {
+            return spacedef.processors[processorName];
+        }
+    }
+}
+
 // program
 //     .command("tagrules <id>")
 //     .description("add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
@@ -2392,8 +2439,8 @@ async function tagRuleConfig(id: string, options: any) {
     );
     spacedef = body;
     if (spacedef != null) {
-        let ruleTagger = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger' }) : null;
-        let ruleTaggerAsync = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger-async' }) : null;
+        let ruleTagger = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger');
+        let ruleTaggerAsync = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger-async');
         let taggingRules: any;
         let taggingRulesAsync: any;
         if (ruleTagger) {
@@ -2429,25 +2476,21 @@ async function tagRuleConfig(id: string, options: any) {
                     }
                 })
 
-                if (taggingRules && Object.keys(taggingRules).length == 0) {
-                    let i = spacedef.processors.length;
-                    while (i--) {
-                        let processor = spacedef.processors[i];
-                        if (processor.id === 'rule-tagger') {
-                            spacedef.processors.splice(i, 1);
-                        }
+                if (taggingRules){
+                    if(Object.keys(taggingRules).length == 0) {
+                        patchRequest['processors']['rule-tagger'] = null;
+                    } else {
+                        patchRequest['processors']['rule-tagger'] = ruleTagger;
                     }
                 }
-                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length == 0) {
-                    let i = spacedef.processors.length;
-                    while (i--) {
-                        let processor = spacedef.processors[i];
-                        if (processor.id === 'rule-tagger-async') {
-                            spacedef.processors.splice(i, 1);
-                        }
+                if (taggingRulesAsync){
+                    if(Object.keys(taggingRulesAsync).length == 0) {
+                        patchRequest['processors']['rule-tagger-async'] = null;
+                    } else {
+                        patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
                     }
                 }
-                patchRequest['processors'] = spacedef.processors;
+                //patchRequest['processors'] = spacedef.processors;
             }
         } else if (options.update) {
             if ((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
@@ -2514,7 +2557,9 @@ async function tagRuleConfig(id: string, options: any) {
                         console.log("invalid condition entered, please try again.");
                         process.exit(1);
                     }
-                    patchRequest['processors'] = spacedef.processors;
+                    //patchRequest['processors'] = spacedef.processors;
+                    patchRequest['processors']['rule-tagger'] = ruleTagger;
+                    patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
                 }
             }
         } else if (options.add) {
@@ -2560,19 +2605,21 @@ async function tagRuleConfig(id: string, options: any) {
                     if (options.async) {
                         if (!ruleTaggerAsync) {
                             ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
-                            spacedef.processors.push(ruleTaggerAsync);
+                            //spacedef.processors.push(ruleTaggerAsync);
                         }
                         taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
                         taggingRulesAsync[tagName] = jsonPath;
+                        patchRequest['processors']['rule-tagger-async'] = ruleTaggerAsync;
                     } else {
                         if (!ruleTagger) {
                             ruleTagger = getEmptyRuleTaggerProcessorProfile();
-                            spacedef.processors.push(ruleTagger);
+                            //spacedef.processors.push(ruleTagger);
                         }
                         taggingRules = ruleTagger['params'].taggingRules;
                         taggingRules[tagName] = jsonPath;
+                        patchRequest['processors']['rule-tagger'] = ruleTagger;
                     }
-                    patchRequest['processors'] = spacedef.processors;
+                    //patchRequest['processors'] = spacedef.processors;
                 } else {
                     console.log("invalid condition entered, please try again.");
                     process.exit(1);
