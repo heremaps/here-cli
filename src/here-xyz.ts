@@ -2346,7 +2346,8 @@ function getSchemaProcessorProfile(schema: string) {
             "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
             "params": {
                 "schema": schema
-            }
+            },
+            "order": 0
         }]
     }
 }
@@ -2357,7 +2358,8 @@ function getEmptyRuleTaggerProfile() {
         "params": {
             "taggingRules": {
             }
-        }
+        },
+        "order": 0
     }
 }
 
