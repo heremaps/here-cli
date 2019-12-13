@@ -2621,10 +2621,8 @@ async function tagRuleConfig(id: string, options: any) {
                         taggingRules = ruleTagger['params'].taggingRules;
                         taggingRules[tagName] = jsonPath;
                         patchRequest['processors']['rule-tagger'] = [];
-                        console.log("inside add tag -  " + JSON.stringify(patchRequest));
                         patchRequest['processors']['rule-tagger'].push(ruleTagger);
                     }
-                    console.log(JSON.stringify(patchRequest));
                     //patchRequest['processors'] = spacedef.processors;
                 } else {
                     console.log("invalid condition entered, please try again.");
@@ -2657,7 +2655,6 @@ async function tagRuleConfig(id: string, options: any) {
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`;
-        console.log(JSON.stringify(patchRequest));
         const { response, body } = await execute(
             url,
             "PATCH",
