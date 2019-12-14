@@ -1440,6 +1440,30 @@ async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
+        } else if (options.file.indexOf(".gpx") != -1) {
+            let result = await transform.read(
+                options.file,
+                false,
+                {}
+            );
+            const object = {
+                features: await transform.transformGpx(
+                    result,
+                    options
+                ),
+                type: "FeatureCollection"
+            };
+            await uploadData(
+                id,
+                options,
+                tags,
+                object,
+                true,
+                options.ptag,
+                options.file,
+                options.id
+            );
+
         } else {
             if (!options.stream) {
                 let result = await transform.read(
@@ -2010,7 +2034,7 @@ async function configXyzSpace(id: string, options: any) {
     }
 
     if (!(options.tagrules) &&
-            (options.update)) {
+        (options.update)) {
         console.log("invalid options, update option can not be used without tagrules options")
         process.exit(1);
     }
@@ -2422,7 +2446,7 @@ function composeJsonPath(condition: string) {
 function parseJsonPath(jsonPath: string) {
     let myRegexp = /.\.features\[\?\((.*)\)\]/g;
     let match: any = myRegexp.exec(jsonPath);
-    if(match) {
+    if (match) {
         let expression = match[1];
         let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
         return condition;
