@@ -2,3 +2,4 @@ node_modules/*
 *.tgz
 bin/*.js
 .idea
+.vscode/launch.json
