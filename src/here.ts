@@ -54,7 +54,7 @@ async function start() {
         .version(getVersion())
         .command('configure [set|verify]', 'setup configuration for authentication').alias('c')
         .command('xyz [list|create|upload]', 'work with xyz spaces').alias('xs')
-        .command('transform [csv2geo|shp2geo]', 'convert from csv/shapefile to geojson').alias('tf')
+        .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);
     common.validate(commands, program.args, program);
