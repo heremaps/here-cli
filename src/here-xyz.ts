@@ -637,38 +637,15 @@ program
                     id = options.destSpace;
                 } else {
                 */
-                let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
-                let newspaceData;
-                if ((sourceSpaceData.shared == true && await isOtherOwnerSpace(sourceSpaceData.owner)) || options.readToken) {
-                    console.log("shared space or readToken found, creating new hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, false, options.writeToken);
-                    id = newspaceData.id;
-                } else if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
-                    console.log("No hexbin space found, creating hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
-                    id = newspaceData.id;
-                } else {
-                    try {
-                        console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
-                        id = sourceSpaceData.client.hexbinSpaceId;
-                        newspaceData = await getSpaceMetaData(id, options.writeToken);
-                    } catch (error) {
-                        if (error.statusCode && (error.statusCode == 404 || error.statusCode == 403)) {
-                            console.log("looks like existing hexbin space " + id + " has been deleted or you don't have sufficient rights, creating new one ");
-                            newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
-                            id = newspaceData.id;
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
+                let newSpaceData = await createNewSpaceAndUpdateMetadata('hexbin', sourceId, options);
+                id = newSpaceData.id;
                 let cellSizeSet = new Set<string>();
                 let zoomLevelSet = new Set<string>();
-                if (newspaceData.client && newspaceData.client.cellSizes) {
-                    newspaceData.client.cellSizes.forEach((item: string) => cellSizeSet.add(item));
+                if (newSpaceData.client && newSpaceData.client.cellSizes) {
+                    newSpaceData.client.cellSizes.forEach((item: string) => cellSizeSet.add(item));
                 }
-                if (newspaceData.client && newspaceData.client.zoomLevels) {
-                    newspaceData.client.zoomLevels.forEach((item: string) => zoomLevelSet.add(item));
+                if (newSpaceData.client && newSpaceData.client.zoomLevels) {
+                    newSpaceData.client.zoomLevels.forEach((item: string) => zoomLevelSet.add(item));
                 }
 
                 options.token = null;
@@ -770,29 +747,30 @@ async function isOtherOwnerSpace(spaceOwner: string) {
     return currentOwner != spaceOwner;
 }
 
-async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null) {
+async function createNewSpaceUpdateMetadata(newSpaceType: string, sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null) {
     let newSpaceConfig = {
-        title: 'hexbin space of ' + sourceSpaceData.title,
-        message: 'hexbin space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
+        title: newSpaceType+ ' space of ' + sourceSpaceData.title,
+        message: newSpaceType + ' space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
         client: {
             sourceSpaceId: sourceId,
-            type: 'hexbin'
+            type: newSpaceType
         },
         token: newSpacetoken
     }
     let newspaceData = await createSpace(newSpaceConfig);
     if (updateSourceMetadata) {
-        await updateClientHexbinSpaceId(sourceId, newspaceData.id);
+        await updateClientSpaceWithNewSpaceId(newSpaceType, sourceId, newspaceData.id);
     }
     return newspaceData;
 }
 
-async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string) {
+async function updateClientSpaceWithNewSpaceId(newSpaceType: string, sourceId: string, newSpaceId: string) {
     const uri = "/hub/spaces/" + sourceId + "?clientId=cli";
     const cType = "application/json";
+    const key = newSpaceType + 'SpaceId';
     const data = {
         client: {
-            hexbinSpaceId: hexbinId
+            [key] : newSpaceId
         }
     }
     const { response, body } = await execute(uri, "PATCH", cType, data);
@@ -2769,7 +2747,11 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{xyz pro} perform gis operations with space data")
-    .option("--centroid", "calculates centroids of space features")
+    .option("-c, --chunk [chunk]", "chunk size, default 20")
+    .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
+    .option("--length", "calculates length of LineString features")
+    .option("--area", "calculates area of Polygon features")
+    .option("--samespace", "option to upload centroids to same space")
     .action(function (id, options) {
         performGisOperation(id, options).catch((error) => {
             handleError(error, true);
@@ -2782,24 +2764,34 @@ async function performGisOperation(id:string, options:any){
     options.totalRecords = Number.MAX_SAFE_INTEGER;
     options.currentHandleOnly = true;
     options.handle = 0;
-    options.limit = 10;
+    if(options.chunk){
+        options.limit = options.chunk;
+    } else {
+        options.limit = 20;
+    }
+    if(!options['length'] && !options.centroid && !options.area){
+        console.log("Please specify GIS operation option");
+    }
     let cHandle;
-    let centroidFeatures : any[]= [];
+    let gisFeatures : any[]= [];
     let featureCount = 0;
     console.log("Performing GIS operation on the space data");
     do {
         let jsonOut = await getSpaceDataFromXyz(id, options);
         if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
             console.log("\nNo features are available to execute GIS operation");
-            process.exit();
+            process.exit(1);
         }
         cHandle = jsonOut.handle;
         options.handle = jsonOut.handle;
         if (jsonOut.features) {
             const features = jsonOut.features;
             features.forEach(function (feature: any, i: number){
-                centroidFeatures.push(turf.centroid(feature, feature.properties));
-                process.stdout.write("\rGIS operation done for feature count - " + (featureCount+i));
+                let gisFeature = performTurfOperationOnFeature(feature, options);
+                if(gisFeature){
+                    gisFeatures.push(gisFeature);
+                    process.stdout.write("\rGIS operation done for feature count - " + (featureCount + (i+1)));
+                }
             });
             featureCount += features.length;
         } else {
@@ -2808,15 +2800,90 @@ async function performGisOperation(id:string, options:any){
     } while (cHandle >= 0);
     process.stdout.write("\n");
 
-    if (centroidFeatures.length > 0) {
+    if(!options.samespace && options.centroid){
+        let newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
+        id = newSpaceData.id;
+    }
+    
+    if (gisFeatures.length > 0) {
         let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.json' });
-        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
+        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
         options.tags = 'centroid';
         options.file = tmpObj.name;
         options.override = true;
         await uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);
     }
+}
+
+function performTurfOperationOnFeature(feature: any, options: any){
+    let gisFeature;
+    if(options.centroid){
+        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiLineString' || feature.geometry.type == 'MultiPolygon')){
+            gisFeature = turf.centroid(feature, feature.properties);
+            if(options.samespace){
+                if(!gisFeature.properties){
+                    gisFeature.properties = {};
+                }
+                gisFeature.properties.sourceId = feature.id;
+            } else {
+                gisFeature.id = feature.id;
+            }
+        }
+    } else if(options['length']){
+        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'MultiLineString')){
+            let length = turf.length(feature, {units: 'kilometers'});
+            if(!feature.properties){
+                feature.properties = {};
+            }
+            feature.properties['length'] = length;
+            gisFeature = feature; 
+        }
+    } else if(options.area){
+        if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
+            let area = turf.area(feature);
+            if(!feature.properties){
+                feature.properties = {};
+            }
+            feature.properties['area'] = area;
+            gisFeature = feature; 
+        }
+    } else {
+        console.log("Please specify GIS operation option");
+        process.exit(1);
+    }
+    return gisFeature;
+}
+
+async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
+    let newSpaceId;
+    let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
+    let newspaceData;
+    let clientKey = newSpaceType + 'SpaceId';
+    if ((sourceSpaceData.shared == true && await isOtherOwnerSpace(sourceSpaceData.owner)) || options.readToken) {
+        console.log("shared space or readToken found, creating new " + newSpaceType + " space");
+        newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, false, options.writeToken);
+        newSpaceId = newspaceData.id;
+    } else if (!sourceSpaceData.client || !sourceSpaceData.client[clientKey]) {
+        console.log("No " + newSpaceType + " space found, creating new " + newSpaceType + " space");
+        newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, true, options.writeToken);
+        newSpaceId = newspaceData.id;
+    } else {
+        try {
+            console.log("using exisitng " + newSpaceType + " space - " + sourceSpaceData.client[clientKey]);
+            newSpaceId = sourceSpaceData.client[clientKey];
+            newspaceData = await getSpaceMetaData(newSpaceId, options.writeToken);
+        } catch (error) {
+            if (error.statusCode && (error.statusCode == 404 || error.statusCode == 403)) {
+                console.log("looks like existing " + newSpaceType + " space " + newSpaceId + " has been deleted or you don't have sufficient rights, creating new one ");
+                newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, true, options.writeToken);
+                newSpaceId = newspaceData.id;
+            } else {
+                throw error;
+            }
+        }
+    }
+    return newspaceData;
 }
 
 common.validate(
