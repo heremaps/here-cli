@@ -2211,7 +2211,7 @@ function showSpaceConfig(spacedef: any) {
         } else {
             for (var key in spacedef.processors) {
                 if (spacedef.processors.hasOwnProperty(key) && spacedef.processors[key].length > 0) {
-                    processors.push(spacedef.processors[key][0].id);
+                    processors.push(key);
                 }
             }
         }
@@ -2230,7 +2230,7 @@ function showSpaceConfig(spacedef: any) {
         } else {
             for (var key in spacedef.listeners) {
                 if (spacedef.processors.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
-                    listeners.push(spacedef.listeners[key][0].id);
+                    listeners.push(key);
                 }
             }
         }
