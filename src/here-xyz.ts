@@ -2558,10 +2558,14 @@ async function tagRuleConfig(id: string, options: any) {
                     }
                     //patchRequest['processors'] = spacedef.processors;
                     patchRequest['processors'] = {};
-                    patchRequest['processors']['rule-tagger'] = [];
-                    patchRequest['processors']['rule-tagger'].push(ruleTagger);
-                    patchRequest['processors']['rule-tagger-async'] = [];
-                    patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
+                    if (taggingRules && Object.keys(taggingRules).length > 0) {
+                        patchRequest['processors']['rule-tagger'] = [];
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
+                    }
+                    if (taggingRulesAsync && Object.keys(taggingRulesAsync).length > 0) {
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
+                    }
                 }
             }
         } else if (options.add) {
