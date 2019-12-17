@@ -2663,7 +2663,6 @@ async function tagRuleConfig(id: string, options: any) {
             null,
             false
         );
-        console.log(JSON.stringify(body));
         if (response.statusCode >= 200 && response.statusCode < 210) {
             console.log("tagrules updated successfully!");
         }
@@ -2739,7 +2738,9 @@ async function searchableConfig(id: string, options: any) {
 
                 let answers: any = await inquirer.prompt(searchablePropertiesDisable);
                 answers.propChoices.forEach((key: string) => {
-                    console.log(key);
+                    if(!spacedef.searchableProperties){
+                        spacedef.searchableProperties = {};
+                    }
                     spacedef.searchableProperties[key] = false;
                 })
                 patchRequest['searchableProperties'] = spacedef.searchableProperties;
