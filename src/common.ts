@@ -464,3 +464,33 @@ export function getSplittedKeys(inString: string) {
         return null;
     }
 }
+
+export async function getApiKeys(cookies: string, appId: string) {
+    encodeURIComponent
+    const hrn = encodeURIComponent('hrn:here:account::HERE:app/'+appId);
+    let token;
+    let ha = cookies.split(';').find(x => x.startsWith('here_access=')||x.startsWith('here_access_st='));
+    if(ha)
+        token = ha.split('=')[1];
+    const options = {
+        url: 'https://account.api.here.com/authentication/v1.1' + `/apps/${hrn}/apiKeys`,
+        method: 'GET',
+        auth: {
+            'bearer': token
+        }
+    };
+    const { response, body } = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299)
+        throw new Error("Error while fetching Apps: " + JSON.stringify(body));
+    const resp = JSON.parse(body);
+    let apiKeys = appId;
+    if(resp.items && resp.items.length > 0) {
+        for(var i=0; i<resp.items.length; i++) {
+            let item = resp.items[i]
+            if(item.enabled === true) {
+                apiKeys += (keySeparator + item.apiKeyId);
+            }
+        }
+    }
+    return apiKeys;
+}
