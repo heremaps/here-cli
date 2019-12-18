@@ -25,7 +25,6 @@
 import * as program from "commander";
 import * as common from "./common";
 import { requestAsync } from "./requestAsync";
-import { exists } from "fs";
 
 program
     .version('0.1.0')
@@ -64,12 +63,8 @@ async function geoCode(locationString: string) {
     let result = await execGeoCode(locationString, hasAppCode, appInfo);
 
     if (result.response.statusCode !== 200) {
-        if(result.response.statusCode === 401) {
-            if(hasAppCode) {
-                await common.encryptAndStore("appDetails", appId);
-            } else {
-                await common.encryptAndStore("apiKeys", appId);
-            }
+        if(result.response.statusCode === 401 && !hasAppCode) {
+            await common.encryptAndStore("apiKeys", appId);
             result = await execGeoCode(locationString, hasAppCode, appInfo);
             if(result.response.statusCode !== 200) {
                 if(result.response.statusCode === 401) {
