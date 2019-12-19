@@ -2920,7 +2920,9 @@ async function performGisOperation(id:string, options:any){
     if (gisFeatures.length > 0) {
         let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.json' });
         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
-        options.tags = 'centroid';
+        if(options.centroid){
+            options.tags = 'centroid';
+        }
         options.file = tmpObj.name;
         options.override = true;
         await uploadToXyzSpace(id, options);
@@ -2948,7 +2950,9 @@ function performTurfOperationOnFeature(feature: any, options: any){
             if(!feature.properties){
                 feature.properties = {};
             }
-            feature.properties['length'] = length;
+            feature.properties['xyz_length_m'] = length * 1000;
+            feature.properties['xyz_length_km'] = length.toFixed(2);
+            feature.properties['xyz_length_miles'] = (length * 0.621371).toFixed(2);
             gisFeature = feature; 
         }
     } else if(options.area){
@@ -2957,7 +2961,9 @@ function performTurfOperationOnFeature(feature: any, options: any){
             if(!feature.properties){
                 feature.properties = {};
             }
-            feature.properties['area'] = area;
+            feature.properties['xyz_area_sqm'] = area;
+            feature.properties['xyz_area_sqkm'] = (area / 1000000).toFixed(2);
+            feature.properties['xyz_area_sqmiles'] = (area * 0.00000038610215855).toFixed(2);
             gisFeature = feature; 
         }
     } else {
