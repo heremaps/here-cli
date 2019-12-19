@@ -712,7 +712,7 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        options.override = true;
+                        //options.override = true;
                         await uploadToXyzSpace(id, options);
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
@@ -726,7 +726,7 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        options.override = true;
+                        //options.override = true;
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {
@@ -2137,20 +2137,11 @@ async function configXyzSpace(id: string, options: any) {
             console.log("space config updated successfully!");
         }
     } else if (options.stats) {
-        const url = `/hub/spaces/${id}/statistics?clientId=cli`
-        const { response, body } = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""
-        );
-
-        if (response.statusCode >= 200 && response.statusCode < 210) {
-            if (options.raw) {
-                console.log(body);
-            } else {
-                showSpaceStats(body);
-            }
+        const body = await getSpaceStatistics(id,options.token)
+        if (options.raw) {
+            console.log(body);
+        } else {
+            showSpaceStats(body);
         }
     } else {
         const url = `/hub/spaces/${id}?clientId=cli`
@@ -2169,6 +2160,13 @@ async function configXyzSpace(id: string, options: any) {
             }
         }
     }
+}
+
+async function getSpaceStatistics(id: string, token: string | null = null) {
+    const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
+    const cType = "application/json";
+    const { response, body } = await execute(uri, "GET", cType, "", token);
+    return body;
 }
 
 function showSpaceStats(spacestatsraw: any) {
@@ -2863,6 +2861,7 @@ program
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
+    .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different")
     .option("--samespace", "option to upload centroids to same space")
     .action(function (id, options) {
         performGisOperation(id, options).catch((error) => {
@@ -2881,8 +2880,9 @@ async function performGisOperation(id:string, options:any){
     } else {
         options.limit = 20;
     }
-    if(!options['length'] && !options.centroid && !options.area){
+    if(!options['length'] && !options.centroid && !options.area && !options.voronoi){
         console.log("Please specify GIS operation option");
+        process.exit(1);
     }
     let cHandle;
     let gisFeatures : any[]= [];
@@ -2899,10 +2899,16 @@ async function performGisOperation(id:string, options:any){
         if (jsonOut.features) {
             const features = jsonOut.features;
             features.forEach(function (feature: any, i: number){
-                let gisFeature = performTurfOperationOnFeature(feature, options);
-                if(gisFeature){
-                    gisFeatures.push(gisFeature);
-                    process.stdout.write("\rGIS operation done for feature count - " + (featureCount + (i+1)));
+                if(options.voronoi){
+                    if(feature.geometry && (feature.geometry.type == 'Point')){
+                        gisFeatures.push(feature);
+                    }
+                } else {
+                    let gisFeature = performTurfOperationOnFeature(feature, options);
+                    if(gisFeature){
+                        gisFeatures.push(gisFeature);
+                        process.stdout.write("\rGIS operation done for feature count - " + (featureCount + (i+1)));
+                    }
                 }
             });
             featureCount += features.length;
@@ -2912,8 +2918,22 @@ async function performGisOperation(id:string, options:any){
     } while (cHandle >= 0);
     process.stdout.write("\n");
 
-    if(!options.samespace && options.centroid){
-        let newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
+    if(gisFeatures.length == 0){
+        console.log("required geometry features are not available to perform GIS operation");
+        process.exit(1);
+    }
+
+    if(options.voronoi){
+        console.log("Calculating Voronoi Polygons for points data");
+        gisFeatures = await calculateVoronoiPolygon(id, gisFeatures);
+    }
+    if(!options.samespace && (options.centroid || options.voronoi)){
+        let newSpaceData;
+        if(options.centroid){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
+        } else if(options.voronoi){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('voronoi', sourceId, options);
+        }
         id = newSpaceData.id;
     }
     
@@ -2922,9 +2942,10 @@ async function performGisOperation(id:string, options:any){
         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
         if(options.centroid){
             options.tags = 'centroid';
+        } else if(options.voronoi){
+            options.tags = 'voronoi';
         }
         options.file = tmpObj.name;
-        options.override = true;
         await uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);
     }
@@ -2971,6 +2992,17 @@ function performTurfOperationOnFeature(feature: any, options: any){
         process.exit(1);
     }
     return gisFeature;
+}
+
+async function calculateVoronoiPolygon(spaceId: string, features: any[]){
+    const statData = await getSpaceStatistics(spaceId);
+    const featureCollection = { type: "FeatureCollection", features: features };
+    const bbox: [number,number,number, number] = statData.bbox.value;
+    const voronoiFeatureCollection = turf.voronoi(featureCollection, {bbox: bbox});
+    voronoiFeatureCollection.features.forEach(function (polygon, i) {
+        polygon.properties = features[i].properties;
+    });
+    return voronoiFeatureCollection.features;
 }
 
 async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
