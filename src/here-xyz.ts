@@ -2979,20 +2979,24 @@ function performTurfOperationOnFeature(feature: any, options: any){
         }
     } else if(options.area){
         if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
-            let area = turf.area(feature);
-            if(!feature.properties){
-                feature.properties = {};
-            }
-            feature.properties['xyz_area_sqm'] = area;
-            feature.properties['xyz_area_sqkm'] = (area / 1000000).toFixed(2);
-            feature.properties['xyz_area_sqmiles'] = (area * 0.00000038610215855).toFixed(2);
-            gisFeature = feature; 
+            gisFeature = populateArea(feature); 
         }
     } else {
         console.log("Please specify GIS operation option");
         process.exit(1);
     }
     return gisFeature;
+}
+
+function populateArea(feature: any){
+    let area = turf.area(feature);
+    if(!feature.properties){
+        feature.properties = {};
+    }
+    feature.properties['xyz_area_sqm'] = area;
+    feature.properties['xyz_area_sqkm'] = (area / 1000000).toFixed(2);
+    feature.properties['xyz_area_sqmiles'] = (area * 0.00000038610215855).toFixed(2);
+    return feature; 
 }
 
 async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
@@ -3010,6 +3014,7 @@ async function calculateVoronoiPolygon(spaceId: string, features: any[], options
         } else {
             polygon.id = features[i].id;
         }
+        polygon = populateArea(polygon);
     });
     return voronoiFeatureCollection.features;
 }
