@@ -2861,7 +2861,9 @@ program
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
-    .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different")
+    .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
+    .option("--tin", "calculates tin Polygons of point features and uploads in different space")
+    .option("--property [property]", "populates tin Polygons property using this property value's of points")
     .option("--samespace", "option to upload centroids to same space")
     .action(function (id, options) {
         performGisOperation(id, options).catch((error) => {
@@ -2880,7 +2882,7 @@ async function performGisOperation(id:string, options:any){
     } else {
         options.limit = 20;
     }
-    if(!options['length'] && !options.centroid && !options.area && !options.voronoi){
+    if(!options['length'] && !options.centroid && !options.area && !options.voronoi && !options.tin){
         console.log("Please specify GIS operation option");
         process.exit(1);
     }
@@ -2899,7 +2901,7 @@ async function performGisOperation(id:string, options:any){
         if (jsonOut.features) {
             const features = jsonOut.features;
             features.forEach(function (feature: any, i: number){
-                if(options.voronoi){
+                if(options.voronoi || options.tin){
                     if(feature.geometry && (feature.geometry.type == 'Point')){
                         gisFeatures.push(feature);
                     }
@@ -2926,13 +2928,17 @@ async function performGisOperation(id:string, options:any){
     if(options.voronoi){
         console.log("Calculating Voronoi Polygons for points data");
         gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
+    } else if(options.tin){
+        gisFeatures = calculateTinTriangles(gisFeatures, options.property);
     }
-    if(!options.samespace && (options.centroid || options.voronoi)){
+    if(!options.samespace && (options.centroid || options.voronoi || options.tin)){
         let newSpaceData;
         if(options.centroid){
             newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
         } else if(options.voronoi){
             newSpaceData = await createNewSpaceAndUpdateMetadata('voronoi', sourceId, options);
+        } else if(options.tin){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('tin', sourceId, options);
         }
         id = newSpaceData.id;
     }
@@ -2944,6 +2950,8 @@ async function performGisOperation(id:string, options:any){
             options.tags = 'centroid';
         } else if(options.voronoi){
             options.tags = 'voronoi';
+        } else if(options.tin){
+            options.tags = 'tin';
         }
         options.file = tmpObj.name;
         options.override = true;
@@ -3017,6 +3025,15 @@ async function calculateVoronoiPolygon(spaceId: string, features: any[], options
         polygon = populateArea(polygon);
     });
     return voronoiFeatureCollection.features;
+}
+
+function calculateTinTriangles(features: any, property: string){
+    const featureCollection = { type: "FeatureCollection", features: features };
+    const tinFeatureCollection = turf.tin(featureCollection, property);
+    tinFeatureCollection.features.forEach(function (polygon, i) {
+        polygon = populateArea(polygon);
+    });
+    return tinFeatureCollection.features;
 }
 
 async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
