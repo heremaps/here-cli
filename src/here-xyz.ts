@@ -2994,13 +2994,21 @@ function performTurfOperationOnFeature(feature: any, options: any){
     return gisFeature;
 }
 
-async function calculateVoronoiPolygon(spaceId: string, features: any[]){
+async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
     const statData = await getSpaceStatistics(spaceId);
     const featureCollection = { type: "FeatureCollection", features: features };
     const bbox: [number,number,number, number] = statData.bbox.value;
     const voronoiFeatureCollection = turf.voronoi(featureCollection, {bbox: bbox});
     voronoiFeatureCollection.features.forEach(function (polygon, i) {
         polygon.properties = features[i].properties;
+        if(options.samespace){
+            if(!polygon.properties){
+                polygon.properties = {};
+            }
+            polygon.properties.sourceId = features[i].id;
+        } else {
+            polygon.id = features[i].id;
+        }
     });
     return voronoiFeatureCollection.features;
 }
