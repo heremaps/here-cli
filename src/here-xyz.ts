@@ -2813,7 +2813,7 @@ async function performGisOperation(id:string, options:any){
 
     if(options.voronoi){
         console.log("Calculating Voronoi Polygons for points data");
-        gisFeatures = await calculateVoronoiPolygon(id, gisFeatures);
+        gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
     }
     if(!options.samespace && (options.centroid || options.voronoi)){
         let newSpaceData;
