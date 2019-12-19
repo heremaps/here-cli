@@ -2747,6 +2747,7 @@ program
     .description("{xyz pro} perform gis operations with space data")
     .option("-c, --chunk [chunk]", "chunk size, default 20")
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
+    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
