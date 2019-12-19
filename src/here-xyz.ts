@@ -712,7 +712,7 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        //options.override = true;
+                        options.override = true;
                         await uploadToXyzSpace(id, options);
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
@@ -726,7 +726,7 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        //options.override = true;
+                        options.override = true;
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {
@@ -2834,6 +2834,7 @@ async function performGisOperation(id:string, options:any){
             options.tags = 'voronoi';
         }
         options.file = tmpObj.name;
+        options.override = true;
         await uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);
     }
