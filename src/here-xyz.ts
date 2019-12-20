@@ -283,6 +283,7 @@ program
     .alias("ls")
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
+    .option("--token <token>", "a external token to access another user's spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -299,7 +300,7 @@ program
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "");
+    const { response, body } = await execute(uri, "GET", cType, "", options.token);
     if (body.length == 0) {
         console.log("No xyzspace found");
     } else {
@@ -837,6 +838,7 @@ program
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw XYZ space content")
+    .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("-w, --web", "display  XYZ space on http://geojson.tools")
@@ -883,7 +885,6 @@ async function showSpace(id: string, options: any) {
             uri = uri + "&tags=" + options.tags;
         }
         if (options.prop) {
-
             uri = uri + "&selection=p.@ns:com:here:xyz," + options.prop;
         }
 
@@ -894,16 +895,17 @@ async function showSpace(id: string, options: any) {
         cType = "application/geo+json";
     }
     if (options.vector) {
-        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "");
+        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token);
     }
     else if (options.web) {
-        await launchHereGeoJson(uri);
+        await launchHereGeoJson(uri, options.token);
     } else {
         const { response, body } = await execute(
             uri,
             "GET",
             cType,
-            ""
+            "",
+            options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
 
@@ -1178,6 +1180,7 @@ program
     .option("-f, --file <file>", "upload local GeoJSON, Shapefile, or CSV files (or GeoJSON/CSV URLs)")
     .option("-c, --chunk [chunk]", "chunk size, default 200")
     .option("-t, --tags [tags]", "tags for the xyz space")
+    .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
@@ -1895,8 +1898,10 @@ function chunkify(data: any[], chunksize: number) {
     return chunks;
 }
 
-async function launchHereGeoJson(uri: string) {
-    const token = await common.verify(true);
+async function launchHereGeoJson(uri: string, token: string) {
+    if(!token){
+        token = await common.verify(true);
+    }
     const accessAppend =
         uri.indexOf("?") == -1
             ? "?access_token=" + token
@@ -1910,8 +1915,10 @@ async function launchHereGeoJson(uri: string) {
         , { wait: false });
 }
 
-async function launchXYZSpaceInvader(spaceId: string, tags: string) {
-    const token = await common.verify(true);
+async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string) {
+    if(!token){
+        token = await common.verify(true);
+    }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags;
     const opn = require("opn");
     opn(
@@ -1953,6 +1960,7 @@ program
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
+    .option("--token <token>", "a external token to access another user's space config and stats niformation")
     .option("-r, --raw", "show raw output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
     .option("--searchable", "view or configure searchable properties of an xyz space")
@@ -2149,7 +2157,8 @@ async function configXyzSpace(id: string, options: any) {
             url,
             "GET",
             "application/json",
-            ""
+            "",
+            options.token
         );
 
         if (response.statusCode >= 200 && response.statusCode < 210) {
