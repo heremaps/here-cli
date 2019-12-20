@@ -283,7 +283,7 @@ program
     .alias("ls")
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
-    .option("--token <token>", "a external token to access another user's spaces")
+    //.option("--token <token>", "a external token to access another user's spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
