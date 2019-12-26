@@ -118,6 +118,7 @@ async function setUserPass(env?: any) {
                 await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
                 await common.generateToken(cookieData, appId).catch(err => {throw err});
                 await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
+                await common.encryptAndStore('apiKeys', appId).catch(err => {throw err});
                 console.log('Default App Selected - ' + appId);
             }else{
                 console.log('No Active Apps found. Please login to https://developer.here.com for more details.');

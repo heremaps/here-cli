@@ -38,6 +38,7 @@ const tableConsole = require("console.table");
 
 // TODO this should go into env config as well
 export const xyzRoot = () => "https://xyz.api.here.com";
+const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
@@ -227,7 +228,10 @@ export async function generateToken(mainCookie:string, appId : string) {
 function readOnlyRightsRequest(maxRights:any) {
     return {
           "xyz-hub": {
-            "readFeatures": maxRights['xyz-hub'].readFeatures
+            "readFeatures": maxRights['xyz-hub'].readFeatures,
+            "useCapabilities": [{
+                "id" : "hexbinClustering"
+            }]
           }
     };
 }
@@ -460,4 +464,35 @@ export function getSplittedKeys(inString: string) {
     } else {
         return null;
     }
+}
+
+export async function getApiKeys(cookies: string, appId: string) {
+    const hrn = encodeURIComponent('hrn:here:account::HERE:app/'+appId);
+    let token;
+    let ha = cookies.split(';').find(x => x.startsWith('here_access=')||x.startsWith('here_access_st='));
+    if(ha) {
+        token = ha.split('=')[1];
+    }
+    const options = {
+        url: account_api_url + `/apps/${hrn}/apiKeys`,
+        method: 'GET',
+        auth: {
+            'bearer': token
+        }
+    };
+    const { response, body } = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299) {
+        throw new Error("Error while fetching Api Keys: " + JSON.stringify(body));
+    }
+    const resp = JSON.parse(body);
+    let apiKeys = appId;
+    if(resp.items && resp.items.length > 0) {
+        for(var i=0; i<resp.items.length; i++) {
+            let item = resp.items[i]
+            if(item.enabled === true) {
+                apiKeys += (keySeparator + item.apiKeyId);
+            }
+        }
+    }
+    return apiKeys;
 }
