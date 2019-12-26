@@ -1134,11 +1134,11 @@ async function printDeleteWarning(id: string, options: any) {
         common.drawTable(statsAll, ["key", "value"]);
 
         if (tagsStats && tagsStats.length > 0) {
-            console.log("Below are the number of features matching for the tag(s) you have entered");
+            console.log("number of features matching for the tag(s) you have entered");
         }
         common.drawTable(tagsStats, ["tag", "count"]);
     } else {
-        console.log("Below are the details of space and feature(s) being affected by this action");
+        console.log("details of space and feature(s) being affected by this action");
         const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }, { key: "total features", value: jsonStats.count.value }, { key: "geometry types", value: jsonStats.geometryTypes.value }];
         common.drawTable(statsAll, ["key", "value"]);
         // OR we could print a normal statement like below.
