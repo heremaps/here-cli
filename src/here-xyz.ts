@@ -2873,8 +2873,8 @@ program
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
     .option("--tin", "calculates tin Polygons of point features and uploads in different space")
-    .option("--property [property]", "populates tin Polygons property using this property value's of points")
-    .option("--samespace", "option to upload centroids to same space")
+    .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
+    .option("--samespace", "option to upload centroids/voronoi/tin to same space")
     .action(function (id, options) {
         performGisOperation(id, options).catch((error) => {
             handleError(error, true);
