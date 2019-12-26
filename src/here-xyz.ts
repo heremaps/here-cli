@@ -953,27 +953,28 @@ program
     .option("--force", "skip the confirmation prompt")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-        if (!options.force) {
-            await printDeleteWarning(geospaceId, options);
-            console.log("Are you sure you want to delete the given space?");
-            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+        
 
-            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-            if (termsResp !== "y" && termsResp !== "yes") {
-                console.log("CANCELLED !");
-                process.exit(1);
-            }
-        }
-
-        deleteSpace(geospaceId)
+        deleteSpace(geospaceId, options)
             .catch((error) => {
                 handleError(error, true);
             })
 
     });
 
-async function deleteSpace(geospaceId: string) {
+async function deleteSpace(geospaceId: string, options:any) {
 
+    if (!options.force) {
+        await printDeleteWarning(geospaceId, options);
+        console.log("Are you sure you want to delete the given space?");
+        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+        if (termsResp !== "y" && termsResp !== "yes") {
+            console.log("CANCELLED !");
+            process.exit(1);
+        }
+    }
 
     const { response, body } = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
@@ -1041,29 +1042,31 @@ async function createSpace(options: any) {
 program
     .command("clear <id>")
     .description("clear data from xyz space")
-    .option("-t, --tags [tags]", "tags for the XYZ space")
-    .option("-i, --ids [ids]", "ids for the XYZ space")
+    .option("-t, --tags <tags>", "tags for the XYZ space")
+    .option("-i, --ids <ids>", "ids for the XYZ space")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
-        if (!options.force) {
-            if (!options.ids) {
-                await printDeleteWarning(id, options);
-            }
-            console.log("Are you sure you want to clear data ?");
-            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-            if (termsResp !== "y" && termsResp !== "yes") {
-                console.log("CANCELLED !");
-                process.exit(1);
-            }
-        }
+        
         clearSpace(id, options).catch((error) => {
             handleError(error, true);
         })
-    });
+    })
 
 async function clearSpace(id: string, options: any) {
+
+    if (!options.force) {
+        if (!options.ids) {
+            await printDeleteWarning(id, options);
+        }
+        console.log("Are you sure you want to clear data ?");
+        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+        if (termsResp !== "y" && termsResp !== "yes") {
+            console.log("CANCELLED !");
+            process.exit(1);
+        }
+    }
 
     if (!options.ids && !options.tags) {
         options.tags = "*";
