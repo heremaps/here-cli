@@ -973,6 +973,7 @@ program
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
         if (!options.force) {
+            await printDeleteWarning(geospaceId, options);
             console.log("Are you sure you want to delete the given space?");
             const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
@@ -1064,7 +1065,10 @@ program
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
         if (!options.force) {
-            console.log("Are you sure you want to clear data of the given space ?");
+            if (!options.ids) {
+                await printDeleteWarning(id, options);
+            }
+            console.log("Are you sure you want to clear data ?");
             const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
             const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -1112,6 +1116,34 @@ async function clearSpace(id: string, options: any) {
     );
     if (response.statusCode >= 200 && response.statusCode < 210) {
         console.log("data cleared successfully.");
+    }
+}
+
+async function printDeleteWarning(id: string, options: any) {
+    const jsonStats = await getStatsAndBasicForSpace(id);
+    if (options.tags) {
+        const tagsArray = options.tags.split(",").filter((x: any) => x != "")
+
+        let tagsStats = jsonStats.tags.value.filter((tagStat: any) => tagsArray.indexOf(tagStat.key) >= 0).map((tagStat: any) => { tagStat['tag'] = tagStat.key; tagsArray.splice(tagsArray.indexOf(tagStat.key), 1); return tagStat; });
+
+        for (const tag of tagsArray) {
+            tagsStats.push({ tag: tag, count: 0 });
+        }
+        console.log("space details")
+        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
+        common.drawTable(statsAll, ["key", "value"]);
+
+        if (tagsStats && tagsStats.length > 0) {
+            console.log("Below are the number of features matching for the tag(s) you have entered");
+        }
+        common.drawTable(tagsStats, ["tag", "count"]);
+    } else {
+        console.log("Below are the details of space and feature(s) being affected by this action");
+        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }, { key: "total features", value: jsonStats.count.value }, { key: "geometry types", value: jsonStats.geometryTypes.value }];
+        common.drawTable(statsAll, ["key", "value"]);
+        // OR we could print a normal statement like below.
+        // console.log("There are total " + jsonStats.count.value + " features consisting geometry type(s) " + jsonStats.geometryTypes.value + " in the space.");
+
     }
 }
 
@@ -1906,6 +1938,30 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string) {
     opn(
         uri
         , { wait: false });
+}
+
+async function getStatsAndBasicForSpace(spaceId: string) {
+    let url = `/hub/spaces/${spaceId}/statistics?clientId=cli&skipCache=true`
+    const { response, body: statsbody } = await execute(
+        url,
+        "GET",
+        "application/json",
+        ""
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 210) {
+        url = `/hub/spaces/${spaceId}`
+        const { response, body } = await execute(
+            url,
+            "GET",
+            "application/json",
+            ""
+        );
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            statsbody['spacedef'] = body;
+        }
+        return statsbody;
+    }
 }
 
 
