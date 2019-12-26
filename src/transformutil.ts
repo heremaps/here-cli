@@ -489,9 +489,9 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                         options.totalCount = queue.uploadCount;
                         console.log("");
                         dataArray=new Array<any>();
+                        resolve();
                     })();
                 }
-                resolve();
             }));
          });
     });
