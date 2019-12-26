@@ -2986,13 +2986,13 @@ function performTurfOperationOnFeature(feature: any, options: any){
         }
     } else if(options['length']){
         if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'MultiLineString')){
-            let length = turf.length(feature, {units: 'kilometers'});
+            let length = turf.length(feature, {units: 'meters'});
             if(!feature.properties){
                 feature.properties = {};
             }
-            feature.properties['xyz_length_m'] = length * 1000;
-            feature.properties['xyz_length_km'] = length.toFixed(2);
-            feature.properties['xyz_length_miles'] = (length * 0.621371).toFixed(2);
+            feature.properties['xyz_length_m'] = length;
+            feature.properties['xyz_length_km'] = (length / 1000).toFixed(2);
+            feature.properties['xyz_length_miles'] = (length * 0.000621371).toFixed(2);
             gisFeature = feature; 
         }
     } else if(options.area){
