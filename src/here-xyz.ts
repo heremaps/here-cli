@@ -1104,6 +1104,7 @@ async function clearSpace(id: string, options: any) {
 }
 
 async function printDeleteWarning(id: string, options: any) {
+    console.log("loading space details..");
     const jsonStats = await getStatsAndBasicForSpace(id);
     if (options.tags) {
         const tagsArray = options.tags.split(",").filter((x: any) => x != "")
@@ -1123,8 +1124,11 @@ async function printDeleteWarning(id: string, options: any) {
         common.drawTable(tagsStats, ["tag", "count"]);
     } else {
         console.log("details of space and feature(s) being affected by this action");
-        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }, { key: "total features", value: jsonStats.count.value }, { key: "geometry types", value: jsonStats.geometryTypes.value }];
+        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
         common.drawTable(statsAll, ["key", "value"]);
+
+        const realStats =[{ key: "total features", value: jsonStats.count.value, estimated: jsonStats.count.estimated }, { key: "geometry types", value: jsonStats.geometryTypes.value, estimated: jsonStats.geometryTypes.estimated }]
+        common.drawNewTable(realStats, ["key", "value", "estimated"], [20,20,20]);
         // OR we could print a normal statement like below.
         // console.log("There are total " + jsonStats.count.value + " features consisting geometry type(s) " + jsonStats.geometryTypes.value + " in the space.");
 
