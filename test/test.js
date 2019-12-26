@@ -190,7 +190,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] });
+      await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("xyzspace 'myspace' deleted successfully")!=-1) {
         assert.ok(true, "");
@@ -220,7 +220,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('clearSpace')("myspace", { tags:"*" });
+      await xyz.__get__('clearSpace')("myspace", { tags:"*" , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("data cleared successfully")!=-1) {
         assert.ok(true, "");
