@@ -868,9 +868,10 @@ program
     .option("-w, --web", "display  XYZ space on http://geojson.tools")
     .option("-v, --vector", "analzye XYZ Space Invader and tangram.js")
     .option("--spatial","indicate to make spatial search on the space")
-    .option("--radius <radius>", "indicate to make radius spatial search (in meters)")
-    .option("--center <center>", "comma separated lat,lon values to specify the center for radius search")
+    .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
+    .option("--center <center>", "comma separated lat,lon values to specify the center point for radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
+    .option("--geometry <geometry>", "geometry file to upload for spatial query")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -882,6 +883,8 @@ async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
     let cType = "application/json";
     let tableFunction = common.drawTable;
+    let requestMethod = "GET";
+    let postData = "";
 
     uri = uri + "/" + id;
 
@@ -936,6 +939,14 @@ async function showSpace(id: string, options: any) {
                 if(options.radius) {
                     uri = uri + "&" + "radius="+ options.radius;
                 }
+            } else if(options.geometry) {
+                const geocontent = await transform.read(options.geometry, false);
+                //let geometryinput = JSON.parse(geocontent);
+                requestMethod = "POST";
+                postData = geocontent;
+                if(options.radius) {
+                    uri = uri + "&" + "radius="+ options.radius;
+                }
             }
         }
         cType = "application/geo+json";
@@ -949,9 +960,9 @@ async function showSpace(id: string, options: any) {
         console.log(uri);
         const { response, body } = await execute(
             uri,
-            "GET",
+            requestMethod,
             cType,
-            "",
+            postData,
             options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
