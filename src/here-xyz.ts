@@ -843,6 +843,10 @@ program
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("-w, --web", "display  XYZ space on http://geojson.tools")
     .option("-v, --vector", "analzye XYZ Space Invader and tangram.js")
+    .option("--spatial","indicate to make spatial search on the space")
+    .option("--radius <radius>", "indicate to make radius spatial search (in meters)")
+    .option("--center <center>", "comma separated lat,lon values to specify the center for radius search")
+    .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -875,7 +879,7 @@ async function showSpace(id: string, options: any) {
     if (!options.limit) {
         options.limit = 5000;
     }
-    const spFunction = options.offset ? "iterate" : "search";
+    const spFunction = options.offset ? "iterate" : ( options.spatial ? "spatial" : "search" );
     if (options.limit) {
         uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
         if (options.offset) {
@@ -892,6 +896,21 @@ async function showSpace(id: string, options: any) {
             const expression = replaceOpearators(options.search);
             uri = uri + "&" + expression;
         }
+
+        if(options.spatial) { 
+            if(options.radius && options.center) {
+                const latlon = options.center.split(",");
+                const lat = latlon[0];
+                const lon = latlon[1];
+                uri = uri + "&" + "lat="+lat+"&lon="+lon+"&radius="+options.radius;
+            }
+            if(options.radius && options.feature) {
+                const refspacefeature = options.feature.split(',');
+                const refspace = refspacefeature[0];
+                const reffeature = refspacefeature[1];
+                uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature+"&radius="+ options.radius;
+            }
+        }
         cType = "application/geo+json";
     }
     if (options.vector) {
@@ -900,6 +919,7 @@ async function showSpace(id: string, options: any) {
     else if (options.web) {
         await launchHereGeoJson(uri, options.token);
     } else {
+        //console.log(uri);
         const { response, body } = await execute(
             uri,
             "GET",
