@@ -921,18 +921,21 @@ async function showSpace(id: string, options: any) {
             uri = uri + "&" + expression;
         }
 
-        if(options.spatial) { 
+        if(options.spatial) {
             if(options.radius && options.center) {
                 const latlon = options.center.split(",");
                 const lat = latlon[0];
                 const lon = latlon[1];
                 uri = uri + "&" + "lat="+lat+"&lon="+lon+"&radius="+options.radius;
             }
-            if(options.radius && options.feature) {
+            if(options.feature) {
                 const refspacefeature = options.feature.split(',');
                 const refspace = refspacefeature[0];
                 const reffeature = refspacefeature[1];
-                uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature+"&radius="+ options.radius;
+                uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature;
+                if(options.radius) {
+                    uri = uri + "&" + "radius="+ options.radius;
+                }
             }
         }
         cType = "application/geo+json";
@@ -943,7 +946,7 @@ async function showSpace(id: string, options: any) {
     else if (options.web) {
         await launchHereGeoJson(uri, options.token);
     } else {
-        //console.log(uri);
+        console.log(uri);
         const { response, body } = await execute(
             uri,
             "GET",
