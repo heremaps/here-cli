@@ -940,8 +940,15 @@ async function showSpace(id: string, options: any) {
                     uri = uri + "&" + "radius="+ options.radius;
                 }
             } else if(options.geometry) {
-                const geocontent = await transform.read(options.geometry, false);
-                //let geometryinput = JSON.parse(geocontent);
+                let geocontent = await transform.read(options.geometry, false);
+                let geometryinput = JSON.parse(geocontent);
+                if(geometryinput.type && geometryinput.type == 'FeatureCollection') {
+                    console.log("you have supplied FeatureCollection instead of GeoJson-Geometry. Kindly supply one Feature or GeoJson-Geometry.");
+                    process.exit(1);
+                } else if (geometryinput.type && geometryinput.type == 'Feature') {
+                    console.log("retrieving geometry from the Feature supplied");
+                    geocontent = JSON.stringify(geometryinput.geometry);
+                }                
                 requestMethod = "POST";
                 postData = geocontent;
                 if(options.radius) {
@@ -957,7 +964,7 @@ async function showSpace(id: string, options: any) {
     else if (options.web) {
         await launchHereGeoJson(uri, options.token);
     } else {
-        console.log(uri);
+        //console.log(uri);
         const { response, body } = await execute(
             uri,
             requestMethod,
