@@ -1184,7 +1184,7 @@ async function listTokens() {
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
-    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, or CSV files (or GeoJSON/CSV URLs)")
+    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs)")
     .option("-c, --chunk [chunk]", "chunk size, default 200")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("--token <token>", "a external token to upload data to another user's space")
