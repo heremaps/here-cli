@@ -181,7 +181,7 @@ async function parseCsv(csvStr: string, options: any) {
     });
 }
 
-export async function getGpxData(node: any, result: any) {
+async function getGpxDataFromXmlNode(node: any, result: any) {
     if (!result) result = { segments: [] }
     switch (node.nodeName) {
         case 'name':
@@ -218,21 +218,13 @@ export async function getGpxData(node: any, result: any) {
                                 break
                             case 'extensions':
                                 var extNodes = ssnode.childNodes
-                                for (
-                                    var idxExtNode = 0;
-                                    idxExtNode < extNodes.length;
-                                    idxExtNode++
-                                ) {
+                                for ( var idxExtNode = 0; idxExtNode < extNodes.length; idxExtNode++ ) {
                                     var extNode = extNodes[idxExtNode]
                                     //console.log(extNode.nodeName)
                                     if (extNode.nodeName == 'gpxtpx:TrackPointExtension') {
                                         //console.log(extNode)
                                         var trackPointNodes = extNode.childNodes
-                                        for (
-                                            var idxTrackPointNode = 0;
-                                            idxTrackPointNode < trackPointNodes.length;
-                                            idxTrackPointNode++
-                                        ) {
+                                        for ( var idxTrackPointNode = 0; idxTrackPointNode < trackPointNodes.length; idxTrackPointNode++ ) {
                                             var trackPointNode =
                                                 trackPointNodes[idxTrackPointNode]
                                             //console.log(trackPointNode.nodeName)
@@ -259,18 +251,14 @@ export async function getGpxData(node: any, result: any) {
             break
     }
     let len = node && node.childNodes && node.childNodes.length
-    for (
-        var idxChildNodes = 0;
-        idxChildNodes < len;
-        idxChildNodes++
-    ) {
-        getGpxData(node.childNodes[idxChildNodes], result)
+    for ( var idxChildNodes = 0; idxChildNodes < len; idxChildNodes++ ) {
+        getGpxDataFromXmlNode(node.childNodes[idxChildNodes], result)
     }
     return result
 }
 
 
-export async function trasformGpxData(data: any) {
+async function trasformGpxDataToGeoJson(data: any) {
     let geo: any = {};
     geo.type = 'FeatureCollection'
     geo.features = []
@@ -279,11 +267,7 @@ export async function trasformGpxData(data: any) {
         let prev_position_lat = 0
         let idx_records = 0
         let element: any = {}
-        for (
-            idx_records = 0;
-            idx_records < data.segments[0].length;
-            idx_records++
-        ) {
+        for ( idx_records = 0; idx_records < data.segments[0].length; idx_records++ ) {
             element = data.segments[0][idx_records]
             if (Array.isArray(element.loc)) {
                 if (idx_records > 0) {
@@ -300,7 +284,6 @@ export async function trasformGpxData(data: any) {
                 }
                 prev_position_long = element.loc[1]
                 prev_position_lat = element.loc[0]
-            } else {
             }
         }
     }
@@ -308,8 +291,8 @@ export async function trasformGpxData(data: any) {
 }
 export async function transformGpx(result: any[], options: any) {
     const xml = new DOMParser().parseFromString(String(result), 'text/xml')
-    var objGpx = await getGpxData(xml.documentElement, false)
-    return await trasformGpxData(objGpx)
+    var objGpx = await getGpxDataFromXmlNode(xml.documentElement, false)
+    return await trasformGpxDataToGeoJson(objGpx)
 }
 
 export async function transform(result: any[], options: any) {

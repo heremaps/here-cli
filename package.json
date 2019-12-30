@@ -37,7 +37,8 @@
     "shapefile": "0.6.6",
     "table": "^5.4.6",
     "tmp": "0.0.33",
-    "user-settings": "0.2.0"
+    "user-settings": "0.2.0",
+    "xmldom": "^0.2.1"
   },
   "devDependencies": {
     "@turf/nearest-point-to-line": "6.0.0",
