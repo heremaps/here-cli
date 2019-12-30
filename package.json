@@ -50,6 +50,7 @@
     "@types/shapefile": "^0.6.0",
     "@types/tmp": "0.0.33",
     "@types/proj4": "2.5.0",
+    "@types/xmldom": "^0.1.29",
     "capture-console": "^1.0.1",
     "chai": "^4.2.0",
     "express": "^4.16.4",
