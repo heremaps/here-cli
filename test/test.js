@@ -308,6 +308,29 @@ describe('Configure', function () {
       }
     });
 
+    it('upload to space using gpx', async function () {
+      const xyz = rewire('../bin/here-xyz');
+      const summary = rewire('../bin/summary');
+      var output = '';
+      capcon.startCapture(process.stdout, function (stdout) {
+        output += stdout;
+      });
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.gpx" });
+      capcon.stopCapture(process.stdout);
+      if (output.indexOf("data upload to xyzspace 'myspace' completed") != -1) {
+        assert.ok(true, "");
+      } else {
+        assert.fail();
+      }
+      console.log(output);
+      if (output.indexOf("1400 features uploaded to XYZ space 'myspace' in") != -1) {
+        assert.ok(true, "");
+      } else {
+        assert.fail();
+      }
+      
+    });
+
     it('upload to space using shapefile', async function () {
       const xyz = rewire('../bin/here-xyz');
       const summary = rewire('../bin/summary');
