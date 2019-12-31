@@ -888,6 +888,16 @@ async function showSpace(id: string, options: any) {
 
     uri = uri + "/" + id;
 
+    if(options.vector && options.spatial) {
+        console.log("options vector and spatial can not be used together");
+        process.exit(1);
+    }
+
+    if(options.web && options.geometry) {
+        console.log("usage of options web and geometry together is not supported yet, please try option web with radius, feature/center options");
+        process.exit(1);
+    }
+
     if (options.raw) {
         tableFunction = function (data: any, columns: any) {
             try {
@@ -926,6 +936,9 @@ async function showSpace(id: string, options: any) {
 
         if(options.spatial) {
             if(options.radius && options.center) {
+                if(options.center.indexOf("'") >= 0 || options.center.indexOf('"') >= 0) {
+                    options.center = options.center.replace(/'/g,'').replace(/"/g,'');
+                }
                 const latlon = options.center.split(",");
                 const lat = latlon[0];
                 const lon = latlon[1];
@@ -948,7 +961,7 @@ async function showSpace(id: string, options: any) {
                 } else if (geometryinput.type && geometryinput.type == 'Feature') {
                     console.log("retrieving geometry from the Feature supplied");
                     geocontent = JSON.stringify(geometryinput.geometry);
-                }                
+                }
                 requestMethod = "POST";
                 postData = geocontent;
                 if(options.radius) {
@@ -962,9 +975,10 @@ async function showSpace(id: string, options: any) {
         await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token);
     }
     else if (options.web) {
+        //console.log(uri);
         await launchHereGeoJson(uri, options.token);
     } else {
-        //console.log(uri);
+       // console.log(uri);
         const { response, body } = await execute(
             uri,
             requestMethod,
