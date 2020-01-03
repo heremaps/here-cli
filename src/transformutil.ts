@@ -344,8 +344,13 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             //console.log('extracting lat/lon from',pointField,object[k])
             const point = object[k].match(/([-]?\d+.[.]\d+)/g);
             if(point) {
-                lat = point[0];
-                lon = point[1];
+                if(options.lonlat){
+                    lat = point[1];
+                    lon = point[0];
+                } else {
+                    lat = point[0];
+                    lon = point[1];
+                }
             }
         }else if (options.lonField && options.lonField.toLowerCase() == k.toLowerCase()) {
             lon = object[options.lonField];

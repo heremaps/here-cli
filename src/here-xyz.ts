@@ -1191,7 +1191,8 @@ program
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
-    .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
