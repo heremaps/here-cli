@@ -30,7 +30,7 @@ import * as transform from './transformutil';
 
 const prompter = require('prompt');
 
-const commands = ["csv2geo", "shp2geo"];
+const commands = ["csv2geo", "shp2geo", "gpx2geo"];
 
 program
     .version('0.1.0');
@@ -58,6 +58,17 @@ program
     .action(function (path, opt) {
         transform.readShapeFile(path).then(fc =>  {
             console.log(JSON.stringify(fc));
+        });
+    });
+
+program
+    .command('gpx2geo <path>')
+    .description('convert gpx to geojson')
+    .action(async function (path, opt) {
+        transform.read(path, false, {  }).then(async result => {
+            //console.log(result)
+            const json = JSON.stringify({ features: await transform.transformGpx(result, opt), type: "FeatureCollection" }, null, 3); //Converted json object from gpx data
+            console.log(json);
         });
     });
 

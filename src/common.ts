@@ -38,6 +38,7 @@ const tableConsole = require("console.table");
 
 // TODO this should go into env config as well
 export const xyzRoot = () => "https://xyz.api.here.com";
+const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
@@ -199,10 +200,10 @@ export async function login(authId: string, authSecret: string) {
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299)
+    if (response.statusCode < 200 || response.statusCode > 299)
         throw new Error("Failed to login: " + JSON.stringify(body));
 
-    encryptAndStore('keyInfo', body.token);
+    encryptAndStore('keyInfo', body.tid);
     encryptAndStore('appDetails', authId + keySeparator + authSecret);
 
     console.log("Secrets verified successfully");
@@ -219,7 +220,7 @@ export async function hereAccountLogin(email: string, password: string) {
 export async function generateToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
-    encryptAndStore('keyInfo', token.token);
+    encryptAndStore('keyInfo', token.tid);
     await generateROToken(mainCookie, JSON.parse(maxRights), appId);
     return token;
 }
@@ -227,13 +228,16 @@ export async function generateToken(mainCookie:string, appId : string) {
 function readOnlyRightsRequest(maxRights:any) {
     return {
           "xyz-hub": {
-            "readFeatures": maxRights['xyz-hub'].readFeatures
+            "readFeatures": maxRights['xyz-hub'].readFeatures,
+            "useCapabilities": [{
+                "id" : "hexbinClustering"
+            }]
           }
     };
 }
 export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
     const token = await sso.fetchToken(mainCookie, JSON.stringify(readOnlyRightsRequest(maxRights)), appId);
-    encryptAndStore('roKeyInfo', token.token);
+    encryptAndStore('roKeyInfo', token.tid);
 }
 
 export async function getAppIds(cookies: string) {
@@ -245,7 +249,7 @@ export async function getAppIds(cookies: string) {
         }
     };
     const { response, body } = await requestAsync(options);
-    if (response.statusCode < 200 && response.statusCode > 299)
+    if (response.statusCode < 200 || response.statusCode > 299)
         throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
     return body;
@@ -267,7 +271,7 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             body : payload
         }
         const { response, body } = await requestAsync(options);
-        if (response.statusCode < 200 && response.statusCode > 299)
+        if (response.statusCode < 200 || response.statusCode > 299)
             throw new Error("Error while fetching Apps: " + JSON.stringify(body));
 
         return body;
@@ -283,7 +287,7 @@ async function validateToken(token: string) {
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299) {
+    if (response.statusCode < 200 || response.statusCode > 299) {
         console.log("Failed to login : " + JSON.stringify(body));
         throw new Error("Failed to log in");
     }
@@ -311,7 +315,7 @@ async function getTokenInformation(tokenId: string){
         json: true,
     });
 
-    if (response.statusCode < 200 && response.statusCode > 299) {
+    if (response.statusCode < 200 || response.statusCode > 299) {
         throw new Error("Fetching token information failed for Token - " + tokenId);
     }
     return body;
@@ -390,11 +394,8 @@ export function timeStampToLocaleString(timeStamp: number) {
 
 export function drawNewTable(data: any, columns: any, columnWidth?: any) {
     if(!columnWidth && columns && columns.length > 2) {
-        columnWidth = [];
         let size = Math.floor(115 / columns.length);
-        for(let n in columns) {
-            columnWidth.push(size);
-        }
+        columnWidth = new Array(columns.length).fill(size);
     }
     if(columnWidth && columnWidth.length > 0 && columns && columns.length == columnWidth.length) {
         const obj:any = {};
@@ -460,4 +461,35 @@ export function getSplittedKeys(inString: string) {
     } else {
         return null;
     }
+}
+
+export async function getApiKeys(cookies: string, appId: string) {
+    const hrn = encodeURIComponent('hrn:here:account::HERE:app/'+appId);
+    let token;
+    let ha = cookies.split(';').find(x => x.startsWith('here_access=')||x.startsWith('here_access_st='));
+    if(ha) {
+        token = ha.split('=')[1];
+    }
+    const options = {
+        url: account_api_url + `/apps/${hrn}/apiKeys`,
+        method: 'GET',
+        auth: {
+            'bearer': token
+        }
+    };
+    const { response, body } = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299) {
+        throw new Error("Error while fetching Api Keys: " + JSON.stringify(body));
+    }
+    const resp = JSON.parse(body);
+    let apiKeys = appId;
+    if(resp.items && resp.items.length > 0) {
+        for(var i=0; i<resp.items.length; i++) {
+            let item = resp.items[i]
+            if(item.enabled === true) {
+                apiKeys += (keySeparator + item.apiKeyId);
+            }
+        }
+    }
+    return apiKeys;
 }

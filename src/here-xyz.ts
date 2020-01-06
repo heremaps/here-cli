@@ -34,6 +34,7 @@ import * as transform from "./transformutil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
+import * as turf from "@turf/turf";
 let cq = require("block-queue");
 import { isBoolean } from "util";
 import { ApiError } from "./api-error";
@@ -117,6 +118,17 @@ const tagruleUpdatePrompt = [
     }
 ]
 
+
+const searchablePropertiesDisable = [
+    {
+        type: "checkbox",
+        name: "propChoices",
+        message: "Select properties to be disabled as searchable",
+        choices: choiceList
+    }
+]
+
+
 const tagruleDeletePrompt = [
     {
         type: "checkbox",
@@ -148,7 +160,7 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
         } else if (apiError.statusCode == 403) {
             console.log("Operation FAILED : Insufficient rights to perform action");
         } else if (apiError.statusCode == 404) {
-            if(isIdSpaceId){
+            if (isIdSpaceId) {
                 console.log("Operation FAILED: Space does not exist");
             } else {
                 console.log("Operation FAILED : Resource not found.");
@@ -157,7 +169,7 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
             console.log("OPERATION FAILED : " + apiError.message);
         }
     } else {
-        if(apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
+        if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
             console.log("Operation FAILED - Insufficient Rights to perform action");
         } else {
             console.log("OPERATION FAILED - " + apiError.message);
@@ -183,9 +195,12 @@ async function execInternal(
             token
         );
     }
+    if (!uri.startsWith("http")) {
+        uri = common.xyzRoot() + uri;
+    }
     const isJson = contentType == "application/json" ? true : false;
     const reqJson = {
-        url: common.xyzRoot() + uri,
+        url: uri,
         method: method,
         json: isJson,
         headers: {
@@ -227,9 +242,11 @@ async function execInternalGzip(
 ) {
     const zippedData = await gzip(data);
     const isJson = contentType == "application/json" ? true : false;
-
+    if (!uri.startsWith("http")) {
+        uri = common.xyzRoot() + uri;
+    }
     const reqJson = {
-        url: common.xyzRoot() + uri,
+        url: uri,
         method,
         json: isJson,
         headers: {
@@ -248,7 +265,7 @@ async function execInternalGzip(
             await new Promise(done => setTimeout(done, 1000));
             body = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else {
-         //   throw new Error("Invalid response :" + response.statusCode);
+            //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
         }
     }
@@ -267,6 +284,7 @@ program
     .alias("ls")
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
+    //.option("--token <token>", "a external token to access another user's spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -282,8 +300,8 @@ program
 
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
-    const cType = "application/json";   
-    const { response, body } = await execute(uri, "GET", cType, "");
+    const cType = "application/json";
+    const { response, body } = await execute(uri, "GET", cType, "", options.token);
     if (body.length == 0) {
         console.log("No xyzspace found");
     } else {
@@ -293,12 +311,12 @@ async function listSpaces(options: any) {
         }
         if (options.raw) {
             try {
-                    console.log(JSON.stringify(JSON.parse(body), null, 2));
-                } catch (e) {
-                    console.log(JSON.stringify(body, null, 2));
+                console.log(JSON.stringify(JSON.parse(body), null, 2));
+            } catch (e) {
+                console.log(JSON.stringify(body, null, 2));
             }
         } else {
-            common.drawNewTable(body, fields, [10,40,60]);
+            common.drawNewTable(body, fields, [10, 40, 60]);
         }
     }
 }
@@ -509,7 +527,7 @@ program
     .option("-t, --tags <tags>", "only make hexbins for features in the source space that match the specific tag(s), comma-separate multiple values")
     .option("-b, --bbox [bbox]", "only create hexbins for records inside the bounding box specified either by individual coordinates provided interactively or as minLon,minLat,maxLon,maxLat (use “\\ “ to escape a bbox with negative coordinate(s))")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
-    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
+    .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels (1-18) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
@@ -527,8 +545,8 @@ program
                     process.exit();
                 }
                 */
-                if(options.bbox == true){
-                   options.bbox = await getBoundingBoxFromUser();
+                if (options.bbox == true) {
+                    options.bbox = await getBoundingBoxFromUser();
                 }
 
                 let cellSizes: number[] = [];
@@ -538,8 +556,8 @@ program
                             let zoomLevels = item.split("-");
                             if (zoomLevels.length === 1) {
                                 let number = parseInt(zoomLevels[0].toLowerCase());
-                                if (isNaN(number) || number < 1 || number > 16) {
-                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-16`);
+                                if (isNaN(number) || number < 1 || number > 18) {
+                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-18`);
                                     process.exit(1);
                                 }
                                 cellSizes.push(parseInt(zoomLevelsMap[number]));
@@ -549,8 +567,8 @@ program
                             } else {
                                 let lowNumber = parseInt(zoomLevels[0].toLowerCase());
                                 let highNumber = parseInt(zoomLevels[1].toLowerCase());
-                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 16 || highNumber < 1 || highNumber > 16) {
-                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" must be between 1-16`);
+                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 18 || highNumber < 1 || highNumber > 18) {
+                                    console.error(`hexbin creation failed: zoom level input "${zoomLevels}" must be between 1-18`);
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
@@ -587,7 +605,7 @@ program
                 console.log("Creating hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
-                    if(jsonOut.features && jsonOut.features.length === 0 && options.handle == 0){
+                    if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
                         console.log("\nNo features are available to create hexbins (only points are supported)");
                         process.exit();
                     }
@@ -621,38 +639,15 @@ program
                     id = options.destSpace;
                 } else {
                 */
-                let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
-                let newspaceData;
-                if((sourceSpaceData.shared == true && await isOtherOwnerSpace(sourceSpaceData.owner))|| options.readToken) {
-                    console.log("shared space or readToken found, creating new hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, false, options.writeToken);
-                    id = newspaceData.id;
-                } else if (!sourceSpaceData.client || !sourceSpaceData.client.hexbinSpaceId) {
-                    console.log("No hexbin space found, creating hexbin space");
-                    newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData, true, options.writeToken);
-                    id = newspaceData.id;
-                } else {
-                    try{
-                        console.log("using exisitng hexbin space - " + sourceSpaceData.client.hexbinSpaceId);
-                        id = sourceSpaceData.client.hexbinSpaceId;
-                        newspaceData = await getSpaceMetaData(id, options.writeToken);
-                    } catch (error){
-                        if(error.statusCode && (error.statusCode == 404 || error.statusCode == 403)){
-                            console.log("looks like existing hexbin space " + id + " has been deleted or you don't have sufficient rights, creating new one ");
-                            newspaceData = await createHexbinSpaceUpdateMetadata(sourceId, sourceSpaceData,true, options.writeToken);
-                            id = newspaceData.id;
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
+                let newSpaceData = await createNewSpaceAndUpdateMetadata('hexbin', sourceId, options);
+                id = newSpaceData.id;
                 let cellSizeSet = new Set<string>();
                 let zoomLevelSet = new Set<string>();
-                if (newspaceData.client && newspaceData.client.cellSizes) {
-                    newspaceData.client.cellSizes.forEach((item: string) => cellSizeSet.add(item));
+                if (newSpaceData.client && newSpaceData.client.cellSizes) {
+                    newSpaceData.client.cellSizes.forEach((item: string) => cellSizeSet.add(item));
                 }
-                if (newspaceData.client && newspaceData.client.zoomLevels) {
-                    newspaceData.client.zoomLevels.forEach((item: string) => zoomLevelSet.add(item));
+                if (newSpaceData.client && newSpaceData.client.zoomLevels) {
+                    newSpaceData.client.zoomLevels.forEach((item: string) => zoomLevelSet.add(item));
                 }
 
                 options.token = null;
@@ -749,34 +744,35 @@ program
         })();
     });
 
-async function isOtherOwnerSpace(spaceOwner: string){
+async function isOtherOwnerSpace(spaceOwner: string) {
     const currentOwner = await common.getAccountId();
     return currentOwner != spaceOwner;
 }
 
-async function createHexbinSpaceUpdateMetadata(sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null){
+async function createNewSpaceUpdateMetadata(newSpaceType: string, sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null) {
     let newSpaceConfig = {
-        title: 'hexbin space of ' + sourceSpaceData.title,
-        message: 'hexbin space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
+        title: newSpaceType+ ' space of ' + sourceSpaceData.title,
+        message: newSpaceType + ' space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
         client: {
             sourceSpaceId: sourceId,
-            type: 'hexbin'
+            type: newSpaceType
         },
         token: newSpacetoken
     }
     let newspaceData = await createSpace(newSpaceConfig);
-    if(updateSourceMetadata){
-        await updateClientHexbinSpaceId(sourceId, newspaceData.id);
+    if (updateSourceMetadata) {
+        await updateClientSpaceWithNewSpaceId(newSpaceType, sourceId, newspaceData.id);
     }
     return newspaceData;
 }
 
-async function updateClientHexbinSpaceId(sourceId: string, hexbinId: string) {
+async function updateClientSpaceWithNewSpaceId(newSpaceType: string, sourceId: string, newSpaceId: string) {
     const uri = "/hub/spaces/" + sourceId + "?clientId=cli";
     const cType = "application/json";
+    const key = newSpaceType + 'SpaceId';
     const data = {
         client: {
-            hexbinSpaceId: hexbinId
+            [key] : newSpaceId
         }
     }
     const { response, body } = await execute(uri, "PATCH", cType, data);
@@ -796,7 +792,7 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
     return body;
 }
 
-async function getBoundingBoxFromUser(){
+async function getBoundingBoxFromUser() {
     const answer: any = await inquirer.prompt(bboxQuestions);
     //bounding box - minLon,minLat,maxLon,maxLat
     return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
@@ -832,8 +828,8 @@ async function getStatisticsData(spaceId: string, token: string | null = null) {
     return body;
 }
 
-function replaceOpearators(expr:string) {
-    return expr.replace(">=", "=gte=").replace("<=","=lte=").replace(">","=gt=").replace("<","=lt=").replace("+", "&");
+function replaceOpearators(expr: string) {
+    return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
 }
 
 program
@@ -843,6 +839,7 @@ program
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw XYZ space content")
+    .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("-w, --web", "display  XYZ space on http://geojson.tools")
@@ -853,6 +850,7 @@ program
                 handleError(error, true);
             });
     });
+
 async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
     let cType = "application/json";
@@ -870,7 +868,7 @@ async function showSpace(id: string, options: any) {
         };
     }
 
-    if(options.search || options.prop) {
+    if (options.search || options.prop) {
         await common.verifyProBetaLicense();
     }
 
@@ -888,7 +886,6 @@ async function showSpace(id: string, options: any) {
             uri = uri + "&tags=" + options.tags;
         }
         if (options.prop) {
-
             uri = uri + "&selection=p.@ns:com:here:xyz," + options.prop;
         }
 
@@ -899,16 +896,17 @@ async function showSpace(id: string, options: any) {
         cType = "application/geo+json";
     }
     if (options.vector) {
-        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "");
+        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token);
     }
     else if (options.web) {
-        await launchHereGeoJson(uri);
+        await launchHereGeoJson(uri, options.token);
     } else {
         const { response, body } = await execute(
             uri,
             "GET",
             cType,
-            ""
+            "",
+            options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
 
@@ -956,7 +954,19 @@ program
     .option("--force", "skip the confirmation prompt")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-    if(!options.force) {
+        
+
+        deleteSpace(geospaceId, options)
+            .catch((error) => {
+                handleError(error, true);
+            })
+
+    });
+
+async function deleteSpace(geospaceId: string, options:any) {
+
+    if (!options.force) {
+        await printDeleteWarning(geospaceId, options);
         console.log("Are you sure you want to delete the given space?");
         const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
@@ -967,24 +977,14 @@ program
         }
     }
 
-        deleteSpace(geospaceId)
-            .catch((error) => {
-                handleError(error, true);
-            })
-
-    });
-
-async function deleteSpace(geospaceId: string) {
-    
-    
     const { response, body } = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
         "DELETE",
         "application/json",
         "",
     );
-    if(response.statusCode >= 200 && response.statusCode < 210) 
-        console.log("xyzspace '" + geospaceId + "' deleted successfully");         
+    if (response.statusCode >= 200 && response.statusCode < 210)
+        console.log("xyzspace '" + geospaceId + "' deleted successfully");
 }
 
 program
@@ -1009,7 +1009,7 @@ async function createSpace(options: any) {
             options.message = "a new xyzspace created from commandline";
         }
     }
-    let gp:any = getGeoSpaceProfiles(options.title, options.message, options.client);
+    let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
 
     if (options.schema) {
 
@@ -1028,15 +1028,14 @@ async function createSpace(options: any) {
 
             schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
 
-            let processors = [];
-            processors.push(getSchemaProcessorProfile(schemaDef));
+            let processors = getSchemaProcessorProfile(schemaDef);
 
             gp['processors'] = processors;
         }
     }
 
 
-    const { response, body }  = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
+    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
     console.log("xyzspace '" + body.id + "' created successfully");
     return body;
 }
@@ -1044,26 +1043,31 @@ async function createSpace(options: any) {
 program
     .command("clear <id>")
     .description("clear data from xyz space")
-    .option("-t, --tags [tags]", "tags for the XYZ space")
-    .option("-i, --ids [ids]", "ids for the XYZ space")
+    .option("-t, --tags <tags>", "tags for the XYZ space")
+    .option("-i, --ids <ids>", "ids for the XYZ space")
     .option("--force", "skip the confirmation prompt")
-    .action( async (id, options) => {
-        if(!options.force) {
-            console.log("Are you sure you want to clear data of the given space ?");
-            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+    .action(async (id, options) => {
         
-            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-            if (termsResp !== "y" && termsResp !== "yes") {
-                console.log("CANCELLED !");
-                process.exit(1);
-            }
-        }
         clearSpace(id, options).catch((error) => {
             handleError(error, true);
-        })    
-    });
+        })
+    })
 
 async function clearSpace(id: string, options: any) {
+
+    if (!options.force) {
+        if (!options.ids) {
+            await printDeleteWarning(id, options);
+        }
+        console.log("Are you sure you want to clear data ?");
+        const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+        const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+        if (termsResp !== "y" && termsResp !== "yes") {
+            console.log("CANCELLED !");
+            process.exit(1);
+        }
+    }
 
     if (!options.ids && !options.tags) {
         options.tags = "*";
@@ -1089,7 +1093,7 @@ async function clearSpace(id: string, options: any) {
     let finalOpt = tagOption + idOption;
 
     //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
-    const { response, body }  = await execute(
+    const { response, body } = await execute(
         "/hub/spaces/" + id + "/features?" + finalOpt + "&clientId=cli",
         "DELETE",
         "application/geo+json",
@@ -1097,6 +1101,38 @@ async function clearSpace(id: string, options: any) {
     );
     if (response.statusCode >= 200 && response.statusCode < 210) {
         console.log("data cleared successfully.");
+    }
+}
+
+async function printDeleteWarning(id: string, options: any) {
+    console.log("loading space details..");
+    const jsonStats = await getStatsAndBasicForSpace(id);
+    if (options.tags) {
+        const tagsArray = options.tags.split(",").filter((x: any) => x != "")
+
+        let tagsStats = jsonStats.tags.value.filter((tagStat: any) => tagsArray.indexOf(tagStat.key) >= 0).map((tagStat: any) => { tagStat['tag'] = tagStat.key; tagsArray.splice(tagsArray.indexOf(tagStat.key), 1); return tagStat; });
+
+        for (const tag of tagsArray) {
+            tagsStats.push({ tag: tag, count: 0 });
+        }
+        console.log("space details")
+        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
+        common.drawTable(statsAll, ["key", "value"]);
+
+        if (tagsStats && tagsStats.length > 0) {
+            console.log("number of features matching for the tag(s) you have entered");
+        }
+        common.drawTable(tagsStats, ["tag", "count"]);
+    } else {
+        console.log("details of space and feature(s) being affected by this action");
+        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
+        common.drawTable(statsAll, ["key", "value"]);
+
+        const realStats =[{ key: "total features", value: jsonStats.count.value, estimated: jsonStats.count.estimated }, { key: "geometry types", value: jsonStats.geometryTypes.value, estimated: jsonStats.geometryTypes.estimated }]
+        common.drawNewTable(realStats, ["key", "value", "estimated"], [20,20,20]);
+        // OR we could print a normal statement like below.
+        // console.log("There are total " + jsonStats.count.value + " features consisting geometry type(s) " + jsonStats.geometryTypes.value + " in the space.");
+
     }
 }
 
@@ -1143,18 +1179,19 @@ async function listTokens() {
     console.log(
         "===================================================="
     );
-    common.drawNewTable(tokenInfo.tokens, ["id","type","iat","description"], [25,10,10,70]);
+    common.drawNewTable(tokenInfo.tokens, ["id", "type", "iat", "description"], [25, 10, 10, 70]);
 }
 
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
-    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, or CSV files (or GeoJSON/CSV URLs)")
+    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs)")
     .option("-c, --chunk [chunk]", "chunk size, default 200")
     .option("-t, --tags [tags]", "tags for the xyz space")
+    .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
-//     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
+    //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
     .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
@@ -1168,10 +1205,10 @@ program
     .option('-g, --geocode <geocode>','comma seperated property names property names to be used for geocoding feature and retrieve Lat/Lon values')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (id, options) {
-        if(!id && options.file) {            
+        if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
-            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString(); 
+            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
             const descPrompt = [{
                 type: 'input',
                 name: 'description',
@@ -1179,15 +1216,15 @@ program
                 default: path.parse(options.file).name
             }]
             const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
-            options.message = descInput.description ? descInput.description : options.file; 
+            options.message = descInput.description ? descInput.description : options.file;
 
-            const response:any = await createSpace(options)
-                                        .catch(err => { 
-                                                handleError(err);
-                                                process.exit(1);                                           
-                                            });
+            const response: any = await createSpace(options)
+                .catch(err => {
+                    handleError(err);
+                    process.exit(1);
+                });
             id = response.id;
-            
+
         }
         uploadToXyzSpace(id, options).catch((error) => {
             handleError(error, true);
@@ -1211,13 +1248,13 @@ function streamingQueue() {
     let queue = cq(10, function (task: any, done: Function) {
         uploadData(task.id, task.options, task.tags, task.fc,
             true, task.options.ptag, task.options.file, task.options.id)
-            .then((result:any) => {
+            .then((result: any) => {
                 queue.uploadCount += result.success;
                 queue.failedCount += result.failed;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
                 queue.chunksize--;
                 done();
-            }).catch((err:any) => {
+            }).catch((err: any) => {
                 queue.failedCount += task.fc.features.length;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
                 queue.chunksize--;
@@ -1281,6 +1318,7 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
 
 
 async function uploadToXyzSpace(id: string, options: any) {
+    let startTime = new Date();
     //(async () => {
     let tags = "";
     if (options.tags) {
@@ -1288,7 +1326,7 @@ async function uploadToXyzSpace(id: string, options: any) {
     }
 
     let printErrors = false;
-    if(options.errors) {
+    if (options.errors) {
         printErrors = true;
     }
 
@@ -1322,7 +1360,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
             } else {
                 let queue = streamingQueue();
-                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, function (result: any) {
+                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
                     return new Promise((res, rej) => {
                         (async () => {
                             if (result.length > 0) {
@@ -1355,7 +1393,7 @@ async function uploadToXyzSpace(id: string, options: any) {
                 let result = await transform.read(
                     options.file,
                     true,
-                    { delimiter: options.delimiter, quote: options.quote }
+                    { headers: true, delimiter: options.delimiter, quote: options.quote }
                 );
                 const object = {
                     features: await transform.transform(
@@ -1398,6 +1436,30 @@ async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
+        } else if (options.file.indexOf(".gpx") != -1) {
+            let result = await transform.read(
+                options.file,
+                false,
+                {}
+            );
+            const object = {
+                features: await transform.transformGpx(
+                    result,
+                    options
+                ),
+                type: "FeatureCollection"
+            };
+            await uploadData(
+                id,
+                options,
+                tags,
+                object,
+                true,
+                options.ptag,
+                options.file,
+                options.id
+            );
+
         } else {
             if (!options.stream) {
                 let result = await transform.read(
@@ -1417,7 +1479,7 @@ async function uploadToXyzSpace(id: string, options: any) {
             } else {
                 let queue = streamingQueue();
                 let c = 0;
-                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, async function (result: any) {
+                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
                     if (result.length > 0) {
                         const fc = {
                             features: result,
@@ -1434,7 +1496,7 @@ async function uploadToXyzSpace(id: string, options: any) {
         }
     } else {
         const getStdin = require("get-stdin");
-        getStdin().then((str: string) => {
+        await getStdin().then((str: string) => {
             try {
                 const obj = JSON.parse(str);
                 uploadData(
@@ -1454,6 +1516,9 @@ async function uploadToXyzSpace(id: string, options: any) {
             }
         });
     }
+
+    let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
+    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     //})();
 }
 
@@ -1490,14 +1555,14 @@ function uploadData(
     fileName: string | null,
     uid: string,
     printFailed: boolean = false
-):any {
+): any {
     return new Promise((resolve, reject) => {
-        let upresult:any = { success: 0, failed: 0, entries: []};
+        let upresult: any = { success: 0, failed: 0, entries: [] };
         if (object.type == "Feature") {
             object = { features: [object], type: "FeatureCollection" };
         }
 
-        if(options.errors) {
+        if (options.errors) {
             printFailed = true;
         }
 
@@ -1584,7 +1649,8 @@ async function uploadDataToSpaceWithTags(
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                   upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                    process.stdout.write("\n");
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
                     //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
@@ -1595,7 +1661,7 @@ async function uploadDataToSpaceWithTags(
                 reject(e);
                 return;
             }
-            
+
             if (!options.stream) {
                 if (isFile)
                     console.log(
@@ -1610,7 +1676,7 @@ async function uploadDataToSpaceWithTags(
                         "data upload to xyzspace '" + id + "' completed"
                     );
 
-                if(upresult.failed > 0) {
+                if (upresult.failed > 0) {
                     console.log("all the features could not be uploaded successfully, to print rejected features, run command with -e")
                     console.log("=============== Upload Summary ============= ");
                     upresult.total = featureOut.length;
@@ -1618,6 +1684,7 @@ async function uploadDataToSpaceWithTags(
                 } else {
                     summary.summarize(featureOut, id, true);
                 }
+                options.totalCount = featureOut.length;
 
             }
             resolve(upresult);
@@ -1740,7 +1807,7 @@ async function mergeAllTags(
         );
         common.drawTable(duplicates, ["id", "geometry", "properties"]);
         console.log(
-            "uploaded " +
+            "uploading " +
             featuresOut.length +
             " out of " +
             features.length +
@@ -1758,7 +1825,7 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
-    finalTags.push(value); // should we add tags with no @ an option?
+    //finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
 }
@@ -1793,46 +1860,50 @@ function getFileName(fileName: string) {
     }
 }
 
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean):Promise<any> {
+async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
-    const { response, body }  = await execute(
+    const { response, body } = await execute(
         url,
         "PUT",
         "application/geo+json",
-        JSON.stringify(fc),
+        JSON.stringify(fc, (key, value) => {
+            if (typeof value === 'string') {
+                return value.replace(/\0/g, '');
+            }
+            return value;
+        }),
         token,
         true
     );
 
-    if(response.statusCode >= 200 && response.statusCode < 210) {
+    if (response.statusCode >= 200 && response.statusCode < 210) {
         let res = JSON.parse(body);
-        if(res.features)
+        if (res.features)
             upresult.success = upresult.success + res.features.length;
-        if(res.failed) {
+        if (res.failed) {
             upresult.failed = upresult.failed + res.failed.length;
             //upresult.entries = upresult.entries.concat(res.failed);
 
-            
-            for(let n=0; n<res.failed.length; n++) {
+
+            for (let n = 0; n < res.failed.length; n++) {
                 const failedentry = res.failed[n];
-                if(printFailed) {
-                    console.log("Failed to upload : " + JSON.stringify({feature: fc.features[failedentry.position], reason: failedentry.message}));
+                if (printFailed) {
+                    console.log("Failed to upload : " + JSON.stringify({ feature: fc.features[failedentry.position], reason: failedentry.message }));
                 }
             }
-        }             
+        }
     }
     index++;
+    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     if (index == chunkSize) {
-        process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%\n");
         return upresult;
     }
-    process.stdout.write("\ruploaded " + ((index / chunkSize) * 100).toFixed(2) + "%");
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
-    const { response, body }  = await execute(
+    const { response, body } = await execute(
         url,
         "PUT",
         "application/geo+json",
@@ -1854,8 +1925,10 @@ function chunkify(data: any[], chunksize: number) {
     return chunks;
 }
 
-async function launchHereGeoJson(uri: string) {
-    const token = await common.verify(true);
+async function launchHereGeoJson(uri: string, token: string) {
+    if(!token){
+        token = await common.verify(true);
+    }
     const accessAppend =
         uri.indexOf("?") == -1
             ? "?access_token=" + token
@@ -1869,8 +1942,10 @@ async function launchHereGeoJson(uri: string) {
         , { wait: false });
 }
 
-async function launchXYZSpaceInvader(spaceId: string, tags: string) {
-    const token = await common.verify(true);
+async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string) {
+    if(!token){
+        token = await common.verify(true);
+    }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags;
     const opn = require("opn");
     opn(
@@ -1878,18 +1953,50 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string) {
         , { wait: false });
 }
 
+async function getStatsAndBasicForSpace(spaceId: string) {
+    let url = `/hub/spaces/${spaceId}/statistics?clientId=cli&skipCache=true`
+    const { response, body: statsbody } = await execute(
+        url,
+        "GET",
+        "application/json",
+        ""
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 210) {
+        url = `/hub/spaces/${spaceId}`
+        const { response, body } = await execute(
+            url,
+            "GET",
+            "application/json",
+            ""
+        );
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            statsbody['spacedef'] = body;
+        }
+        return statsbody;
+    }
+}
+
 
 program
     .command("config <id>")
     .description("configure/view advanced XYZ features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
-    .option("-s,--schema [schemadef]", "set schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
+    .option("--token <token>", "a external token to access another user's space config and stats niformation")
     .option("-r, --raw", "show raw output")
+    .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
+    .option("--searchable", "view or configure searchable properties of an xyz space")
+    .option("--tagrules", "add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
+    .option("--delete", "use with schema/searchable/tagrules options to remove the respective configurations")
+    .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
+    .option("--update", "use with tagrules options to update the respective configurations")
+    .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
+
     .action(function (id, options) {
         configXyzSpace(id, options).catch((error) => {
             handleError(error, true);
@@ -1897,22 +2004,60 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-
     await common.verifyProBetaLicense();
 
     let patchRequest: any = {};
-    let spacedef:any = null;
+    let spacedef: any = null;
 
-    if(options.schema) {
+    if ((options.schema && options.searchable) ||
+        (options.schema && options.tagrules) ||
+        (options.tagrules && options.searchable)
+    ) {
+        console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+        process.exit(1);
+    }
+
+    if ((options.schema || options.searchable || options.tagrules) &&
+        (options.shared || options.title || options.message || options.copyright || options.stats)) {
+        console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+        process.exit(1);
+    }
+
+    if (!(options.schema || options.searchable || options.tagrules) &&
+        (options.delete || options.add || options.view)) {
+        console.log("invalid options, add/view/delete options can not be used without searchable/schema/tagrules options")
+        process.exit(1);
+    }
+
+    if (!(options.tagrules) &&
+        (options.update)) {
+        console.log("invalid options, update option can not be used without tagrules options")
+        process.exit(1);
+    }
+
+
+    if (options.searchable) {
+        await searchableConfig(id, options);
+        process.exit(1);
+    } else if (options.tagrules) {
+        await tagRuleConfig(id, options);
+        process.exit(1);
+    } else if (options.schema) {
         const url = `/hub/spaces/${id}?clientId=cli`
         const { response, body } = await execute(
-                url,
-                "GET",
-                "application/json",
-                ""                
-            );
+            url,
+            "GET",
+            "application/json",
+            ""
+        );
         spacedef = body;
     }
+
+
+    // if (options.delete && !options.schema) {
+    //     console.log("delete option can only be used with schema option")
+    //     process.exit(1);
+    // }
 
     if (options.title) {
         patchRequest['title'] = options.title;
@@ -1936,44 +2081,75 @@ async function configXyzSpace(id: string, options: any) {
         }
     }
 
-    if(options.schema) {
-        if (spacedef.processors) {
-            let i = spacedef.processors.length;
-            while (i--) {
-                let processor = spacedef.processors[i];
-                if (processor.id === 'schema-validator') {
-                    spacedef.processors.splice(i, 1);
+    if (options.schema) {
+        if (options.schema == true && options.delete != true) {
+            if (spacedef.processors) {
+                if(Array.isArray(spacedef.processors)){
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'schema-validator') {
+                            const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                            console.log(JSON.stringify(body, null, 3));
+                            process.exit(1);
+                        }
+                    }
+                } else {
+                    let schemaValidatorProcessor = spacedef.processors['schema-validator'];
+                    if(schemaValidatorProcessor && schemaValidatorProcessor.length > 0){
+                        const { response, body } = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
+                        console.log(JSON.stringify(body, null, 3));
+                        process.exit(1);
+                    }
                 }
             }
-        }
-        if(options.schema == true) {
-            console.log("Are you sure you want to remove the schema definition of the given space?");
-            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
-
-            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
-            if (termsResp !== "y" && termsResp !== "yes") {
-                console.log("CANCELLED !");
-                process.exit(1);
-            }
-            console.log("Removing schema definition for the space.")
-            patchRequest['processors'] = [];
-
+            console.log("schema definition not found");
         } else {
-            let schemaDef:string = "";
-            if(options.schema.indexOf("http") == 0) {
-                schemaDef = options.schema;
-            } else {
-                schemaDef = await transform.read(options.schema, false);
+            if (spacedef.processors) {
+                if(Array.isArray(spacedef.processors)){
+                    let i = spacedef.processors.length;
+                    while (i--) {
+                        let processor = spacedef.processors[i];
+                        if (processor.id === 'schema-validator') {
+                            spacedef.processors.splice(i, 1);
+                        }
+                    }
+                } else {
+                    let processor = spacedef.processors['schema-validator'];
+                }
             }
-            schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
-            //console.log(JSON.stringify(schemaDef));
-            
-            if(!spacedef.processors)
-                spacedef.processors = [];
-            spacedef.processors.push(getSchemaProcessorProfile(schemaDef));
-            
+            if (options.schema == true) {
+                if (options.delete == true) {
+                    console.log("Are you sure you want to remove the schema definition of the given space?");
+                    const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+
+                    const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+                    if (termsResp !== "y" && termsResp !== "yes") {
+                        console.log("CANCELLED !");
+                        process.exit(1);
+                    }
+                    console.log("Removing schema definition for the space.")
+                    patchRequest['processors'] = {};
+                    patchRequest['processors']['schema-validator'] = null;
+                }
+            } else {
+                let schemaDef: string = "";
+                if (options.schema.indexOf("http") == 0) {
+                    schemaDef = options.schema;
+                } else {
+                    schemaDef = await transform.read(options.schema, false);
+                }
+                schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
+                //console.log(JSON.stringify(schemaDef));
+                /*
+                if (!spacedef.processors)
+                    spacedef.processors = [];
+                spacedef.processors.push(getSchemaProcessorProfile(schemaDef));
+                */
+                patchRequest['processors'] = getSchemaProcessorProfile(schemaDef);
+            }
+            //patchRequest['processors'] = spacedef.processors;
         }
-        patchRequest['processors'] = spacedef.processors;
     }
 
     if (Object.keys(patchRequest).length > 0) {
@@ -1996,20 +2172,11 @@ async function configXyzSpace(id: string, options: any) {
             console.log("space config updated successfully!");
         }
     } else if (options.stats) {
-        const url = `/hub/spaces/${id}/statistics?clientId=cli`
-        const { response, body } = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""
-        );
-
-        if (response.statusCode >= 200 && response.statusCode < 210) {
-            if (options.raw) {
-                console.log(body);
-            } else {
-                showSpaceStats(body);
-            }
+        const body = await getSpaceStatistics(id,options.token)
+        if (options.raw) {
+            console.log(body);
+        } else {
+            showSpaceStats(body);
         }
     } else {
         const url = `/hub/spaces/${id}?clientId=cli`
@@ -2017,7 +2184,8 @@ async function configXyzSpace(id: string, options: any) {
             url,
             "GET",
             "application/json",
-            ""
+            "",
+            options.token
         );
 
         if (response.statusCode >= 200 && response.statusCode < 210) {
@@ -2030,19 +2198,26 @@ async function configXyzSpace(id: string, options: any) {
     }
 }
 
+async function getSpaceStatistics(id: string, token: string | null = null) {
+    const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
+    const cType = "application/json";
+    const { response, body } = await execute(uri, "GET", cType, "", token);
+    return body;
+}
+
 function showSpaceStats(spacestatsraw: any) {
     console.log("=========== SPACE MAIN STATS INFO ===========")
     let spacestats: any = [];
     let allSearchable = false;
     let size = spacestatsraw.byteSize.value
     // convert to KB/MB/GB as appropriate
-    let kbSize : any = (size/1024).toFixed(1);
-    var mbSize : any = (kbSize/1024).toFixed(1);
-    var gbSize : any = (mbSize/1024).toFixed(1);
-    if ((gbSize < 1) && (kbSize > 1024)){size = mbSize + ' MB'};
-    if (kbSize <= 1024){size = kbSize + ' KB'};
-    if (gbSize >= 1){size = gbSize + ' GB'};
-    if (kbSize < 1){size = size + ' bytes'};
+    let kbSize: any = (size / 1024).toFixed(1);
+    var mbSize: any = (kbSize / 1024).toFixed(1);
+    var gbSize: any = (mbSize / 1024).toFixed(1);
+    if ((gbSize < 1) && (kbSize > 1024)) { size = mbSize + ' MB' };
+    if (kbSize <= 1024) { size = kbSize + ' KB' };
+    if (gbSize >= 1) { size = gbSize + ' GB' };
+    if (kbSize < 1) { size = size + ' bytes' };
     spacestats.push({ property: 'BBox', value: spacestatsraw.bbox.value, estimated: spacestatsraw.bbox.estimated });
     spacestats.push({ property: 'Size', value: size, estimated: spacestatsraw.byteSize.estimated });
     spacestats.push({ property: 'Feature Count', value: spacestatsraw.count.value, estimated: spacestatsraw.count.estimated });
@@ -2053,12 +2228,12 @@ function showSpaceStats(spacestatsraw: any) {
         allSearchable = true;
     }
     //console.table(spacestats);
-    common.drawNewTable(spacestats, ['property', 'value', 'estimated'], [30,30,10]);
+    common.drawNewTable(spacestats, ['property', 'value', 'estimated'], [30, 30, 10]);
 
     if (spacestatsraw.tags && spacestatsraw.tags.value) {
         console.log("=========== FEATURES' TAGS STATS INFO ===========")
         console.log("Estimated : " + spacestatsraw.tags.estimated)
-        common.drawNewTable(spacestatsraw.tags.value, ['key','count'],[50,10]);
+        common.drawNewTable(spacestatsraw.tags.value, ['key', 'count'], [50, 10]);
     }
 
 
@@ -2069,7 +2244,7 @@ function showSpaceStats(spacestatsraw: any) {
             console.log("ALL Properties searchable")
             common.drawNewTable(spacestatsraw.properties.value, ['key', 'count'])
         } else {
-            common.drawNewTable(spacestatsraw.properties.value, ['key', 'count','searchable'], [50,15,10]);
+            common.drawNewTable(spacestatsraw.properties.value, ['key', 'count', 'searchable'], [50, 15, 10]);
         }
     }
 }
@@ -2077,13 +2252,13 @@ function showSpaceStats(spacestatsraw: any) {
 function showSpaceConfig(spacedef: any) {
     console.log("=========== SPACE CONFIG INFO ===========")
     let spaceconfigs: any = [];
-    spaceconfigs.push({property: 'id', value:  spacedef.id});
-    spaceconfigs.push({property: 'title', value:  spacedef.title});
-    spaceconfigs.push({property: 'description', value:  spacedef.description});
-    spaceconfigs.push({property: 'owner', value:  spacedef.owner});
-    spaceconfigs.push({property: 'cid/app_id', value:  spacedef.cid});
-    spaceconfigs.push({property: 'client', value:  JSON.stringify(spacedef.client)});
-    spaceconfigs.push({property: 'shared', value:  spacedef.shared || false});
+    spaceconfigs.push({ property: 'id', value: spacedef.id });
+    spaceconfigs.push({ property: 'title', value: spacedef.title });
+    spaceconfigs.push({ property: 'description', value: spacedef.description });
+    spaceconfigs.push({ property: 'owner', value: spacedef.owner });
+    spaceconfigs.push({ property: 'cid/app_id', value: spacedef.cid });
+    spaceconfigs.push({ property: 'client', value: JSON.stringify(spacedef.client) });
+    spaceconfigs.push({ property: 'shared', value: spacedef.shared || false });
 
     if (spacedef.copyright) {
         let copr = [];
@@ -2091,30 +2266,46 @@ function showSpaceConfig(spacedef: any) {
             const obj = spacedef.copyright[n];
             copr.push(obj.label);
         }
-        spacedef.copyright = copr;
-        spaceconfigs.push({property: 'copyright', value: spacedef.copyright});
+        //spacedef.copyright = copr;
+        spaceconfigs.push({ property: 'copyright', value: spacedef.copyright });
     }
 
     if (spacedef.processors) {
         let processors: any = [];
-        for (let n = 0; n < spacedef.processors.length; n++) {
-            let processor = spacedef.processors[n];
-            processors.push(processor.id)
+        if(Array.isArray(spacedef.processors)){
+            for (let n = 0; n < spacedef.processors.length; n++) {
+                let processor = spacedef.processors[n];
+                processors.push(processor.id)
+            }
+        } else {
+            for (var key in spacedef.processors) {
+                if (spacedef.processors.hasOwnProperty(key) && spacedef.processors[key].length > 0) {
+                    processors.push(key);
+                }
+            }
         }
 
-        spacedef.processors = JSON.stringify(processors);
-        spaceconfigs.push({property: 'processors', value: JSON.stringify(processors)});
+        //spacedef.processors = JSON.stringify(processors);
+        spaceconfigs.push({ property: 'processors', value: JSON.stringify(processors) });
     }
 
     if (spacedef.listeners) {
         let listeners: any = [];
-        for (let n = 0; n < spacedef.listeners.length; n++) {
-            let listener = spacedef.listeners[n];
-            listeners.push(listener.id)
+        if(Array.isArray(spacedef.listeners)){
+            for (let n = 0; n < spacedef.listeners.length; n++) {
+                let listener = spacedef.listeners[n];
+                listeners.push(listener.id)
+            }
+        } else {
+            for (var key in spacedef.listeners) {
+                if (spacedef.processors.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
+                    listeners.push(key);
+                }
+            }
         }
 
-        spacedef.processors = JSON.stringify(listeners);
-        spaceconfigs.push({property: 'listeners', value: JSON.stringify(listeners)});
+        //spacedef.processors = JSON.stringify(listeners);
+        spaceconfigs.push({ property: 'listeners', value: JSON.stringify(listeners) });
     }
 
     if (spacedef.storage) {
@@ -2123,13 +2314,13 @@ function showSpaceConfig(spacedef: any) {
         if (spacedef.storage.params)
             spacedef.storageparam = JSON.stringify(spacedef.storage.params);
 
-     
-        spaceconfigs.push({property: 'storageparam', value:  JSON.stringify(spacedef.storage.params)});
-        spaceconfigs.push({property: 'storageid', value:  spacedef.storageid});
+
+        spaceconfigs.push({ property: 'storageparam', value: JSON.stringify(spacedef.storage.params) });
+        spaceconfigs.push({ property: 'storageid', value: spacedef.storageid });
 
         delete spacedef.storage;
     }
-    common.drawNewTable(spaceconfigs, ['property','value'], [30,90])
+    common.drawNewTable(spaceconfigs, ['property', 'value'], [30, 90])
     //console.table(spacedef);
 }
 
@@ -2175,52 +2366,74 @@ async function createJoinSpace(id:string, options:any){
 program
     .command("virtualize")
     .alias("vs")
-    .description("{xyz pro} create a new virtual XYZ space")    
+    .description("{xyz pro} create a new virtual XYZ space")
     .option("-t, --title [title]", "Title for virtual XYZ space")
     .option("-d, --message [message]", "set description for the space")
     .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response) - enter comma separated space ids")
     .option("-a, --associate [spaceids]", "Associate the spaces. Features same id will be merged into one feature. Enter comma separated space ids, space1,space2. space1 properties will be merged into space2 features.")
     .action(options => createVirtualSpace(options).catch((err) => { handleError(err) }));
 
-    async function createVirtualSpace(options:any){
+async function createVirtualSpace(options: any) {
 
-        await common.verifyProBetaLicense();
+    await common.verifyProBetaLicense();
 
-        if (options) {
-            if (!options.title) {
-                options.title = "a new virtual XYZ space created from commandline";
-            }
-            if (!options.message) {
-                options.message = "a new virtual XYZ space created from commandline";
-            }
-            if(options.group && options.associate) {
-                console.log("ERROR : please select either associate or group");
-                return;
-            }
-
-            if(!options.group && !options.associate) {
-                console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
-                return;
-            }
-        }
-        let spaceids = options.group ? options.group : options.associate;
-        if(isBoolean(spaceids)) {
-            console.log("ERROR : please provide the space ids")
+    if (options) {
+        if (options.group && options.associate) {
+            console.log("ERROR : please select either associate or group");
             return;
         }
 
-        spaceids = spaceids.split(",");
-        const relationship = options.group ? "group" : "merge";
-        
-        const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
-        const {response, body} = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
-        if ( response.statusCode >= 200 && response.statusCode < 210 )
-            console.log("virtual xyzspace '" + body.id + "' created successfully");
+        if (!options.group && !options.associate) {
+            console.log("ERROR : please provide the space ids along with virtual space combination type (group/associate)")
+            return;
+        }
+    }
+    let spaceids = options.group ? options.group : options.associate;
+    if (isBoolean(spaceids)) {
+        console.log("ERROR : please provide the space ids")
+        return
     }
 
+    spaceids = spaceids.split(",");
+    const relationship = options.group ? "group" : "merge";
+    if (!options.title) {
+        options.title = createVirtualSpaceTitle(spaceids, options.associate);
+    }
+    if (!options.message) {
+        options.message = await createVirtualSpaceDescription(spaceids, options.associate);
+    }
+
+    const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
+    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    if (response.statusCode >= 200 && response.statusCode < 210) {
+        console.log("virtual xyzspace '" + body.id + "' created successfully");
+    }
+}
+
+function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean) {
+    let title = "XYZ Virtual Space, " + spaceids[0];
+    for (let i = 1; i < spaceids.length; i++) {
+        title += isAssociate ? ' -> ' + spaceids[i] : ' + ' + spaceids[i];
+    }
+    title += isAssociate ? ' (associate)' : ' (group)';
+    return title;
+}
+
+async function createVirtualSpaceDescription(spaceids: any[], isAssociate: boolean) {
+    let spaceData: any[] = [];
+    let message: string = '';
+    for (let i = 0; i < spaceids.length; i++) {
+        spaceData[i] = await getSpaceMetaData(spaceids[i]);
+    };
+    message = isAssociate ? 'association of ' + spaceData[0].id + ' (' + spaceData[0].title + ')' : 'grouping of ' + spaceData[0].id + ' (' + spaceData[0].title + ')';
+    for (let i = 1; i < spaceids.length; i++) {
+        message += ' and ' + spaceData[i].id + ' (' + spaceData[i].title + ')';
+    }
+    return message;
+}
 
 function getVirtualSpaceProfiles(title: string, description: string, spaceids: Array<string>, vspacetype: string) {
-    let virtualspace:any =  {};
+    let virtualspace: any = {};
     virtualspace[vspacetype] = spaceids;
 
     return {
@@ -2237,32 +2450,25 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
 
 function getSchemaProcessorProfile(schema: string) {
     return {
-        "id": "schema-validator",
-        "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
-        "params": {
-            "schema": schema
-        }
+        "schema-validator" : [{
+            "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
+            "params": {
+                "schema": schema
+            },
+            "order": 0
+        }]
     }
 }
 
-function getEmptyRuleTaggerProfile(id:string) {
+function getEmptyRuleTaggerProfile() {
     return {
-        "id": id,
         "eventTypes": ["ModifyFeaturesEvent.request"],
         "params": {
             "taggingRules": {
-
             }
-        }
+        },
+        "order": 0
     }
-}
-
-function getEmptyRuleTaggerAsyncProcessorProfile() {
-    return getEmptyRuleTaggerProfile("rule-tagger-async");
-}
-
-function getEmptyRuleTaggerProcessorProfile() {
-    return getEmptyRuleTaggerProfile("rule-tagger");
 }
 
 function composeJsonPath(condition: string) {
@@ -2275,31 +2481,55 @@ function composeJsonPath(condition: string) {
 function parseJsonPath(jsonPath: string) {
     let myRegexp = /.\.features\[\?\((.*)\)\]/g;
     let match: any = myRegexp.exec(jsonPath);
-    let expression = match[1];
-    let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
-    return condition;
+    if (match) {
+        let expression = match[1];
+        let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
+        return condition;
+    } else {
+        return jsonPath;
+    }
 }
 
-function isValidTagName(tagName:string) {
+function isValidTagName(tagName: string) {
     return tagName && tagName.trim().length > 0 && tagName.indexOf(",") == -1
 }
 
-function isValidRuleExpression(ruleExpression:string) {
+function isValidRuleExpression(ruleExpression: string) {
     return ruleExpression && ruleExpression.trim().length > 4
 }
 
-program
-    .command("tagrules <id>")
-    .description("add, remove, view the conditional rules to tag your features automatically")
-    .option("--add", "add new tag rules")
-    .option("--delete", "delete tag rules")
-    .option("--update", "update existing tag rules")
-    .option("--view", "view existing tag rules")
-    // .option("--async", "tag rule will be applied asynchronously after features are written to the storage")
-    // .option("--sync", " [DEFAULT] tag rule will be applied synchronously before features are written to the storage")
-    .action(function (id, options) {
-        tagRuleConfig(id, options).catch((error) => handleError(error))
-    })
+function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
+    if (spacedef.processors) {
+        if(Array.isArray(spacedef.processors)){
+            let i = spacedef.processors.length;
+            while (i--) {
+                let processor = spacedef.processors[i];
+                if (processor.id === processorName) {
+                    return spacedef.processors.splice(i, 1)[0];
+                }
+            }
+        } else {
+            if(spacedef.processors[processorName] && spacedef.processors[processorName].length > 0){
+                return spacedef.processors[processorName][0];
+            }
+            return null;
+        }
+    }
+    return null;
+}
+
+// program
+//     .command("tagrules <id>")
+//     .description("add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
+//     .option("--add", "add new tag rules")
+//     .option("--delete", "delete tag rules")
+//     .option("--update", "update existing tag rules")
+//     .option("--view", "view existing tag rules")
+//     // .option("--async", "tag rule will be applied asynchronously after features are written to the storage")
+//     // .option("--sync", " [DEFAULT] tag rule will be applied synchronously before features are written to the storage")
+//     .action(function (id, options) {
+//         tagRuleConfig(id, options).catch((error) => handleError(error))
+//     })
 
 async function tagRuleConfig(id: string, options: any) {
     await common.verifyProBetaLicense();
@@ -2314,8 +2544,8 @@ async function tagRuleConfig(id: string, options: any) {
     );
     spacedef = body;
     if (spacedef != null) {
-        let ruleTagger = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger' }) : null;
-        let ruleTaggerAsync = spacedef.processors ? spacedef.processors.find((obj: any) => { return obj.id == 'rule-tagger-async' }) : null;
+        let ruleTagger = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger');
+        let ruleTaggerAsync = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger-async');
         let taggingRules: any;
         let taggingRulesAsync: any;
         if (ruleTagger) {
@@ -2350,26 +2580,24 @@ async function tagRuleConfig(id: string, options: any) {
                         delete taggingRulesAsync[key.substring(6)];
                     }
                 })
-
-                if (taggingRules && Object.keys(taggingRules).length == 0) {
-                    let i = spacedef.processors.length;
-                    while (i--) {
-                        let processor = spacedef.processors[i];
-                        if (processor.id === 'rule-tagger') {
-                            spacedef.processors.splice(i, 1);
-                        }
+                patchRequest['processors'] = {};
+                if (taggingRules){
+                    if(Object.keys(taggingRules).length == 0) {
+                        patchRequest['processors']['rule-tagger'] = null;
+                    } else {
+                        patchRequest['processors']['rule-tagger'] = [];
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
                     }
                 }
-                if (taggingRulesAsync && Object.keys(taggingRulesAsync).length == 0) {
-                    let i = spacedef.processors.length;
-                    while (i--) {
-                        let processor = spacedef.processors[i];
-                        if (processor.id === 'rule-tagger-async') {
-                            spacedef.processors.splice(i, 1);
-                        }
+                if (taggingRulesAsync){
+                    if(Object.keys(taggingRulesAsync).length == 0) {
+                        patchRequest['processors']['rule-tagger-async'] = null;
+                    } else {
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
                     }
                 }
-                patchRequest['processors'] = spacedef.processors;
+                //patchRequest['processors'] = spacedef.processors;
             }
         } else if (options.update) {
             if ((!taggingRules || Object.keys(taggingRules).length == 0) && (!taggingRulesAsync || Object.keys(taggingRulesAsync).length == 0)) {
@@ -2436,7 +2664,16 @@ async function tagRuleConfig(id: string, options: any) {
                         console.log("invalid condition entered, please try again.");
                         process.exit(1);
                     }
-                    patchRequest['processors'] = spacedef.processors;
+                    //patchRequest['processors'] = spacedef.processors;
+                    patchRequest['processors'] = {};
+                    if (taggingRules && Object.keys(taggingRules).length > 0) {
+                        patchRequest['processors']['rule-tagger'] = [];
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
+                    }
+                    if (taggingRulesAsync && Object.keys(taggingRulesAsync).length > 0) {
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
+                    }
                 }
             }
         } else if (options.add) {
@@ -2478,23 +2715,27 @@ async function tagRuleConfig(id: string, options: any) {
                 const tagCondition = tagConditionInput.tagcondition;
                 if (isValidRuleExpression(tagCondition)) {
                     const jsonPath = composeJsonPath(tagCondition);
-
+                    patchRequest['processors'] = {};
                     if (options.async) {
                         if (!ruleTaggerAsync) {
-                            ruleTaggerAsync = getEmptyRuleTaggerAsyncProcessorProfile();
-                            spacedef.processors.push(ruleTaggerAsync);
+                            ruleTaggerAsync = getEmptyRuleTaggerProfile();
+                            //spacedef.processors.push(ruleTaggerAsync);
                         }
                         taggingRulesAsync = ruleTaggerAsync['params'].taggingRules;
                         taggingRulesAsync[tagName] = jsonPath;
+                        patchRequest['processors']['rule-tagger-async'] = [];
+                        patchRequest['processors']['rule-tagger-async'].push(ruleTaggerAsync);
                     } else {
                         if (!ruleTagger) {
-                            ruleTagger = getEmptyRuleTaggerProcessorProfile();
-                            spacedef.processors.push(ruleTagger);
+                            ruleTagger = getEmptyRuleTaggerProfile();
+                            //spacedef.processors.push(ruleTagger);
                         }
                         taggingRules = ruleTagger['params'].taggingRules;
                         taggingRules[tagName] = jsonPath;
+                        patchRequest['processors']['rule-tagger'] = [];
+                        patchRequest['processors']['rule-tagger'].push(ruleTagger);
                     }
-                    patchRequest['processors'] = spacedef.processors;
+                    //patchRequest['processors'] = spacedef.processors;
                 } else {
                     console.log("invalid condition entered, please try again.");
                     process.exit(1);
@@ -2518,11 +2759,158 @@ async function tagRuleConfig(id: string, options: any) {
                         printdata.push({ 'tag_name': key, 'mode': 'async', 'auto_tag_condition': parseJsonPath(taggingRulesAsync[key]) });
                     })
                 }
-                common.drawNewTable(printdata, ['tag_name','mode','auto_tag_condition'],[35,5,75]);
+                common.drawNewTable(printdata, ['tag_name', 'mode', 'auto_tag_condition'], [35, 5, 75]);
             }
         }
     }
 
+    if (Object.keys(patchRequest).length > 0) {
+
+        const url = `/hub/spaces/${id}?clientId=cli`;
+        const { response, body } = await execute(
+            url,
+            "PATCH",
+            "application/json",
+            patchRequest,
+            null,
+            false
+        );
+        if (response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("tagrules updated successfully!");
+        }
+    }
+}
+
+
+// program
+//     .alias("index")
+//     .command("searchable <id>")
+//     .description("view or configure searchable properties of an xyz space")
+//     .option("--add", "configure (index on) a property as searchable")
+//     .option("--delete", "remove (index on) a property from searchable")
+//     .option("--view", "view existing searchable properties")
+//     // .option("--async", "tag rule will be applied asynchronously after features are written to the storage")
+//     // .option("--sync", " [DEFAULT] tag rule will be applied synchronously before features are written to the storage")
+//     .action(function (id, options) {
+//         searchableConfig(id, options).catch((error) => handleError(error))
+//     })
+
+async function searchableConfig(id: string, options: any) {
+    await common.verifyProBetaLicense();
+    let patchRequest: any = {};
+    let spacedef: any = {};
+    const url = `/hub/spaces/${id}?clientId=cli`
+    const req = await execute(
+        url,
+        "GET",
+        "application/json",
+        ""
+    );
+    spacedef = req.body;
+
+    const surl = `/hub/spaces/${id}/statistics?clientId=cli`
+    const sreq = await execute(
+        surl,
+        "GET",
+        "application/json",
+        ""
+    );
+    let stats = sreq.body;
+
+    if (spacedef != null) {
+        let searchableProperties = spacedef.searchableProperties;
+        if (options.delete) {
+
+            if (searchableProperties && Object.keys(searchableProperties).length > 0) {
+                Object.keys(searchableProperties).forEach(propertyname => {
+                    choiceList.push({ 'name': propertyname + " , mode : manually configured, searchable : " + searchableProperties[propertyname], 'value': propertyname });
+                })
+            }
+            if (stats.properties) {
+                if (stats.properties.searchable == 'ALL') {
+                    console.log("All the properties of your space are searchable by default currently since your space size (feature count) is less than 10,000");
+                    console.log("Manually configured settings will take effect once the space size (feature count) is more than 10,000");
+                    stats.properties.value.forEach((prop: any) => {
+                        if (!spacedef.searchableProperties ||
+                            (spacedef.searchableProperties && spacedef.searchableProperties[prop.key] == null)) {
+                            choiceList.push({ 'name': prop.key + " , mode : auto configured, searchable : true", 'value': prop.key });
+                        }
+                    });
+
+                } else {
+                    stats.properties.value.forEach((prop: any) => {
+                        if (prop.searchable) {
+                            if (!spacedef.searchableProperties ||
+                                (spacedef.searchableProperties && spacedef.searchableProperties[prop.key] == null)) {
+                                choiceList.push({ 'name': prop.key + " , mode : auto configured, searchable : " + (prop.searchable ? prop.searchable : "false"), 'value': prop.key });
+                            }
+                        }
+                    });
+                }
+
+                let answers: any = await inquirer.prompt(searchablePropertiesDisable);
+                answers.propChoices.forEach((key: string) => {
+                    if(!spacedef.searchableProperties){
+                        spacedef.searchableProperties = {};
+                    }
+                    spacedef.searchableProperties[key] = false;
+                })
+                patchRequest['searchableProperties'] = spacedef.searchableProperties;
+            }
+
+        } else if (options.add) {
+            const propNamePrompt = [{
+                type: 'input',
+                name: 'propertyName',
+                message: 'Enter the property name to make searchable ( create index on ) : '
+            }]
+            const propNameInput = await inquirer.prompt<{ propertyName: string }>(propNamePrompt);
+            const propName = propNameInput.propertyName;
+
+            if (isValidTagName(propName)) {
+                if (!spacedef.searchableProperties) {
+                    spacedef.searchableProperties = {};
+                }
+                spacedef.searchableProperties[propName] = true;
+                patchRequest['searchableProperties'] = spacedef.searchableProperties;
+            }
+
+        } else { //also for --view
+
+            let commonlist: any = [];
+
+            if (spacedef.searchableProperties) {
+                Object.keys(spacedef.searchableProperties).forEach((key: any) => {
+                    commonlist.push({ propertyName: key, mode: 'manual', searchable: spacedef.searchableProperties[key] });
+                });
+            }
+            if (stats.properties) {
+                if (stats.properties.searchable == 'ALL') {
+                    console.log("All the properties of your space are searchable by default currently since your space size (feature count) is less than 10,000");
+                    console.log("Manually configured settings will take effect once the space size (feature count) is more than 10,000");
+                    stats.properties.value.forEach((prop: any) => {
+                        if (!spacedef.searchableProperties ||
+                            (spacedef.searchableProperties && spacedef.searchableProperties[prop.key] == null)) {
+                            commonlist.push({ propertyName: prop.key, mode: 'auto', searchable: 'true' });
+                        }
+                    });
+
+                } else {
+                    stats.properties.value.forEach((prop: any) => {
+                        if (prop.searchable) {
+                            if (!spacedef.searchableProperties || spacedef.searchableProperties && spacedef.searchableProperties[prop.key] == null) {
+                                commonlist.push({ propertyName: prop.key, mode: 'auto', searchable: prop.searchable });
+                            }
+                        }
+                    });
+                }
+
+            }
+
+            common.drawNewTable(commonlist, ['propertyName', 'mode', 'searchable'], [60, 20, 20]);
+
+        }
+    }
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`
@@ -2536,10 +2924,225 @@ async function tagRuleConfig(id: string, options: any) {
         );
 
         if (response.statusCode >= 200 && response.statusCode < 210) {
-            console.log("tagrules updated successfully!");
+            console.log("searchable configuration updated successfully!");
         }
     }
 }
+
+program
+    .command("gis <id>")
+    .description("{xyz pro} perform gis operations with space data")
+    .option("-c, --chunk [chunk]", "chunk size, default 20")
+    .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
+    .option("-t, --tags <tags>", "Tags to filter on")
+    .option("--length", "calculates length of LineString features")
+    .option("--area", "calculates area of Polygon features")
+    .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
+    .option("--tin", "calculates tin Polygons of point features and uploads in different space")
+    .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
+    .option("--samespace", "option to upload centroids/voronoi/tin to same space")
+    .action(function (id, options) {
+        performGisOperation(id, options).catch((error) => {
+            handleError(error, true);
+        });
+    });
+
+async function performGisOperation(id:string, options:any){
+    await common.verifyProBetaLicense();
+    const sourceId = id;
+    options.totalRecords = Number.MAX_SAFE_INTEGER;
+    options.currentHandleOnly = true;
+    options.handle = 0;
+    if(options.chunk){
+        options.limit = options.chunk;
+    } else {
+        options.limit = 20;
+    }
+    if(!options['length'] && !options.centroid && !options.area && !options.voronoi && !options.tin){
+        console.log("Please specify GIS operation option");
+        process.exit(1);
+    }
+    let cHandle;
+    let gisFeatures : any[]= [];
+    let featureCount = 0;
+    console.log("Performing GIS operation on the space data");
+    do {
+        let jsonOut = await getSpaceDataFromXyz(id, options);
+        if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
+            console.log("\nNo features are available to execute GIS operation");
+            process.exit(1);
+        }
+        cHandle = jsonOut.handle;
+        options.handle = jsonOut.handle;
+        if (jsonOut.features) {
+            const features = jsonOut.features;
+            features.forEach(function (feature: any, i: number){
+                if(options.voronoi || options.tin){
+                    if(feature.geometry && (feature.geometry.type == 'Point')){
+                        gisFeatures.push(feature);
+                    }
+                } else {
+                    let gisFeature = performTurfOperationOnFeature(feature, options);
+                    if(gisFeature){
+                        gisFeatures.push(gisFeature);
+                        process.stdout.write("\rGIS operation done for feature count - " + (featureCount + (i+1)));
+                    }
+                }
+            });
+            featureCount += features.length;
+        } else {
+            cHandle = -1;
+        }
+    } while (cHandle >= 0);
+    process.stdout.write("\n");
+
+    if(gisFeatures.length == 0){
+        console.log("required geometry features are not available to perform GIS operation");
+        process.exit(1);
+    }
+
+    if(options.voronoi){
+        console.log("Calculating Voronoi Polygons for points data");
+        gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
+    } else if(options.tin){
+        gisFeatures = calculateTinTriangles(gisFeatures, options.property);
+    }
+    if(!options.samespace && (options.centroid || options.voronoi || options.tin)){
+        let newSpaceData;
+        if(options.centroid){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
+        } else if(options.voronoi){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('voronoi', sourceId, options);
+        } else if(options.tin){
+            newSpaceData = await createNewSpaceAndUpdateMetadata('tin', sourceId, options);
+        }
+        id = newSpaceData.id;
+    }
+    
+    if (gisFeatures.length > 0) {
+        let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.json' });
+        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
+        if(options.centroid){
+            options.tags = 'centroid';
+        } else if(options.voronoi){
+            options.tags = 'voronoi';
+        } else if(options.tin){
+            options.tags = 'tin';
+        }
+        options.file = tmpObj.name;
+        options.override = true;
+        await uploadToXyzSpace(id, options);
+        console.log("GIS operation completed on space " + sourceId);
+    }
+}
+
+function performTurfOperationOnFeature(feature: any, options: any){
+    let gisFeature;
+    if(options.centroid){
+        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiLineString' || feature.geometry.type == 'MultiPolygon')){
+            gisFeature = turf.centroid(feature, feature.properties);
+            if(options.samespace){
+                if(!gisFeature.properties){
+                    gisFeature.properties = {};
+                }
+                gisFeature.properties.sourceId = feature.id;
+            } else {
+                gisFeature.id = feature.id;
+            }
+        }
+    } else if(options['length']){
+        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'MultiLineString')){
+            let length = turf.length(feature, {units: 'meters'});
+            if(!feature.properties){
+                feature.properties = {};
+            }
+            feature.properties['xyz_length_m'] = length;
+            feature.properties['xyz_length_km'] = (length / 1000).toFixed(2);
+            feature.properties['xyz_length_miles'] = (length * 0.000621371).toFixed(2);
+            gisFeature = feature; 
+        }
+    } else if(options.area){
+        if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
+            gisFeature = populateArea(feature); 
+        }
+    } else {
+        console.log("Please specify GIS operation option");
+        process.exit(1);
+    }
+    return gisFeature;
+}
+
+function populateArea(feature: any){
+    let area = turf.area(feature);
+    if(!feature.properties){
+        feature.properties = {};
+    }
+    feature.properties['xyz_area_sqm'] = area;
+    feature.properties['xyz_area_sqkm'] = (area / 1000000).toFixed(2);
+    feature.properties['xyz_area_sqmiles'] = (area * 0.00000038610215855).toFixed(2);
+    return feature; 
+}
+
+async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
+    const statData = await getSpaceStatistics(spaceId);
+    const featureCollection = { type: "FeatureCollection", features: features };
+    const bbox: [number,number,number, number] = statData.bbox.value;
+    const voronoiFeatureCollection = turf.voronoi(featureCollection, {bbox: bbox});
+    voronoiFeatureCollection.features.forEach(function (polygon, i) {
+        polygon.properties = features[i].properties;
+        if(options.samespace){
+            if(!polygon.properties){
+                polygon.properties = {};
+            }
+            polygon.properties.sourceId = features[i].id;
+        } else {
+            polygon.id = features[i].id;
+        }
+        polygon = populateArea(polygon);
+    });
+    return voronoiFeatureCollection.features;
+}
+
+function calculateTinTriangles(features: any, property: string){
+    const featureCollection = { type: "FeatureCollection", features: features };
+    const tinFeatureCollection = turf.tin(featureCollection, property);
+    tinFeatureCollection.features.forEach(function (polygon, i) {
+        polygon = populateArea(polygon);
+    });
+    return tinFeatureCollection.features;
+}
+
+async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
+    let newSpaceId;
+    let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
+    let newspaceData;
+    let clientKey = newSpaceType + 'SpaceId';
+    if ((sourceSpaceData.shared == true && await isOtherOwnerSpace(sourceSpaceData.owner)) || options.readToken) {
+        console.log("shared space or readToken found, creating new " + newSpaceType + " space");
+        newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, false, options.writeToken);
+        newSpaceId = newspaceData.id;
+    } else if (!sourceSpaceData.client || !sourceSpaceData.client[clientKey]) {
+        console.log("No " + newSpaceType + " space found, creating new " + newSpaceType + " space");
+        newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, true, options.writeToken);
+        newSpaceId = newspaceData.id;
+    } else {
+        try {
+            console.log("using exisitng " + newSpaceType + " space - " + sourceSpaceData.client[clientKey]);
+            newSpaceId = sourceSpaceData.client[clientKey];
+            newspaceData = await getSpaceMetaData(newSpaceId, options.writeToken);
+        } catch (error) {
+            if (error.statusCode && (error.statusCode == 404 || error.statusCode == 403)) {
+                console.log("looks like existing " + newSpaceType + " space " + newSpaceId + " has been deleted or you don't have sufficient rights, creating new one ");
+                newspaceData = await createNewSpaceUpdateMetadata(newSpaceType, sourceId, sourceSpaceData, true, options.writeToken);
+                newSpaceId = newspaceData.id;
+            } else {
+                throw error;
+            }
+        }
+    }
+    return newspaceData;
+}
+
 common.validate(
     [
         "list",
@@ -2557,7 +3160,8 @@ common.validate(
         "vs",
         "virtualize",
         "tagrules",
-        "join"
+        "join",
+        "gis"
     ],
     [process.argv[2]],
     program

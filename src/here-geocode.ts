@@ -30,6 +30,7 @@ program
     .parse(process.argv);
 geoCodeLocation(process.argv[2]).catch(err => console.error(err));
 
+
 async function geoCodeLocation(locationString: string) {
     let geoCodeResult = await geocode.geoCode(locationString);
     if (!geoCodeResult) {
@@ -37,4 +38,3 @@ async function geoCodeLocation(locationString: string) {
     } else {
         console.log(JSON.stringify(geoCodeResult, null, 2));
     }
-}

@@ -190,7 +190,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] });
+      await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("xyzspace 'myspace' deleted successfully")!=-1) {
         assert.ok(true, "");
@@ -220,7 +220,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('clearSpace')("myspace", { tags:"*" });
+      await xyz.__get__('clearSpace')("myspace", { tags:"*" , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("data cleared successfully")!=-1) {
         assert.ok(true, "");
@@ -288,7 +288,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv"});
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv", delimiter: ',', quote: '"'});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to xyzspace 'myspace' completed")!=-1) {
         assert.ok(true, "");
@@ -306,6 +306,29 @@ describe('Configure', function () {
       } else {
         assert.fail();
       }
+    });
+
+    it('upload to space using gpx', async function () {
+      const xyz = rewire('../bin/here-xyz');
+      const summary = rewire('../bin/summary');
+      var output = '';
+      capcon.startCapture(process.stdout, function (stdout) {
+        output += stdout;
+      });
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.gpx" });
+      capcon.stopCapture(process.stdout);
+      if (output.indexOf("data upload to xyzspace 'myspace' completed") != -1) {
+        assert.ok(true, "");
+      } else {
+        assert.fail();
+      }
+      console.log(output);
+      if (output.indexOf("1400 features uploaded to XYZ space 'myspace' in") != -1) {
+        assert.ok(true, "");
+      } else {
+        assert.fail();
+      }
+      
     });
 
     it('upload to space using shapefile', async function () {
@@ -360,7 +383,7 @@ describe('Configure', function () {
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true});
+      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true, delimiter: ',', quote: '"' });
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");

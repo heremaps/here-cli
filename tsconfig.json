@@ -3,6 +3,12 @@
     "target": "es2016",
     "module": "commonjs",
     "strict": true,
-    "outDir": "bin"
+    "outDir": "bin",
+    "baseUrl": "./", // This must be specified if "paths" is.
+    "paths": {
+      "@turf/voronoi": ["./declarations/@turf/voronoi.d.ts"],//voronoi typescript issue - https://github.com/Turfjs/turf/issues/1422
+      "@turf/helpers": ["./declarations/@turf/helpers.d.ts"]
+    },
+    //"traceResolution": true
   }
 }

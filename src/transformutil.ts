@@ -33,6 +33,9 @@ import { requestAsync } from "./requestAsync";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as geocode from "./geocodeUtil";
+import { deprecate } from "util";
+import * as csv from 'fast-csv';
+import { DOMParser } from 'xmldom';
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -73,10 +76,10 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
     let isPrjFilePresent : boolean = false;
     let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
-    let prjFile: string = '';
+    let prjFile: any = '';
     if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
         console.log(prjFilePath + " file exists, using this file for crs transformation");
-        prjFile = readDataFromFile(prjFilePath, false);
+        prjFile = await readDataFromFile(prjFilePath, false);
     }
     const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
 
@@ -139,7 +142,7 @@ export async function read(path: string, needConversion: boolean, opt: any = nul
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
         return await readDataFromURL(path, needConversion, opt);
     } else {
-        return readDataFromFile(path, needConversion, opt);
+        return await readDataFromFile(path, needConversion, opt);
     }
 }
 
@@ -149,23 +152,148 @@ async function readDataFromURL(path: string, needConversion: boolean, opt: any =
         throw new Error("Error requesting: " + body);
 
     if (needConversion)
-        return dataToJson(body, opt);
+        return await dataToJson(body, opt);
     else
         return body;
 }
 
-function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
+async function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
     const file_data = fs.readFileSync(path, { encoding: 'utf8' });
     if (needConversion)
-        return dataToJson(file_data, opt);
+        return await dataToJson(file_data, opt);
     else
         return file_data;
 }
 
-function dataToJson(file_data: string, opt: any = null) {
-    const csvjson = require('csvjson');
-    const result = csvjson.toObject(file_data, opt);
+async function dataToJson(file_data: string, opt: any = null) {
+    //const csvjson = require('csvjson');
+    //const result = csvjson.toObject(file_data, opt);
+    const result = await parseCsv(file_data, opt);
     return result;
+}
+
+async function parseCsv(csvStr: string, options: any) {
+    return new Promise<any[]>((res, rej) => {
+        const rows:any[] = [];
+        csv.parseString(csvStr, options)
+            .on('data', (row: any) => rows.push(row))
+            .on('error', (err: any) => rej(err))
+            .on('end', () => res(rows));
+    });
+}
+
+async function getGpxDataFromXmlNode(node: any, result: any) {
+    if (!result) result = { segments: [] }
+    switch (node.nodeName) {
+        case 'name':
+            //console.log(node.nodeName + ' = ' + node.textContent)
+            result.name = node.textContent
+            break
+        case 'trkseg':
+            let segment = [] as any
+            result.segments.push(segment)
+            let len = node && node.childNodes && node.childNodes.length
+            for (var i = 0; i < len; i++) {
+                var snode = node.childNodes[i]
+                if (snode.nodeName == 'trkpt') {
+                    let trkpt: any = {}
+                    //console.log("ATTR:", snode.attributes["0"].value)
+                    let lat = snode && snode.attributes && snode.attributes['0'] && snode.attributes['0'].value
+                    let lon = snode && snode.attributes && snode.attributes['1'] && snode.attributes['1'].value
+                    trkpt = {
+                        loc: [
+                            parseFloat(lat),
+                            parseFloat(lon)
+                        ]
+                    }
+
+                    let len = snode && snode.childNodes && snode.childNodes.length
+                    for (var j = 0; j < len; j++) {
+                        var ssnode = snode.childNodes[j]
+                        switch (ssnode.nodeName) {
+                            case 'time':
+                                trkpt.time = new Date(ssnode.childNodes[0].data)
+                                break
+                            case 'ele':
+                                trkpt.ele = parseFloat(ssnode.childNodes[0].data)
+                                break
+                            case 'extensions':
+                                var extNodes = ssnode.childNodes
+                                for ( var idxExtNode = 0; idxExtNode < extNodes.length; idxExtNode++ ) {
+                                    var extNode = extNodes[idxExtNode]
+                                    //console.log(extNode.nodeName)
+                                    if (extNode.nodeName == 'gpxtpx:TrackPointExtension') {
+                                        //console.log(extNode)
+                                        var trackPointNodes = extNode.childNodes
+                                        for ( var idxTrackPointNode = 0; idxTrackPointNode < trackPointNodes.length; idxTrackPointNode++ ) {
+                                            var trackPointNode =
+                                                trackPointNodes[idxTrackPointNode]
+                                            //console.log(trackPointNode.nodeName)
+                                            if (trackPointNode.nodeName.startsWith('gpxtpx:')) {
+                                                var gpxName = trackPointNode.nodeName.split(':')
+
+                                                trkpt[gpxName[1]] =
+                                                    trackPointNode.childNodes[0].data
+                                            }
+                                        }
+                                    }
+                                }
+                                //console.log(ssnode.childNodes)
+                                //extNode.forEach(element => {
+                                //console.log(element.power)
+                                //})
+                                break
+                        }
+                    }
+                    //console.log("trkpt", trkpt)
+                    segment.push(trkpt)
+                }
+            }
+            break
+    }
+    let len = node && node.childNodes && node.childNodes.length
+    for ( var idxChildNodes = 0; idxChildNodes < len; idxChildNodes++ ) {
+        getGpxDataFromXmlNode(node.childNodes[idxChildNodes], result)
+    }
+    return result
+}
+
+
+async function trasformGpxDataToGeoJson(data: any) {
+    let geo: any = {};
+    geo.type = 'FeatureCollection'
+    geo.features = []
+    if (data && data.segments) {
+        let prev_position_long = 0
+        let prev_position_lat = 0
+        let idx_records = 0
+        let element: any = {}
+        for ( idx_records = 0; idx_records < data.segments[0].length; idx_records++ ) {
+            element = data.segments[0][idx_records]
+            if (Array.isArray(element.loc)) {
+                if (idx_records > 0) {
+                    let f: any = {}
+                    f.type = 'Feature'
+                    f.properties = element
+                    f.geometry = {}
+                    f.geometry.type = 'LineString'
+                    f.geometry.coordinates = [
+                        [prev_position_long, prev_position_lat],
+                        [element.loc[1], element.loc[0]]
+                    ]
+                    geo.features.push(f)
+                }
+                prev_position_long = element.loc[1]
+                prev_position_lat = element.loc[0]
+            }
+        }
+    }
+    return geo.features
+}
+export async function transformGpx(result: any[], options: any) {
+    const xml = new DOMParser().parseFromString(String(result), 'text/xml')
+    var objGpx = await getGpxDataFromXmlNode(xml.documentElement, false)
+    return await trasformGpxDataToGeoJson(objGpx)
 }
 
 export async function transform(result: any[], options: any) {
@@ -412,7 +540,7 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
 }
 
 
-export function readLineAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readLineAsChunks(incomingPath: string, chunckSize:number, options: any, streamFuntion:Function) {
     return readData(incomingPath, 'geojsonl').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
@@ -435,6 +563,7 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number,streamF
                 (async()=>{
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
                     console.log("");
                     resolve();
                 })();
@@ -451,7 +580,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(path);
-            let csvstream = csv.parseStream(stream, {headers : true}).on("data", async function(data:any){
+            let csvstream = csv.parseStream(stream, {headers : true, delimiter: options.delimiter, quote: options.quote}).on("data", async function(data:any){
                 if(!isQuestionAsked){
                     csvstream.pause();
                     await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
@@ -472,6 +601,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
                 (async()=>{
                     const queue = await streamFuntion(dataArray);
                     await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
                     console.log("");
                     resolve();
                 })();
@@ -482,7 +612,7 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
                 
 
 
-export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,streamFuntion:Function) {
+export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, options:any, streamFuntion:Function) {
     return readData(incomingPath, 'geojson').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
@@ -506,11 +636,12 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number,stre
                     (async()=>{
                         const queue = await streamFuntion(dataArray);
                         await queue.shutdown();
+                        options.totalCount = queue.uploadCount;
                         console.log("");
                         dataArray=new Array<any>();
+                        resolve();
                     })();
                 }
-                resolve();
             }));
          });
     });

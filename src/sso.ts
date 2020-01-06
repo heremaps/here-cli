@@ -103,7 +103,7 @@ export async function fetchMaxRights(cookies: string){
     };
 
     const { response, body } = await requestAsync(options);
-    if (response.statusCode < 200 && response.statusCode >= 300)
+    if (response.statusCode < 200 || response.statusCode >= 300)
         throw new Error("Error while fetching maxrights: " + JSON.stringify(body));
 
     return body;
@@ -122,7 +122,7 @@ export async function fetchToken(cookies: string, requestBody: any, appId : stri
     }
 
     const { response, body } = await requestAsync(options);
-    if (response.statusCode < 200 && response.statusCode >= 300)
+    if (response.statusCode < 200 || response.statusCode >= 300)
         throw new Error("Error while fetching token: " + body);
 
     return JSON.parse(body);
