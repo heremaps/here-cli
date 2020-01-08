@@ -1830,6 +1830,11 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
+    value = value.replace(/,+/g, "_");
+    value = value.replace(/&+/g, "_and_");
+    value = value.replace(/\++/g, "_plus_");
+    value = value.replace(/#+/g, "_num_");
+    tp = tp.replace(/\s+/g, "_");
     //finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
