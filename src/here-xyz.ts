@@ -35,6 +35,7 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
 import * as turf from "@turf/turf";
+import {Delaunay} from "d3-delaunay";
 let cq = require("block-queue");
 import { isBoolean } from "util";
 import { ApiError } from "./api-error";
@@ -3050,11 +3051,15 @@ function populateArea(feature: any){
 
 async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
     const statData = await getSpaceStatistics(spaceId);
-    const featureCollection = { type: "FeatureCollection", features: features };
     const bbox: [number,number,number, number] = statData.bbox.value;
-    const voronoiFeatureCollection = turf.voronoi(featureCollection, {bbox: bbox});
-    voronoiFeatureCollection.features.forEach(function (polygon, i) {
-        polygon.properties = features[i].properties;
+    const delaunay = Delaunay.from(features, function(feature){return feature.geometry.coordinates[0]}, function(feature){return feature.geometry.coordinates[1]});
+    const voronoiResult = delaunay.voronoi(bbox).cellPolygons();
+    let result = voronoiResult.next();
+    let i = 0;
+    let voronoiFeatures = [];
+    while (!result.done) {
+        //console.log(JSON.stringify(result.value));
+        let polygon = turf.polygon([result.value],features[i].properties);
         if(options.samespace){
             if(!polygon.properties){
                 polygon.properties = {};
@@ -3064,8 +3069,11 @@ async function calculateVoronoiPolygon(spaceId: string, features: any[], options
             polygon.id = features[i].id;
         }
         polygon = populateArea(polygon);
-    });
-    return voronoiFeatureCollection.features;
+        voronoiFeatures.push(polygon);
+        result = voronoiResult.next();
+        i++;
+    }
+    return voronoiFeatures;
 }
 
 function calculateTinTriangles(features: any, property: string){
