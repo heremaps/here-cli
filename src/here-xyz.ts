@@ -2903,14 +2903,14 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{xyz pro} perform gis operations with space data")
-    .option("-c, --chunk [chunk]", "chunk size, default 20")
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
-    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
     .option("--tin", "calculates tin Polygons of point features and uploads in different space")
     .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
+    .option("-c, --chunk [chunk]", "chunk size, default 20")
+    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--samespace", "option to upload centroids/voronoi/tin to same space")
     .action(function (id, options) {
         performGisOperation(id, options).catch((error) => {
