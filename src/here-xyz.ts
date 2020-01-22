@@ -118,6 +118,30 @@ const tagruleUpdatePrompt = [
     }
 ]
 
+const activityLogAction = [
+    {
+        type: "checkbox",
+        name: "actionChoice",
+        message: "Select action for activity log",
+        choices: choiceList
+    }
+]
+
+const activityLogConfiguration = [
+    {
+        type: "checkbox",
+        name: "storageMode",
+        message: "Select storage mode for activity log",
+        choices: [{name: 'full - store whole object on change', value: 'FULL'}, {name: 'diff - store only the changed properties', value: 'DIFF_ONLY'}]
+    },
+    {
+        type: "checkbox",
+        name: "state",
+        message: "Select state (number of change history to be kept) for activity log",
+        choices: [{name: '1', value: '1'},{name: '2', value: '2'},{name: '3', value: '3'},{name: '4', value: '4'},{name: '5', value: '5'}]
+    }
+]
+
 
 const searchablePropertiesDisable = [
     {
@@ -2000,6 +2024,7 @@ program
     .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
+    .option("--activitylog","this option lets you configure activity logs for your space interactively")
 
     .action(function (id, options) {
         configXyzSpace(id, options).catch((error) => {
@@ -2013,15 +2038,14 @@ async function configXyzSpace(id: string, options: any) {
     let patchRequest: any = {};
     let spacedef: any = null;
 
-    if ((options.schema && options.searchable) ||
-        (options.schema && options.tagrules) ||
-        (options.tagrules && options.searchable)
-    ) {
-        console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
+
+    if (counter > 1) {
+        console.log("conflict of options, searchable/schema/tagrules/activitylog options can not be used together.")
         process.exit(1);
     }
 
-    if ((options.schema || options.searchable || options.tagrules) &&
+    if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
         (options.shared || options.title || options.message || options.copyright || options.stats)) {
         console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
         process.exit(1);
@@ -2045,6 +2069,9 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.tagrules) {
         await tagRuleConfig(id, options);
+        process.exit(1);
+    } else if (options.activitylog) {
+        await activityLogConfig(id, options);
         process.exit(1);
     } else if (options.schema) {
         const url = `/hub/spaces/${id}?clientId=cli`
@@ -2201,6 +2228,114 @@ async function configXyzSpace(id: string, options: any) {
         }
     }
 }
+
+
+async function activityLogConfig(id:string, options:any) {
+    let enableMode = options.enable;
+    await common.verifyProBetaLicense();  
+    let patchRequest:any = {};
+
+    let tabledata:any = {};
+    const url = `/hub/spaces/${id}?clientId=cli`
+    const { response, body } = await execute(
+            url,
+            "GET",
+            "application/json",
+            ""                
+        );
+    let spacedef = body;
+    let enabled = false;
+    //console.log(JSON.stringify(spacedef));
+    if(spacedef.listeners) {
+        const listeners:any = spacedef.listeners;
+        const listenerIds = Object.keys(listeners);
+        if(listenerIds.indexOf("activity-log-writer") > -1 || listenerIds.indexOf("activity-log") > -1) {
+            for(let listenerid of listenerIds) {
+                let listenerar = listeners[listenerid];
+                for(let listener of listenerar) {
+                    if(listenerid === 'activity-log-writer') {
+                        tabledata.status = 'ENABLED';
+                        tabledata.storage_mode = listener.params && listener.params.storageMode ? listener.params.storageMode : 'default';
+                        tabledata.activitylog_space_id = listener.params ? listener.params.spaceId : '';
+                    } else if (listenerid === 'activity-log') {
+                        tabledata.state = listener.params && listener.params.states ? listener.params.states : 'default';
+                    }
+                }
+            }
+
+            if(Object.keys(tabledata).length > 0) {
+                enabled = true;
+                console.log("activity log is enabled for this space with below configurations.");
+                console.table(tabledata);
+            }
+        } else {
+            console.log("activity log for this space is not enabled.")
+        }
+    } else {
+        console.log("activity log for this space is not enabled.")
+    }
+    
+    if(enabled) {
+        choiceList.push({'name': 'disable activity log for this space', 'value': 'disable'});
+        choiceList.push({'name': 'reconfigure activity log for the space', 'value' : 'configure'});
+    } else {
+        choiceList.push({'name': 'enable activity log for this space', 'value': 'configure'});
+    }
+    choiceList.push({'name': 'cancel operation', 'value': 'abort'});
+
+    const answer: any = await inquirer.prompt(activityLogAction);
+    const actionChoice = answer.actionChoice;
+    
+    if(actionChoice == 'abort') {
+        process.exit(1);
+    } else if (actionChoice == 'disable') {
+        patchRequest['listeners'] = {"activity-log": null};
+    } else if(actionChoice == 'configure') {
+        const configAnswer:any = await inquirer.prompt(activityLogConfiguration);
+        console.log(JSON.stringify(configAnswer));
+
+        const storageMode = Array.isArray(configAnswer.storageMode) ? configAnswer.storageMode[0] : configAnswer.storageMode;
+        const state = Array.isArray(configAnswer.state) ? configAnswer.state[0] : configAnswer.state;
+        
+        let listenerDef:any = getEmptyAcitivityLogListenerProfile();
+        listenerDef['params'] = {};
+        listenerDef['params'].states = state
+        listenerDef['params'].storageMode = storageMode        
+        patchRequest['listeners'] = {"activity-log": [listenerDef]};
+    } else {
+        console.log("please select only one option");
+        process.exit(1);
+    }
+   // console.log(JSON.stringify(patchRequest));
+    if(Object.keys(patchRequest).length > 0) {
+    const url = `/hub/spaces/${id}?clientId=cli`
+        const { response, body } = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+
+        if(response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("activity log configuration updated successfully, it may take a few seconds to take effect and reflect.");
+        }
+    } 
+    //console.log(options);
+
+}
+
+function getEmptyAcitivityLogListenerProfile() {
+    return {
+            "id": "activity-log",
+            "params": null,
+            "eventTypes": [
+                "ModifySpaceEvent.request"
+            ]
+        }
+}
+
 
 async function getSpaceStatistics(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
@@ -3107,6 +3242,21 @@ async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: s
     }
     return newspaceData;
 }
+
+
+// program
+//     .command("activitylog <id>")
+//     .description("enable, disable or view the activity log for your xyz space. activity log lets to see thru the history of feature modification")
+//     .option("--enable", "enable activitylog for the space")
+//     .option("--disable", "disable activitylog for the space")
+//     .option("--state <state>", "number of history trail for a feature you would like to keep, please enter a number")
+//     .option("--diff", "starage mode : store only the changed properties, not full feature")
+//     .option("--full", "storage mode : store full feature, if the feature is modified")
+//     .option("--view", "view the details of activitylog for the space")
+//     .action(function (id,options) {
+//         activityLogConfig(id,options).catch((error) => handleError(error, true));
+//     })
+
 
 common.validate(
     [
