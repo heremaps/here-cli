@@ -120,7 +120,7 @@ const tagruleUpdatePrompt = [
 
 const activityLogAction = [
     {
-        type: "checkbox",
+        type: "list",
         name: "actionChoice",
         message: "Select action for activity log",
         choices: choiceList
@@ -129,13 +129,13 @@ const activityLogAction = [
 
 const activityLogConfiguration = [
     {
-        type: "checkbox",
+        type: "list",
         name: "storageMode",
         message: "Select storage mode for activity log",
         choices: [{name: 'full - store whole object on change', value: 'FULL'}, {name: 'diff - store only the changed properties', value: 'DIFF_ONLY'}]
     },
     {
-        type: "checkbox",
+        type: "list",
         name: "state",
         message: "Select state (number of change history to be kept) for activity log",
         choices: [{name: '1', value: '1'},{name: '2', value: '2'},{name: '3', value: '3'},{name: '4', value: '4'},{name: '5', value: '5'}]
@@ -2292,7 +2292,7 @@ async function activityLogConfig(id:string, options:any) {
         patchRequest['listeners'] = {"activity-log": null};
     } else if(actionChoice == 'configure') {
         const configAnswer:any = await inquirer.prompt(activityLogConfiguration);
-        console.log(JSON.stringify(configAnswer));
+        //console.log(JSON.stringify(configAnswer));
 
         const storageMode = Array.isArray(configAnswer.storageMode) ? configAnswer.storageMode[0] : configAnswer.storageMode;
         const state = Array.isArray(configAnswer.state) ? configAnswer.state[0] : configAnswer.state;
@@ -2306,7 +2306,7 @@ async function activityLogConfig(id:string, options:any) {
         console.log("please select only one option");
         process.exit(1);
     }
-   // console.log(JSON.stringify(patchRequest));
+   //console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
     const url = `/hub/spaces/${id}?clientId=cli`
         const { response, body } = await execute(
