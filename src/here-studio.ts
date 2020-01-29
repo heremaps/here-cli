@@ -42,11 +42,23 @@ program
             })
     });
 
+program
+    .command("show <project-id>")
+    .alias("s")
+    .description("Open published projects in viewer")
+    .action(async function (id, options) {
+        showProject (id, options)
+            .catch((error) => {
+                handleError(error);
+            })
+    });
+
 common.validate(
     [
-        "list",
+        "list", // List project URL
         "ls",
         "show", //Open the project URL
+        "s"
         // "Delete Project"
     ],
     [process.argv[2]],
@@ -231,5 +243,11 @@ async function listProjects (options: any) {
     }
 }
 
+async function showProject (id : any, options: any) {
+    const opn = require("opn");
+    opn(
+        "https://xyz.here.com/viewer/?project_id="+id
+        , { wait: false });
+}
 
 
