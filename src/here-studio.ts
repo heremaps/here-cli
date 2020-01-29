@@ -53,13 +53,25 @@ program
             })
     });
 
+program
+    .command("delete <project-id>")
+    .alias("d")
+    .description("Delete projects from XYZ Studio")
+    .action(async function (id, options) {
+        deleteProject (id, options)
+            .catch((error) => {
+                handleError(error);
+            })
+    });
+
 common.validate(
     [
         "list", // List project URL
         "ls",
         "show", //Open the project URL
-        "s"
-        // "Delete Project"
+        "s",
+        "delete",
+        "d"// "Delete Project"
     ],
     [process.argv[2]],
     program
@@ -250,4 +262,18 @@ async function showProject (id : any, options: any) {
         , { wait: false });
 }
 
+async function deleteProject  (id : any, options: any) {
+    console.log("Deleting project : "+id)
 
+    //If project exists send a DELETE request for that projectID
+    const uri = "/project-api/projects/"+id;
+    const cType = "";
+    let { response, body } = await execute(uri, "DELETE", cType, "", options.token);
+
+    if (response && response.statusCode === 204) {
+        console.log("Successfully deleted project.")
+    }
+    else {
+        console.log("Unable to delete project having project-id: "+id)
+    }
+}
