@@ -9,6 +9,7 @@
       "@turf/voronoi": ["./declarations/@turf/voronoi.d.ts"],//voronoi typescript issue - https://github.com/Turfjs/turf/issues/1422
       "@turf/helpers": ["./declarations/@turf/helpers.d.ts"]
     },
+    "sourceMap": true
     //"traceResolution": true
   }
 }

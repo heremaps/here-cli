@@ -31,7 +31,7 @@ const program = require('commander');
 const settings = require('user-settings').file('.herecli');
 const latestVersion = require('latest-version');
 
-const commands = ["xyz", "configure", "transform", "help", "geocode"];
+const commands = ["xyz", "studio","configure", "transform", "help", "geocode"];
 const fs = require('fs');
 const path = require('path');
 
@@ -51,9 +51,10 @@ async function start() {
     }
 
     program
-        .version(getVersion())
+    .version(getVersion())
         .command('configure [set|verify]', 'setup configuration for authentication').alias('c')
         .command('xyz [list|create|upload]', 'work with xyz spaces').alias('xs')
+        .command('studio [list|create|map|publish|show]', 'work with xyz studio projects').alias('s')
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);

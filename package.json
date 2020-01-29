@@ -28,6 +28,8 @@
     "inquirer": "6.0.0",
     "latest-version": "4.0.0",
     "line-by-line": "^0.1.6",
+    "lodash": "^4.17.15",
+    "lodash-es": "^4.17.15",
     "opn": "5.4.0",
     "proj4": "2.5.0",
     "project-version": "1.2.0",
@@ -46,11 +48,13 @@
     "@types/commander": "^2.12.2",
     "@types/crypto-js": "^3.1.43",
     "@types/inquirer": "0.0.43",
+    "@types/lodash-es": "^4.17.3",
     "@types/node": "^10.11.4",
+    "@types/proj4": "2.5.0",
     "@types/request": "^2.47.1",
     "@types/shapefile": "^0.6.0",
+    "@types/table": "^4.0.6",
     "@types/tmp": "0.0.33",
-    "@types/proj4": "2.5.0",
     "@types/xmldom": "^0.1.29",
     "capture-console": "^1.0.1",
     "chai": "^4.2.0",
@@ -59,8 +63,7 @@
     "mock-require": "^3.0.3",
     "rewire": "^4.0.1",
     "ts-node": "^7.0.1",
-    "typescript": "^3.1.1",
-    "@types/table": "^4.0.6"
+    "typescript": "^3.1.1"
   },
   "bin": {
     "here": "bin/here.js"
