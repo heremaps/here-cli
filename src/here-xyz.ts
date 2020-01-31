@@ -2437,7 +2437,7 @@ function showSpaceConfig(spacedef: any) {
             }
         } else {
             for (var key in spacedef.listeners) {
-                if (spacedef.processors.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
+                if (spacedef.listeners.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
                     listeners.push(key);
                 }
             }
