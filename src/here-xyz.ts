@@ -1215,7 +1215,8 @@ program
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
-    .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
@@ -1853,6 +1854,11 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
+    value = value.replace(/,+/g, "_");
+    value = value.replace(/&+/g, "_and_");
+    value = value.replace(/\++/g, "_plus_");
+    value = value.replace(/#+/g, "_num_");
+    tp = tp.replace(/\s+/g, "_");
     //finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
@@ -3032,14 +3038,14 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{xyz pro} perform gis operations with space data")
-    .option("-c, --chunk [chunk]", "chunk size, default 20")
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
-    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
     .option("--tin", "calculates tin Polygons of point features and uploads in different space")
     .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
+    .option("-c, --chunk [chunk]", "chunk size, default 20")
+    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--samespace", "option to upload centroids/voronoi/tin to same space")
     .action(function (id, options) {
         gis.performGisOperation(id, options).catch((error) => {

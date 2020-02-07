@@ -342,22 +342,27 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
         let key = k.trim();
         if (key == options.point) { // we shouldn't automatically look for a field called points
             //console.log('extracting lat/lon from',pointField,object[k])
-            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
+            const point = object[k].match(/([-]?\d+[.]?\d*)/g);
             if(point) {
-                lat = point[0];
-                lon = point[1];
+                if(options.lonlat){
+                    lat = point[1];
+                    lon = point[0];
+                } else {
+                    lat = point[0];
+                    lon = point[1];
+                }
             }
-        }else if (options.lonField && options.lonField.toLowerCase() == k.toLowerCase()) {
-            lon = object[options.lonField];
-        } else if (options.latField && options.latField.toLowerCase() == k.toLowerCase()) {
-            lat = object[options.latField];
-        } else if (options.altField && options.altField.toLowerCase() == k.toLowerCase()) {
-            alt = object[options.altField];
-        } else if (!options.latField && isLat(key)) {
-            lat = object[k];
-        } else if (!options.lonField && isLon(key)) {
+        }else if (options.lon && options.lon.toLowerCase() == k.toLowerCase()) {
             lon = object[k];
-        } else if (!options.altField && isAlt(key)) {
+        } else if (options.lat && options.lat.toLowerCase() == k.toLowerCase()) {
+            lat = object[k];
+        } else if (options.alt && options.alt.toLowerCase() == k.toLowerCase()) {
+            alt = object[k];
+        } else if (!options.lat && isLat(key)) {
+            lat = object[k];
+        } else if (!options.lon && isLon(key)) {
+            lon = object[k];
+        } else if (!options.alt && isAlt(key)) {
             alt = object[k];
         } else {
             if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isNumeric(object[k])){
@@ -382,8 +387,8 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             ];
             let latAnswer : any = await inquirer.prompt(questions);
             console.log("new Latitude field selected - " + latAnswer.latChoice);
-            options.latField = latAnswer.latChoice;
-            lat = object[options.latField];
+            options.lat = latAnswer.latChoice;
+            lat = object[options.lat];
         }
         if(lon == null || isNaN(parseFloat(lon))){
             let choiceList = createQuestionsList(object);
@@ -397,8 +402,8 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             ];
             let lonAnswer : any = await inquirer.prompt(questions);
             console.log("new Longitude field selected - " + lonAnswer.lonChoice);
-            options.lonField = lonAnswer.lonChoice;
-            lon = object[options.lonField];
+            options.lon = lonAnswer.lonChoice;
+            lon = object[options.lon];
         }
     }
     
