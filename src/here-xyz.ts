@@ -3154,7 +3154,8 @@ common.validate(
         "config",
         "vs",
         "virtualize",
-        "gis"
+        "gis",
+        "join"
     ],
     [process.argv[2]],
     program
