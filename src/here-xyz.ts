@@ -1383,7 +1383,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
 
     if (options.file) {
         const fs = require("fs");
-        if (options.file.indexOf(".geojsonl") != -1) {
+        if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
             if (!options.stream) {
                 const result: any = await transform.readLineFromFile(options.file, 100);
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
@@ -1403,7 +1403,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
-        } else if (options.file.indexOf(".shp") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
             let result = await transform.readShapeFile(
                 options.file,
             );
@@ -1417,7 +1417,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                 options.file,
                 options.id
             );
-        } else if (options.file.indexOf(".csv") != -1 || options.file.indexOf(".txt") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
             if (!options.stream) {
                 let result = await transform.read(
                     options.file,
@@ -2474,6 +2474,13 @@ program
     .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")    
     .option("-f, --file <file>", "file that needs to be uploaded to associated space")
     .option("-k, --keyField <keyField>", "field in csv file to become id")
+    .option("-x, --lon [lon]", "longitude field name")
+    .option("-y, --lat [lat]", "latitude field name")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(function (id, options) {
         createJoinSpace(id, options).catch((error) => {
             handleError(error, true);
