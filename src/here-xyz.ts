@@ -307,7 +307,7 @@ program
     .alias("ls")
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
-    //.option("--token <token>", "a external token to access another user's spaces")
+    .option("--token <token>", "a external token to access another user's spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -355,7 +355,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access another user's space")
+    .option("--token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         (async () => {
             try {
@@ -468,7 +468,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access another user's space")
+    .option("--token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         analyzeSpace(id, options)
             .catch((error) => {
@@ -975,6 +975,7 @@ program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
     .option("--force", "skip the confirmation prompt")
+    .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
         
@@ -1005,6 +1006,7 @@ async function deleteSpace(geospaceId: string, options:any) {
         "DELETE",
         "application/json",
         "",
+        options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210)
         console.log("xyzspace '" + geospaceId + "' deleted successfully");
@@ -1017,6 +1019,7 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for XYZ space")
     .option("-d, --message [message]", "Short description ")
+    .option("--token <token>", "a external token to create space in other user's account")
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => createSpace(options)
         .catch(error => {
@@ -1068,6 +1071,7 @@ program
     .description("clear data from xyz space")
     .option("-t, --tags <tags>", "tags for the XYZ space")
     .option("-i, --ids <ids>", "ids for the XYZ space")
+    .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
         
@@ -1121,6 +1125,7 @@ async function clearSpace(id: string, options: any) {
         "DELETE",
         "application/geo+json",
         null,
+        options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210) {
         console.log("data cleared successfully.");
@@ -2021,7 +2026,7 @@ program
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
-    .option("--token <token>", "a external token to access another user's space config and stats niformation")
+    .option("--token <token>", "a external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
     .option("--searchable", "view or configure searchable properties of an xyz space")
