@@ -2485,6 +2485,7 @@ program
     .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option("--token <token>", "a external token to create another user's spaces")
     .option("-s, --stream", "streaming data support for large csv uploads")
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(function (id, options) {
