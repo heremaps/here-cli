@@ -20,6 +20,7 @@
     "commander": "^2.14.1",
     "console.table": "0.10.0",
     "crypto-js": "3.1.9-1",
+    "d3-delaunay": "5.1.6",
     "event-stream": "^4.0.1",
     "fast-csv": "3.4.0",
     "geojson-validation": "^0.2.1",
@@ -37,7 +38,8 @@
     "shapefile": "0.6.6",
     "table": "^5.4.6",
     "tmp": "0.0.33",
-    "user-settings": "0.2.0"
+    "user-settings": "0.2.0",
+    "xmldom": "^0.2.1"
   },
   "devDependencies": {
     "@turf/nearest-point-to-line": "6.0.0",
@@ -50,6 +52,7 @@
     "@types/shapefile": "^0.6.0",
     "@types/tmp": "0.0.33",
     "@types/proj4": "2.5.0",
+    "@types/xmldom": "^0.1.29",
     "capture-console": "^1.0.1",
     "chai": "^4.2.0",
     "express": "^4.16.4",
@@ -58,7 +61,8 @@
     "rewire": "^4.0.1",
     "ts-node": "^7.0.1",
     "typescript": "^3.1.1",
-    "@types/table": "^4.0.6"
+    "@types/table": "^4.0.6",
+    "@types/d3-delaunay": "4.1.0"
   },
   "bin": {
     "here": "bin/here.js"

@@ -34,6 +34,7 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import { deprecate } from "util";
 import * as csv from 'fast-csv';
+import { DOMParser } from 'xmldom';
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -180,6 +181,120 @@ async function parseCsv(csvStr: string, options: any) {
     });
 }
 
+async function getGpxDataFromXmlNode(node: any, result: any) {
+    if (!result) result = { segments: [] }
+    switch (node.nodeName) {
+        case 'name':
+            //console.log(node.nodeName + ' = ' + node.textContent)
+            result.name = node.textContent
+            break
+        case 'trkseg':
+            let segment = [] as any
+            result.segments.push(segment)
+            let len = node && node.childNodes && node.childNodes.length
+            for (var i = 0; i < len; i++) {
+                var snode = node.childNodes[i]
+                if (snode.nodeName == 'trkpt') {
+                    let trkpt: any = {}
+                    //console.log("ATTR:", snode.attributes["0"].value)
+                    let lat = snode && snode.attributes && snode.attributes['0'] && snode.attributes['0'].value
+                    let lon = snode && snode.attributes && snode.attributes['1'] && snode.attributes['1'].value
+                    trkpt = {
+                        loc: [
+                            parseFloat(lat),
+                            parseFloat(lon)
+                        ]
+                    }
+
+                    let len = snode && snode.childNodes && snode.childNodes.length
+                    for (var j = 0; j < len; j++) {
+                        var ssnode = snode.childNodes[j]
+                        switch (ssnode.nodeName) {
+                            case 'time':
+                                trkpt.time = new Date(ssnode.childNodes[0].data)
+                                break
+                            case 'ele':
+                                trkpt.ele = parseFloat(ssnode.childNodes[0].data)
+                                break
+                            case 'extensions':
+                                var extNodes = ssnode.childNodes
+                                for ( var idxExtNode = 0; idxExtNode < extNodes.length; idxExtNode++ ) {
+                                    var extNode = extNodes[idxExtNode]
+                                    //console.log(extNode.nodeName)
+                                    if (extNode.nodeName == 'gpxtpx:TrackPointExtension') {
+                                        //console.log(extNode)
+                                        var trackPointNodes = extNode.childNodes
+                                        for ( var idxTrackPointNode = 0; idxTrackPointNode < trackPointNodes.length; idxTrackPointNode++ ) {
+                                            var trackPointNode =
+                                                trackPointNodes[idxTrackPointNode]
+                                            //console.log(trackPointNode.nodeName)
+                                            if (trackPointNode.nodeName.startsWith('gpxtpx:')) {
+                                                var gpxName = trackPointNode.nodeName.split(':')
+
+                                                trkpt[gpxName[1]] =
+                                                    trackPointNode.childNodes[0].data
+                                            }
+                                        }
+                                    }
+                                }
+                                //console.log(ssnode.childNodes)
+                                //extNode.forEach(element => {
+                                //console.log(element.power)
+                                //})
+                                break
+                        }
+                    }
+                    //console.log("trkpt", trkpt)
+                    segment.push(trkpt)
+                }
+            }
+            break
+    }
+    let len = node && node.childNodes && node.childNodes.length
+    for ( var idxChildNodes = 0; idxChildNodes < len; idxChildNodes++ ) {
+        getGpxDataFromXmlNode(node.childNodes[idxChildNodes], result)
+    }
+    return result
+}
+
+
+async function trasformGpxDataToGeoJson(data: any) {
+    let geo: any = {};
+    geo.type = 'FeatureCollection'
+    geo.features = []
+    if (data && data.segments) {
+        let prev_position_long = 0
+        let prev_position_lat = 0
+        let idx_records = 0
+        let element: any = {}
+        for ( idx_records = 0; idx_records < data.segments[0].length; idx_records++ ) {
+            element = data.segments[0][idx_records]
+            if (Array.isArray(element.loc)) {
+                if (idx_records > 0) {
+                    let f: any = {}
+                    f.type = 'Feature'
+                    f.properties = element
+                    f.geometry = {}
+                    f.geometry.type = 'LineString'
+                    f.geometry.coordinates = [
+                        [prev_position_long, prev_position_lat],
+                        [element.loc[1], element.loc[0]]
+                    ]
+                    geo.features.push(f)
+                }
+                prev_position_long = element.loc[1]
+                prev_position_lat = element.loc[0]
+            }
+        }
+    }
+    return geo.features
+}
+export async function transformGpx(result: any[], options: any) {
+    const xml = new DOMParser().parseFromString(String(result), 'text/xml')
+    var objGpx = await getGpxDataFromXmlNode(xml.documentElement, false)
+    return await trasformGpxDataToGeoJson(objGpx)
+}
+
 export async function transform(result: any[], options: any) {
     const objects: any[] = [];
     if(options.assign && result.length > 0){
@@ -227,22 +342,27 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
         let key = k.trim();
         if (key == options.point) { // we shouldn't automatically look for a field called points
             //console.log('extracting lat/lon from',pointField,object[k])
-            const point = object[k].match(/([-]?\d+.[.]\d+)/g);
+            const point = object[k].match(/([-]?\d+[.]?\d*)/g);
             if(point) {
-                lat = point[0];
-                lon = point[1];
+                if(options.lonlat){
+                    lat = point[1];
+                    lon = point[0];
+                } else {
+                    lat = point[0];
+                    lon = point[1];
+                }
             }
-        }else if (options.lonField && options.lonField.toLowerCase() == k.toLowerCase()) {
-            lon = object[options.lonField];
-        } else if (options.latField && options.latField.toLowerCase() == k.toLowerCase()) {
-            lat = object[options.latField];
-        } else if (options.altField && options.altField.toLowerCase() == k.toLowerCase()) {
-            alt = object[options.altField];
-        } else if (!options.latField && isLat(key)) {
-            lat = object[k];
-        } else if (!options.lonField && isLon(key)) {
+        }else if (options.lon && options.lon.toLowerCase() == k.toLowerCase()) {
             lon = object[k];
-        } else if (!options.altField && isAlt(key)) {
+        } else if (options.lat && options.lat.toLowerCase() == k.toLowerCase()) {
+            lat = object[k];
+        } else if (options.alt && options.alt.toLowerCase() == k.toLowerCase()) {
+            alt = object[k];
+        } else if (!options.lat && isLat(key)) {
+            lat = object[k];
+        } else if (!options.lon && isLon(key)) {
+            lon = object[k];
+        } else if (!options.alt && isAlt(key)) {
             alt = object[k];
         } else {
             if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isNumeric(object[k])){
@@ -267,8 +387,8 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             ];
             let latAnswer : any = await inquirer.prompt(questions);
             console.log("new Latitude field selected - " + latAnswer.latChoice);
-            options.latField = latAnswer.latChoice;
-            lat = object[options.latField];
+            options.lat = latAnswer.latChoice;
+            lat = object[options.lat];
         }
         if(lon == null || isNaN(parseFloat(lon))){
             let choiceList = createQuestionsList(object);
@@ -282,8 +402,8 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             ];
             let lonAnswer : any = await inquirer.prompt(questions);
             console.log("new Longitude field selected - " + lonAnswer.lonChoice);
-            options.lonField = lonAnswer.lonChoice;
-            lon = object[options.lonField];
+            options.lon = lonAnswer.lonChoice;
+            lon = object[options.lon];
         }
     }
     

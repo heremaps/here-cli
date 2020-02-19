@@ -31,10 +31,10 @@ import * as common from "./common";
 import * as sso from "./sso";
 import * as inquirer from "inquirer";
 import * as transform from "./transformutil";
+import * as gis from "./gisUtil";
 import * as fs from "fs";
 import * as tmp from "tmp";
 import * as summary from "./summary";
-import * as turf from "@turf/turf";
 let cq = require("block-queue");
 import { isBoolean } from "util";
 import { ApiError } from "./api-error";
@@ -115,6 +115,30 @@ const tagruleUpdatePrompt = [
         name: "tagruleChoices",
         message: "Select tag rule to be updated",
         choices: choiceList
+    }
+]
+
+const activityLogAction = [
+    {
+        type: "list",
+        name: "actionChoice",
+        message: "Select action for activity log",
+        choices: choiceList
+    }
+]
+
+const activityLogConfiguration = [
+    {
+        type: "list",
+        name: "storageMode",
+        message: "Select storage mode for activity log",
+        choices: [{name: 'full - store whole object on change', value: 'FULL'}, {name: 'diff - store only the changed properties', value: 'DIFF_ONLY'}]
+    },
+    {
+        type: "list",
+        name: "state",
+        message: "Select state (number of change history to be kept) for activity log",
+        choices: [{name: '1', value: '1'},{name: '2', value: '2'},{name: '3', value: '3'},{name: '4', value: '4'},{name: '5', value: '5'}]
     }
 ]
 
@@ -343,7 +367,7 @@ program
         })();
     });
 
-function getSpaceDataFromXyz(id: string, options: any) {
+export function getSpaceDataFromXyz(id: string, options: any) {
     return new Promise<any>(function (resolve, reject) {
         let cType = "application/json";
         if (!options.limit) {
@@ -748,7 +772,7 @@ async function isOtherOwnerSpace(spaceOwner: string) {
     return currentOwner != spaceOwner;
 }
 
-async function createNewSpaceUpdateMetadata(newSpaceType: string, sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null) {
+export async function createNewSpaceUpdateMetadata(newSpaceType: string, sourceId: string, sourceSpaceData: any, updateSourceMetadata: boolean = true, newSpacetoken: string | null = null) {
     let newSpaceConfig = {
         title: newSpaceType+ ' space of ' + sourceSpaceData.title,
         message: newSpaceType + ' space created for source spaceId - ' + sourceSpaceData.id + ' , title - ' + sourceSpaceData.title,
@@ -797,7 +821,7 @@ async function getBoundingBoxFromUser() {
     return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
 }
 
-async function getSpaceMetaData(id: string, token: string | null = null) {
+export async function getSpaceMetaData(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
     const { response, body } = await execute(uri, "GET", cType, "", token);
@@ -1239,14 +1263,15 @@ async function listTokens() {
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
-    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, or CSV files (or GeoJSON/CSV URLs)")
+    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs)")
     .option("-c, --chunk [chunk]", "chunk size, default 200")
     .option("-t, --tags [tags]", "tags for the xyz space")
     .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
-    .option("-z, --point [point]", "points field name with coordinates like (37.7,-122.4)")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option("-p, --ptag [ptag]", "property names to be used to add tags")
     .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
     .option(
@@ -1376,7 +1401,7 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
 }
 
 
-async function uploadToXyzSpace(id: string, options: any) {
+export async function uploadToXyzSpace(id: string, options: any) {
     let startTime = new Date();
     //(async () => {
     let tags = "";
@@ -1495,6 +1520,30 @@ async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
+        } else if (options.file.indexOf(".gpx") != -1) {
+            let result = await transform.read(
+                options.file,
+                false,
+                {}
+            );
+            const object = {
+                features: await transform.transformGpx(
+                    result,
+                    options
+                ),
+                type: "FeatureCollection"
+            };
+            await uploadData(
+                id,
+                options,
+                tags,
+                object,
+                true,
+                options.ptag,
+                options.file,
+                options.id
+            );
+
         } else {
             if (!options.stream) {
                 let result = await transform.read(
@@ -1860,6 +1909,11 @@ async function mergeAllTags(
 function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
+    value = value.replace(/,+/g, "_");
+    value = value.replace(/&+/g, "_and_");
+    value = value.replace(/\++/g, "_plus_");
+    value = value.replace(/#+/g, "_num_");
+    tp = tp.replace(/\s+/g, "_");
     //finalTags.push(value); // should we add tags with no @ an option?
     finalTags.push(tp + "@" + value);
     return finalTags;
@@ -2031,6 +2085,7 @@ program
     .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
+    .option("--activitylog","this option lets you configure activity logs for your space interactively")
 
     .action(function (id, options) {
         configXyzSpace(id, options).catch((error) => {
@@ -2044,15 +2099,14 @@ async function configXyzSpace(id: string, options: any) {
     let patchRequest: any = {};
     let spacedef: any = null;
 
-    if ((options.schema && options.searchable) ||
-        (options.schema && options.tagrules) ||
-        (options.tagrules && options.searchable)
-    ) {
-        console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
+
+    if (counter > 1) {
+        console.log("conflict of options, searchable/schema/tagrules/activitylog options can not be used together.")
         process.exit(1);
     }
 
-    if ((options.schema || options.searchable || options.tagrules) &&
+    if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
         (options.shared || options.title || options.message || options.copyright || options.stats)) {
         console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
         process.exit(1);
@@ -2065,7 +2119,7 @@ async function configXyzSpace(id: string, options: any) {
     }
 
     if (!(options.tagrules) &&
-            (options.update)) {
+        (options.update)) {
         console.log("invalid options, update option can not be used without tagrules options")
         process.exit(1);
     }
@@ -2076,6 +2130,9 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.tagrules) {
         await tagRuleConfig(id, options);
+        process.exit(1);
+    } else if (options.activitylog) {
+        await activityLogConfig(id, options);
         process.exit(1);
     } else if (options.schema) {
         const url = `/hub/spaces/${id}?clientId=cli`
@@ -2233,7 +2290,115 @@ async function configXyzSpace(id: string, options: any) {
     }
 }
 
-async function getSpaceStatistics(id: string, token: string | null = null) {
+
+async function activityLogConfig(id:string, options:any) {
+    let enableMode = options.enable;
+    await common.verifyProBetaLicense();  
+    let patchRequest:any = {};
+
+    let tabledata:any = {};
+    const url = `/hub/spaces/${id}?clientId=cli`
+    const { response, body } = await execute(
+            url,
+            "GET",
+            "application/json",
+            ""                
+        );
+    let spacedef = body;
+    let enabled = false;
+    //console.log(JSON.stringify(spacedef));
+    if(spacedef.listeners) {
+        const listeners:any = spacedef.listeners;
+        const listenerIds = Object.keys(listeners);
+        if(listenerIds.indexOf("activity-log-writer") > -1 || listenerIds.indexOf("activity-log") > -1) {
+            for(let listenerid of listenerIds) {
+                let listenerar = listeners[listenerid];
+                for(let listener of listenerar) {
+                    if(listenerid === 'activity-log-writer') {
+                        tabledata.status = 'ENABLED';
+                        tabledata.storage_mode = listener.params && listener.params.storageMode ? listener.params.storageMode : 'default';
+                        tabledata.activitylog_space_id = listener.params ? listener.params.spaceId : '';
+                    } else if (listenerid === 'activity-log') {
+                        tabledata.state = listener.params && listener.params.states ? listener.params.states : 'default';
+                    }
+                }
+            }
+
+            if(Object.keys(tabledata).length > 0) {
+                enabled = true;
+                console.log("activity log is enabled for this space with below configurations.");
+                console.table(tabledata);
+            }
+        } else {
+            console.log("activity log for this space is not enabled.")
+        }
+    } else {
+        console.log("activity log for this space is not enabled.")
+    }
+    
+    if(enabled) {
+        choiceList.push({'name': 'disable activity log for this space', 'value': 'disable'});
+        choiceList.push({'name': 'reconfigure activity log for the space', 'value' : 'configure'});
+    } else {
+        choiceList.push({'name': 'enable activity log for this space', 'value': 'configure'});
+    }
+    choiceList.push({'name': 'cancel operation', 'value': 'abort'});
+
+    const answer: any = await inquirer.prompt(activityLogAction);
+    const actionChoice = answer.actionChoice;
+    
+    if(actionChoice == 'abort') {
+        process.exit(1);
+    } else if (actionChoice == 'disable') {
+        patchRequest['listeners'] = {"activity-log": null};
+    } else if(actionChoice == 'configure') {
+        const configAnswer:any = await inquirer.prompt(activityLogConfiguration);
+        //console.log(JSON.stringify(configAnswer));
+
+        const storageMode = Array.isArray(configAnswer.storageMode) ? configAnswer.storageMode[0] : configAnswer.storageMode;
+        const state = Array.isArray(configAnswer.state) ? configAnswer.state[0] : configAnswer.state;
+        
+        let listenerDef:any = getEmptyAcitivityLogListenerProfile();
+        listenerDef['params'] = {};
+        listenerDef['params'].states = state
+        listenerDef['params'].storageMode = storageMode        
+        patchRequest['listeners'] = {"activity-log": [listenerDef]};
+    } else {
+        console.log("please select only one option");
+        process.exit(1);
+    }
+   //console.log(JSON.stringify(patchRequest));
+    if(Object.keys(patchRequest).length > 0) {
+    const url = `/hub/spaces/${id}?clientId=cli`
+        const { response, body } = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+
+        if(response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("activity log configuration updated successfully, it may take a few seconds to take effect and reflect.");
+        }
+    } 
+    //console.log(options);
+
+}
+
+function getEmptyAcitivityLogListenerProfile() {
+    return {
+            "id": "activity-log",
+            "params": null,
+            "eventTypes": [
+                "ModifySpaceEvent.request"
+            ]
+        }
+}
+
+
+export async function getSpaceStatistics(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
     const cType = "application/json";
     const { response, body } = await execute(uri, "GET", cType, "", token);
@@ -2333,7 +2498,7 @@ function showSpaceConfig(spacedef: any) {
             }
         } else {
             for (var key in spacedef.listeners) {
-                if (spacedef.processors.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
+                if (spacedef.listeners.hasOwnProperty(key) && spacedef.listeners[key].length > 0) {
                     listeners.push(key);
                 }
             }
@@ -2477,7 +2642,7 @@ function composeJsonPath(condition: string) {
 function parseJsonPath(jsonPath: string) {
     let myRegexp = /.\.features\[\?\((.*)\)\]/g;
     let match: any = myRegexp.exec(jsonPath);
-    if(match) {
+    if (match) {
         let expression = match[1];
         let condition = expression.replace(/@\.properties\./g, "p.").replace(/@\./g, "f.");
         return condition;
@@ -2928,187 +3093,22 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{xyz pro} perform gis operations with space data")
-    .option("-c, --chunk [chunk]", "chunk size, default 20")
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
-    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
     .option("--tin", "calculates tin Polygons of point features and uploads in different space")
     .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
+    .option("-c, --chunk [chunk]", "chunk size, default 20")
+    .option("-t, --tags <tags>", "Tags to filter on")
     .option("--samespace", "option to upload centroids/voronoi/tin to same space")
     .action(function (id, options) {
-        performGisOperation(id, options).catch((error) => {
+        gis.performGisOperation(id, options).catch((error) => {
             handleError(error, true);
         });
     });
 
-async function performGisOperation(id:string, options:any){
-    await common.verifyProBetaLicense();
-    const sourceId = id;
-    options.totalRecords = Number.MAX_SAFE_INTEGER;
-    options.currentHandleOnly = true;
-    options.handle = 0;
-    if(options.chunk){
-        options.limit = options.chunk;
-    } else {
-        options.limit = 20;
-    }
-    if(!options['length'] && !options.centroid && !options.area && !options.voronoi && !options.tin){
-        console.log("Please specify GIS operation option");
-        process.exit(1);
-    }
-    let cHandle;
-    let gisFeatures : any[]= [];
-    let featureCount = 0;
-    console.log("Performing GIS operation on the space data");
-    do {
-        let jsonOut = await getSpaceDataFromXyz(id, options);
-        if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
-            console.log("\nNo features are available to execute GIS operation");
-            process.exit(1);
-        }
-        cHandle = jsonOut.handle;
-        options.handle = jsonOut.handle;
-        if (jsonOut.features) {
-            const features = jsonOut.features;
-            features.forEach(function (feature: any, i: number){
-                if(options.voronoi || options.tin){
-                    if(feature.geometry && (feature.geometry.type == 'Point')){
-                        gisFeatures.push(feature);
-                    }
-                } else {
-                    let gisFeature = performTurfOperationOnFeature(feature, options);
-                    if(gisFeature){
-                        gisFeatures.push(gisFeature);
-                        process.stdout.write("\rGIS operation done for feature count - " + (featureCount + (i+1)));
-                    }
-                }
-            });
-            featureCount += features.length;
-        } else {
-            cHandle = -1;
-        }
-    } while (cHandle >= 0);
-    process.stdout.write("\n");
-
-    if(gisFeatures.length == 0){
-        console.log("required geometry features are not available to perform GIS operation");
-        process.exit(1);
-    }
-
-    if(options.voronoi){
-        console.log("Calculating Voronoi Polygons for points data");
-        gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
-    } else if(options.tin){
-        gisFeatures = calculateTinTriangles(gisFeatures, options.property);
-    }
-    if(!options.samespace && (options.centroid || options.voronoi || options.tin)){
-        let newSpaceData;
-        if(options.centroid){
-            newSpaceData = await createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
-        } else if(options.voronoi){
-            newSpaceData = await createNewSpaceAndUpdateMetadata('voronoi', sourceId, options);
-        } else if(options.tin){
-            newSpaceData = await createNewSpaceAndUpdateMetadata('tin', sourceId, options);
-        }
-        id = newSpaceData.id;
-    }
-    
-    if (gisFeatures.length > 0) {
-        let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.json' });
-        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
-        if(options.centroid){
-            options.tags = 'centroid';
-        } else if(options.voronoi){
-            options.tags = 'voronoi';
-        } else if(options.tin){
-            options.tags = 'tin';
-        }
-        options.file = tmpObj.name;
-        options.override = true;
-        await uploadToXyzSpace(id, options);
-        console.log("GIS operation completed on space " + sourceId);
-    }
-}
-
-function performTurfOperationOnFeature(feature: any, options: any){
-    let gisFeature;
-    if(options.centroid){
-        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiLineString' || feature.geometry.type == 'MultiPolygon')){
-            gisFeature = turf.centroid(feature, feature.properties);
-            if(options.samespace){
-                if(!gisFeature.properties){
-                    gisFeature.properties = {};
-                }
-                gisFeature.properties.sourceId = feature.id;
-            } else {
-                gisFeature.id = feature.id;
-            }
-        }
-    } else if(options['length']){
-        if(feature.geometry && (feature.geometry.type == 'LineString' || feature.geometry.type == 'MultiLineString')){
-            let length = turf.length(feature, {units: 'meters'});
-            if(!feature.properties){
-                feature.properties = {};
-            }
-            feature.properties['xyz_length_m'] = length;
-            feature.properties['xyz_length_km'] = (length / 1000).toFixed(2);
-            feature.properties['xyz_length_miles'] = (length * 0.000621371).toFixed(2);
-            gisFeature = feature; 
-        }
-    } else if(options.area){
-        if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
-            gisFeature = populateArea(feature); 
-        }
-    } else {
-        console.log("Please specify GIS operation option");
-        process.exit(1);
-    }
-    return gisFeature;
-}
-
-function populateArea(feature: any){
-    let area = turf.area(feature);
-    if(!feature.properties){
-        feature.properties = {};
-    }
-    feature.properties['xyz_area_sqm'] = area;
-    feature.properties['xyz_area_sqkm'] = (area / 1000000).toFixed(2);
-    feature.properties['xyz_area_sqmiles'] = (area * 0.00000038610215855).toFixed(2);
-    return feature; 
-}
-
-async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
-    const statData = await getSpaceStatistics(spaceId);
-    const featureCollection = { type: "FeatureCollection", features: features };
-    const bbox: [number,number,number, number] = statData.bbox.value;
-    const voronoiFeatureCollection = turf.voronoi(featureCollection, {bbox: bbox});
-    voronoiFeatureCollection.features.forEach(function (polygon, i) {
-        polygon.properties = features[i].properties;
-        if(options.samespace){
-            if(!polygon.properties){
-                polygon.properties = {};
-            }
-            polygon.properties.sourceId = features[i].id;
-        } else {
-            polygon.id = features[i].id;
-        }
-        polygon = populateArea(polygon);
-    });
-    return voronoiFeatureCollection.features;
-}
-
-function calculateTinTriangles(features: any, property: string){
-    const featureCollection = { type: "FeatureCollection", features: features };
-    const tinFeatureCollection = turf.tin(featureCollection, property);
-    tinFeatureCollection.features.forEach(function (polygon, i) {
-        polygon = populateArea(polygon);
-    });
-    return tinFeatureCollection.features;
-}
-
-async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
+export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: string, options: any){
     let newSpaceId;
     let sourceSpaceData = await getSpaceMetaData(sourceId, options.readToken);
     let newspaceData;
@@ -3138,6 +3138,21 @@ async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sourceId: s
     }
     return newspaceData;
 }
+
+
+// program
+//     .command("activitylog <id>")
+//     .description("enable, disable or view the activity log for your xyz space. activity log lets to see thru the history of feature modification")
+//     .option("--enable", "enable activitylog for the space")
+//     .option("--disable", "disable activitylog for the space")
+//     .option("--state <state>", "number of history trail for a feature you would like to keep, please enter a number")
+//     .option("--diff", "starage mode : store only the changed properties, not full feature")
+//     .option("--full", "storage mode : store full feature, if the feature is modified")
+//     .option("--view", "view the details of activitylog for the space")
+//     .action(function (id,options) {
+//         activityLogConfig(id,options).catch((error) => handleError(error, true));
+//     })
+
 
 common.validate(
     [
