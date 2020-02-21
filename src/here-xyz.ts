@@ -307,7 +307,7 @@ program
     .alias("ls")
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
-    //.option("--token <token>", "a external token to access another user's spaces")
+    .option("--token <token>", "a external token to access another user's spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -355,7 +355,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access another user's space")
+    .option("--token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         (async () => {
             try {
@@ -468,7 +468,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-p, --token <token>", "a external token to access another user's space")
+    .option("--token <token>", "a external token to access another user's space")
     .action(function (id, options) {
         analyzeSpace(id, options)
             .catch((error) => {
@@ -1030,6 +1030,7 @@ program
     .command("delete <id>")
     .description("delete the xyzspace with the given id")
     .option("--force", "skip the confirmation prompt")
+    .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
         
@@ -1060,6 +1061,7 @@ async function deleteSpace(geospaceId: string, options:any) {
         "DELETE",
         "application/json",
         "",
+        options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210)
         console.log("xyzspace '" + geospaceId + "' deleted successfully");
@@ -1072,6 +1074,7 @@ program
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for XYZ space")
     .option("-d, --message [message]", "Short description ")
+    .option("--token <token>", "a external token to create space in other user's account")
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => createSpace(options)
         .catch(error => {
@@ -1123,6 +1126,7 @@ program
     .description("clear data from xyz space")
     .option("-t, --tags <tags>", "tags for the XYZ space")
     .option("-i, --ids <ids>", "ids for the XYZ space")
+    .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
         
@@ -1176,6 +1180,7 @@ async function clearSpace(id: string, options: any) {
         "DELETE",
         "application/geo+json",
         null,
+        options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210) {
         console.log("data cleared successfully.");
@@ -1438,7 +1443,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
 
     if (options.file) {
         const fs = require("fs");
-        if (options.file.indexOf(".geojsonl") != -1) {
+        if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
             if (!options.stream) {
                 const result: any = await transform.readLineFromFile(options.file, 100);
                 await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
@@ -1458,7 +1463,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     await new Promise(done => setTimeout(done, 1000));
                 }
             }
-        } else if (options.file.indexOf(".shp") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
             let result = await transform.readShapeFile(
                 options.file,
             );
@@ -1472,7 +1477,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                 options.file,
                 options.id
             );
-        } else if (options.file.indexOf(".csv") != -1 || options.file.indexOf(".txt") != -1) {
+        } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
             if (!options.stream) {
                 let result = await transform.read(
                     options.file,
@@ -2076,7 +2081,7 @@ program
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
-    .option("--token <token>", "a external token to access another user's space config and stats niformation")
+    .option("--token <token>", "a external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
     .option("--searchable", "view or configure searchable properties of an xyz space")
@@ -2522,6 +2527,54 @@ function showSpaceConfig(spacedef: any) {
     }
     common.drawNewTable(spaceconfigs, ['property', 'value'], [30, 90])
     //console.table(spacedef);
+}
+
+program
+    .command("join <id>")
+    .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")    
+    .option("-f, --file <file>", "file that needs to be uploaded to associated space")
+    .option("-k, --keyField <keyField>", "field in csv file to become id")
+    .option("-x, --lon [lon]", "longitude field name")
+    .option("-y, --lat [lat]", "latitude field name")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option("--token <token>", "a external token to create another user's spaces")
+    .option("-s, --stream", "streaming data support for large csv uploads")
+    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
+    .action(function (id, options) {
+        createJoinSpace(id, options).catch((error) => {
+            handleError(error, true);
+        });
+    })
+
+async function createJoinSpace(id:string, options:any){
+    await common.verifyProBetaLicense();
+    if(!options.file){
+        console.log("ERROR : Please specify file for upload");
+        return;
+    }
+    //setting title and message for new space creation
+    options.title = path.parse(options.file).name + ' data which will be used as assocaited space with ' +  id + ' for virtual space';
+    options.message = 'space data to be joined with ' + id + ' in new virtual space ';
+    const response:any = await createSpace(options).catch(err => 
+        {
+            handleError(err);
+            process.exit(1);                                           
+        });
+    const secondSpaceid = response.id;
+    options.id = options.keyField;
+    options.allowNullLatLons = true;
+    options.askUserForId = true;
+    await uploadToXyzSpace(secondSpaceid, options);
+
+    //setting title and message for virtual space creation
+    options.title = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
+    options.message = 'virtual space created from ' + id +  ' and data file space ' + secondSpaceid;
+    options.associate = secondSpaceid + ',' + id;
+    await createVirtualSpace(options);
+    return;
 }
 
 program
@@ -3170,7 +3223,8 @@ common.validate(
         "config",
         "vs",
         "virtualize",
-        "gis"
+        "gis",
+        "join"
     ],
     [process.argv[2]],
     program

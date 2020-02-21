@@ -332,7 +332,7 @@ async function setStringFieldsFromUser(object:any, options: any){
     options.stringFields = options.stringFields + answers.stringFieldChoice;
 }
 
-async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: boolean = false) {
+async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolean = false) {
     //latField: string, lonField: string, altField: string, pointField: string, stringFields: string = '') {
     const props: any = {};
     let lat = undefined;
@@ -374,36 +374,52 @@ async function toGeoJsonFeature(object: any, options: any, askLatLonQuestion: bo
             }
         }
     }
-    if (askLatLonQuestion) {
-        if(lat == null || isNaN(parseFloat(lat))){
-            let choiceList = createQuestionsList(object);
-            const questions = [
-                {
-                    type: "list",
-                    name: "latChoice",
-                    message: "Select property which should be be used for Latitude",
-                    choices: choiceList
-                }
-            ];
-            let latAnswer : any = await inquirer.prompt(questions);
-            console.log("new Latitude field selected - " + latAnswer.latChoice);
-            options.lat = latAnswer.latChoice;
-            lat = object[options.lat];
+    if (isAskQuestion) {
+        if (!options.allowNullLatLons && !options.geocode) {
+            if(lat == null || isNaN(parseFloat(lat))){
+                let choiceList = createQuestionsList(object);
+                const questions = [
+                    {
+                        type: "list",
+                        name: "latChoice",
+                        message: "Select property which should be be used for Latitude",
+                        choices: choiceList
+                    }
+                ];
+                let latAnswer : any = await inquirer.prompt(questions);
+                console.log("new Latitude field selected - " + latAnswer.latChoice);
+                options.lat = latAnswer.latChoice;
+                lat = object[options.lat];
+            }
+            if(lon == null || isNaN(parseFloat(lon))){
+                let choiceList = createQuestionsList(object);
+                const questions = [
+                    {
+                        type: "list",
+                        name: "lonChoice",
+                        message: "Select property which should be be used for Longitude",
+                        choices: choiceList
+                    }
+                ];
+                let lonAnswer : any = await inquirer.prompt(questions);
+                console.log("new Longitude field selected - " + lonAnswer.lonChoice);
+                options.lon = lonAnswer.lonChoice;
+                lon = object[options.lon];
+            }
         }
-        if(lon == null || isNaN(parseFloat(lon))){
+        if(options.askUserForId && !options.id && !object['id']){
             let choiceList = createQuestionsList(object);
             const questions = [
                 {
                     type: "list",
-                    name: "lonChoice",
-                    message: "Select property which should be be used for Longitude",
+                    name: "idChoice",
+                    message: "Select property which should be used as featureID",
                     choices: choiceList
                 }
             ];
-            let lonAnswer : any = await inquirer.prompt(questions);
-            console.log("new Longitude field selected - " + lonAnswer.lonChoice);
-            options.lon = lonAnswer.lonChoice;
-            lon = object[options.lon];
+            let idAnswer : any = await inquirer.prompt(questions);
+            console.log("new featureID field selected - " + idAnswer.idChoice);
+            options.id = idAnswer.idChoice;
         }
     }
     
