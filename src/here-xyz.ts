@@ -871,7 +871,7 @@ program
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
     .option("--center <center>", "comma separated lat,lon values to specify the center point for radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
-    .option("--geometry <geometry>", "geometry file to upload for spatial query")
+    .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
