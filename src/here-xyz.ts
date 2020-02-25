@@ -959,7 +959,6 @@ async function showSpace(id: string, options: any) {
                     console.log("you have supplied FeatureCollection instead of GeoJson-Geometry. Kindly supply one Feature or GeoJson-Geometry.");
                     process.exit(1);
                 } else if (geometryinput.type && geometryinput.type == 'Feature') {
-                    console.log("retrieving geometry from the Feature supplied");
                     geocontent = JSON.stringify(geometryinput.geometry);
                 }
                 requestMethod = "POST";
