@@ -24,6 +24,7 @@ export async function performGisOperation(id:string, options:any){
     let gisFeatures : any[]= [];
     let featureCount = 0;
     let isValidGisFeatures = false;
+    let tinFeaturesMap = new Map();
     console.log("Performing GIS operation on the space data");
     let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.geojsonl' });
     do {
@@ -39,7 +40,11 @@ export async function performGisOperation(id:string, options:any){
             features.forEach(function (feature: any, i: number){
                 if(options.voronoi || options.tin){
                     if(feature.geometry && (feature.geometry.type == 'Point')){
-                        gisFeatures.push(feature);
+                        if(options.tin){
+                            tinFeaturesMap.set(feature.geometry.coordinates.toString(), feature);
+                        } else {
+                            gisFeatures.push(feature);
+                        }
                     }
                 } else {
                     let gisFeature = performTurfOperationOnFeature(feature, options);
@@ -60,7 +65,9 @@ export async function performGisOperation(id:string, options:any){
         }
     } while (cHandle >= 0);
     process.stdout.write("\n");
-
+    if(options.tin){
+        gisFeatures = Array.from(tinFeaturesMap.values());
+    }
     if(gisFeatures.length == 0 && !isValidGisFeatures){
         console.log("required geometry features are not available to perform GIS operation");
         process.exit(1);
@@ -71,7 +78,8 @@ export async function performGisOperation(id:string, options:any){
         gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
     } else if(options.tin){
-        gisFeatures = calculateTinTriangles(gisFeatures, options.property);
+        console.log("performing tin operation on " + gisFeatures.length + " features");
+        gisFeatures = calculateTinTriangles(gisFeatures, tinFeaturesMap, options.property);
         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
     }
     if(!options.samespace && (options.centroid || options.voronoi || options.tin)){
@@ -86,7 +94,7 @@ export async function performGisOperation(id:string, options:any){
         id = newSpaceData.id;
     }
     
-    if (gisFeatures.length > 0) {
+    if (gisFeatures.length > 0 || isValidGisFeatures) {
         if(options.centroid){
             options.tags = 'centroid';
         } else if(options.voronoi){
@@ -176,14 +184,19 @@ async function calculateVoronoiPolygon(spaceId: string, features: any[], options
     return voronoiFeatures;
 }
 
-function calculateTinTriangles(features: any[], property: string){
+function calculateTinTriangles(features: any[], tinFeaturesMap: Map<string,any>, property: string){
     const delaunay = Delaunay.from(features, function(feature){return feature.geometry.coordinates[0]}, function(feature){return feature.geometry.coordinates[1]});
     const tinResult = delaunay.trianglePolygons();
     let result = tinResult.next();
     let tinFeatures = [];
     while (!result.done) {
         //console.log(JSON.stringify(result.value));
-        let polygon = turf.polygon([result.value]);
+        let properties = {
+            a : tinFeaturesMap.get(result.value[0].toString()).id,
+            b : tinFeaturesMap.get(result.value[1].toString()).id,
+            c : tinFeaturesMap.get(result.value[2].toString()).id,
+        }
+        let polygon = turf.polygon([result.value], properties);
         polygon = populateArea(polygon);
         tinFeatures.push(polygon);
         result = tinResult.next();
