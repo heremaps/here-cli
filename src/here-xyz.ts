@@ -2588,7 +2588,8 @@ program
 
 async function createVirtualSpace(options: any) {
 
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
 
     if (options) {
         if (options.group && options.associate) {
