@@ -99,9 +99,9 @@ async function setUserPass(env?: any) {
                     appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
                     if(app.status.toLowerCase() == 'active'){
                         if (key == defaultAppId) {
-                            choiceList.push({ name: app.dsAppId + ' (DEFAULT)', value: app.dsAppId });
+                            choiceList.push({ name: app.dsAppId + " (Plan-" + app.dsPlanType + ")" + ' (DEFAULT)', value: app.dsAppId  });
                         } else {
-                            choiceList.push({ name: app.dsAppId, value: app.dsAppId });
+                            choiceList.push({ name: app.dsAppId + " (Plan-" + app.dsPlanType + ")", value: app.dsAppId });
                         }
                     }
                 }
@@ -116,6 +116,7 @@ async function setUserPass(env?: any) {
                 }
                 let appCode = appIdAppCodeMap[appId];
                 await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
+                await common.updatePlanDetails(appsData.apps);
                 await common.generateToken(cookieData, appId).catch(err => {throw err});
                 await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
                 await common.encryptAndStore('apiKeys', appId).catch(err => {throw err});
@@ -138,6 +139,16 @@ program
     });
 
 
+program
+    .command('refresh')
+    .description('Refresh account setup')
+    .action(function (options:any) {
+        common.refreshAccount();
+    });
+
+
+
+
 prompter.stop();
 
 program.parse(process.argv);
@@ -145,7 +156,7 @@ program.parse(process.argv);
 if (!program.args.length) {
     setUserPass();
 } else {
-    common.validate(["help","set","verify","account"], [process.argv[2]], program);
+    common.validate(["help","set","verify","account","refresh"], [process.argv[2]], program);
 }
 
 process.on('uncaughtException', error => {

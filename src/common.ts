@@ -28,6 +28,7 @@ import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
 
 import {table,getBorderCharacters} from 'table';
+import { isArray } from "util";
 
 const fs = require('fs');
 const path = require('path');
@@ -37,8 +38,8 @@ const tableConsole = require("console.table");
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
-export const xyzRoot = () => "https://xyz.api.here.com";
-const account_api_url = 'https://account.api.here.com/authentication/v1.1';
+export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
+const account_api_url = 'https://stg.account.api.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
@@ -67,14 +68,61 @@ export async function resetTermsFlag() {
     settings.set('ProBetaLicense', 'false');
 }
 
+export async function verifyProLicense() {
+    if(settings.get('ProEnabled')) {
+        if(settings.get('ProEnabled') === 'true') {
+            return;
+        } else {
+            console.log("Your plan does not have access to this command.")
+            console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
+            process.exit(1);
+        }
+    } else {
+        console.log("Refreshing your account access..")
+        await refreshAccount();
+        await verifyProLicense();
+    }
+}
+
+export async function updatePlanDetails(apps:any) {
+    settings.set('ProEnabled', 'false');
+    if(apps) {
+        for(let appId of Object.keys(apps)) {
+            let app = apps[appId];
+            if(app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
+                settings.set('ProEnabled', 'true');
+                console.log("Pro features enabled");
+                break;
+            }
+        }
+    } else {
+        console.log("Warning : could not update plan details.")
+    }
+}
+
+export async function refreshAccount() {
+        const accountInfo:string = await decryptAndGet("accountInfo","Please run `here configure` command.")
+        const appDataStored:string= await decryptAndGet("appDetails");
+
+        const appDetails = appDataStored.split("%%");        
+        const credentials = accountInfo.split("%%");
+        const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
+        const accountMeStr = await getAppIds(mainCoookie);
+        const accountMe = JSON.parse(accountMeStr);
+        const newtoken = await generateToken(mainCoookie, appDetails[0]);
+        if(newtoken) {
+            await updatePlanDetails(accountMe.apps);
+            console.log("Successfully refreshed account!");
+        }
+        
+}
+
 export async function verifyProBetaLicense() {
-    
     if (settings.get('ProBetaLicense') === 'true') {
         return;
     } else {
         const accountInfo:string = await decryptAndGet("accountInfo","Please run `here configure` command.")
         const appDataStored:string= await decryptAndGet("appDetails");
-
         const appDetails = appDataStored.split("%%");        
         const credentials = accountInfo.split("%%");
         console.log("Setting up your HERE XYZ Pro beta access..");
