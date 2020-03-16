@@ -375,7 +375,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
         }
     }
     if (isAskQuestion) {
-        if (!options.allowNullLatLons && !options.geocode) {
+        if (!options.noCoords && !options.geocode) {
             if(lat == null || isNaN(parseFloat(lat))){
                 let choiceList = createQuestionsList(object);
                 const questions = [
