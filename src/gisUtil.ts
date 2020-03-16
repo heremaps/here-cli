@@ -57,7 +57,7 @@ export async function performGisOperation(id:string, options:any){
             featureCount += features.length;
             if(gisFeatures.length > 0 && !(options.voronoi || options.tin)){
                 isValidGisFeatures = true;
-                fs.appendFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
+                fs.appendFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }) + '\n');
                 gisFeatures = [];
             }
         } else {
