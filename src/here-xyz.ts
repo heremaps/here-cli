@@ -554,7 +554,8 @@ program
     .action(function (id, options) {
         (async () => {
             try {
-                await common.verifyProBetaLicense();
+                await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -909,7 +910,8 @@ async function showSpace(id: string, options: any) {
     }
 
     if (options.search || options.prop) {
-        await common.verifyProBetaLicense();
+        await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     }
 
     cType = "application/geo+json";
@@ -1093,7 +1095,8 @@ async function createSpace(options: any) {
 
     if (options.schema) {
 
-        await common.verifyProBetaLicense();
+        await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
 
         if (options.schema == true) {
             console.log("Please add local filepath / http link for your schema definition")
@@ -2098,7 +2101,8 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
 
     let patchRequest: any = {};
     let spacedef: any = null;
@@ -2297,7 +2301,8 @@ async function configXyzSpace(id: string, options: any) {
 
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
-    await common.verifyProBetaLicense();  
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();  
     let patchRequest:any = {};
 
     let tabledata:any = {};
@@ -2530,7 +2535,7 @@ function showSpaceConfig(spacedef: any) {
 
 program
     .command("join <id>")
-    .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")    
+    .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")
     .option("-f, --file <file>", "file that needs to be uploaded to associated space")
     .option("-k, --keyField <keyField>", "field in csv file to become id")
     .option("-x, --lon [lon]", "longitude field name")
@@ -2549,7 +2554,8 @@ program
     })
 
 async function createJoinSpace(id:string, options:any){
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
         return;
@@ -2589,6 +2595,7 @@ program
 async function createVirtualSpace(options: any) {
 
     await common.verifyProLicense();
+  
   //  await common.verifyProBetaLicense();
 
     if (options) {
@@ -2746,7 +2753,8 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
 //     })
 
 async function tagRuleConfig(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
@@ -3010,7 +3018,8 @@ async function tagRuleConfig(id: string, options: any) {
 //     })
 
 async function searchableConfig(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
