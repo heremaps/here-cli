@@ -2020,6 +2020,7 @@ program
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
+    .option("--cacheTTL <cacheTTL>", "set cacheTTL value for the space with valid number")
     .option("--stats", "see detailed space statistics")
     .option("--token <token>", "a external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw output")
@@ -2107,7 +2108,14 @@ async function configXyzSpace(id: string, options: any) {
         copyright.push({ label: options.copyright });
         patchRequest['copyright'] = copyright;
     }
-
+    if (options.cacheTTL) {
+        if(isNaN(options.cacheTTL)){
+            console.log("cacheTTL option only accepts valid Number. Please provide valid number");
+            process.exit(1);
+        }
+        patchRequest['cacheTTL'] = options.message;
+    }
+    
     if (options.shared) {
         if (options.shared == 'true') {
             console.log("setting the space SHARED");
