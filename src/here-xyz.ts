@@ -1899,7 +1899,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     const fc = { type: "FeatureCollection", features: item };
     const { response, body } = await execute(
         url,
-        "PUT",
+        "POST",
         "application/geo+json",
         JSON.stringify(fc, (key, value) => {
             if (typeof value === 'string') {
