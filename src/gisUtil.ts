@@ -6,7 +6,7 @@ import * as turf from "@turf/turf";
 import {Delaunay} from "d3-delaunay";
 
 export async function performGisOperation(id:string, options:any){
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
     const sourceId = id;
     options.totalRecords = Number.MAX_SAFE_INTEGER;
     options.currentHandleOnly = true;
