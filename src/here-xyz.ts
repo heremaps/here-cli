@@ -168,7 +168,8 @@ function getGeoSpaceProfiles(title: string, description: string, client: any) {
     return {
         title,
         description,
-        client
+        client,
+        "enableUUID": true
     };
 }
 
