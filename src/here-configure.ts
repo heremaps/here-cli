@@ -116,7 +116,7 @@ async function setUserPass(env?: any) {
                 }
                 let appCode = appIdAppCodeMap[appId];
                 await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
-                await common.updatePlanDetails(appsData.apps);
+                await common.updatePlanDetails(appsData);
                 await common.generateToken(cookieData, appId).catch(err => {throw err});
                 await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
                 await common.encryptAndStore('apiKeys', appId).catch(err => {throw err});
