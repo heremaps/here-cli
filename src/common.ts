@@ -97,7 +97,7 @@ export async function verifyProLicense() {
         } else {
             console.log("This is a Pro feature and your plan does not have access to this command.")
             console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
-            console.log("If you wish to upgrade your plan, please visit developer.here.com");
+            console.log("If you wish to upgrade your plan, please visit developer.here.com.");
             process.exit(1);
         }
     } else {
@@ -119,7 +119,7 @@ export async function updatePlanDetails(accountMe: any) {
                     settings.set('ProEnabled', 'true');
                     settings.set('ProEnabledTS', new Date().getTime());
                     proBetaCheck = false;
-                    console.log("Pro features enabled");
+                    console.log("Pro features enabled.");
                     break;
                 }
             }
@@ -130,7 +130,7 @@ export async function updatePlanDetails(accountMe: any) {
     const proTcAcceptedAt = accountMe.proTcAcceptedAt;
     if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
         if (proBetaCheck) {
-            console.log("Pro features enabled under Beta agreement");
+            console.log("Pro features enabled under Beta agreement.");
         }
         settings.set('ProBetaLicense', 'true');
     }
