@@ -28,10 +28,19 @@ import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
 
 import {table,getBorderCharacters} from 'table';
-import { isArray } from "util";
 
 const fs = require('fs');
 const path = require('path');
+
+let choiceList: { name: string, value: string}[] = [];
+const questions = [
+    {
+        type: "list",
+        name: "tagChoices",
+        message: "Select default AppId.",
+        choices: choiceList
+    }
+];
 
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
@@ -72,14 +81,15 @@ export async function resetTermsFlag() {
 }
 
 export async function verifyProLicense() {
-
     if (settings.get('ProBetaLicense')) {
         if (settings.get('ProBetaLicense') === 'true') {
             //  console.log("allowing this pro feature under beta");
             return;
         }
     }
-
+    // let now = new Date().getTime();
+    // let minutesInMilis = 1000 * 60 * 1;
+    // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
     if (settings.get('ProEnabled')) {
         if (settings.get('ProEnabled') === 'true') {
             // console.log("allowing this pro feature under GA");
@@ -107,6 +117,7 @@ export async function updatePlanDetails(accountMe: any) {
             if(!app.blocked) {
                 if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
                     settings.set('ProEnabled', 'true');
+                    settings.set('ProEnabledTS', new Date().getTime());
                     proBetaCheck = false;
                     console.log("Pro features enabled");
                     break;
@@ -123,30 +134,79 @@ export async function updatePlanDetails(accountMe: any) {
         }
         settings.set('ProBetaLicense', 'true');
     }
-
 }
 
-export async function refreshAccount() {
-    const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.")
-    const appDataStored: string = await decryptAndGet("appDetails");
+export async function loginFlow(email: string, password: string) {
+    try {
+        await resetTermsFlag();
 
+        let cookieData = await hereAccountLogin(email, password);
+        let appsData = await getAppIds(cookieData);
+        appsData = JSON.parse(appsData);
+        let hereAccountID = appsData.aid;
+        let updateTC = false;
+        let appIdAppCodeMap : any = {};
+        if (appsData.apps) {
+            let apps = appsData.apps;
+            let defaultAppId = appsData.defaultAppId;
+            updateTC = appsData.tcAcceptedAt == 0 ? true : false;
+            for (let key in apps) {
+                let app = apps[key];
+                appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
+                if(app.status.toLowerCase() == 'active'){
+                    if (key == defaultAppId) {
+                        choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")" + ' (DEFAULT)', value: app.dsAppId  });
+                    } else {
+                        choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")", value: app.dsAppId });
+                    }
+                }
+            }
+        }
+        if(choiceList.length > 0){
+            let appId;
+            if(choiceList.length === 1){
+                appId = choiceList[0].value;
+            } else {
+                let appIdAnswers : any = await inquirer.prompt(questions);
+                appId = appIdAnswers.tagChoices;
+            }
+            let appCode = appIdAppCodeMap[appId];
+            await updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
+            await updatePlanDetails(appsData);
+            await generateToken(cookieData, appId).catch(err => {throw err});
+            await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
+            await encryptAndStore('apiKeys', appId).catch(err => {throw err});
+            console.log('Default App Selected - ' + appId);
+        }else{
+            console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
+        }
+    }catch(error){
+        console.log(error.message);
+    }
+}
+
+export async function refreshAccount(fullRefresh = false) {
+    const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.");
+    const appDataStored: string = await decryptAndGet("appDetails");
     const appDetails = appDataStored.split("%%");
     const credentials = accountInfo.split("%%");
 
     try {
-        const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
-        const accountMeStr = await getAppIds(mainCoookie);
-        const accountMe = JSON.parse(accountMeStr);
-
-        const newtoken = await generateToken(mainCoookie, appDetails[0]);
-        if (newtoken) {
-            await updatePlanDetails(accountMe);
-            console.log("Successfully refreshed account!");
-        }
+        if(fullRefresh) {
+            await loginFlow(credentials[0], credentials[1]);
+        } else {
+            const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
+            const accountMeStr = await getAppIds(mainCoookie);
+            const accountMe = JSON.parse(accountMeStr);
+            const newtoken = await generateToken(mainCoookie, appDetails[0]);
+            if (newtoken) {
+                await updatePlanDetails(accountMe);
+                console.log("Successfully refreshed account!");
+            }
+        }        
     } catch (e) {
         console.log(e.message);
     }
-
 }
 
 export async function verifyProBetaLicense() {
@@ -173,7 +233,6 @@ export async function verifyProBetaLicense() {
             process.exit(1);
         }
     }
-
 }
 
 async function showLicenseConfirmationForProBeta() {

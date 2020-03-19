@@ -30,15 +30,7 @@ import * as inquirer from "inquirer";
 
 const prompter = require('prompt');
 
-let choiceList: { name: string, value: string}[] = [];
-const questions = [
-    {
-        type: "list",
-        name: "tagChoices",
-        message: "Select default AppId.",
-        choices: choiceList
-    }
-];
+
 program
     .version('0.1.0');
 
@@ -81,52 +73,7 @@ async function setUserPass(env?: any) {
         hidden: true,
         conform: () => true
     }], async function (err: any, result: any) {
-        try{
-            await common.resetTermsFlag();
-
-            let cookieData = await common.hereAccountLogin(result['Email'], result['Password']);
-            let appsData = await common.getAppIds(cookieData);
-            appsData = JSON.parse(appsData);
-            let hereAccountID = appsData.aid;
-            let updateTC = false;
-            let appIdAppCodeMap : any = {};
-            if (appsData.apps) {
-                let apps = appsData.apps;
-                let defaultAppId = appsData.defaultAppId;
-                updateTC = appsData.tcAcceptedAt == 0 ? true : false;
-                for (let key in apps) {
-                    let app = apps[key];
-                    appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
-                    if(app.status.toLowerCase() == 'active'){
-                        if (key == defaultAppId) {
-                            choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")" + ' (DEFAULT)', value: app.dsAppId  });
-                        } else {
-                            choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")", value: app.dsAppId });
-                        }
-                    }
-                }
-            }
-            if(choiceList.length > 0){
-                let appId;
-                if(choiceList.length === 1){
-                    appId = choiceList[0].value;
-                } else {
-                    let appIdAnswers : any = await inquirer.prompt(questions);
-                    appId = appIdAnswers.tagChoices;
-                }
-                let appCode = appIdAppCodeMap[appId];
-                await common.updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
-                await common.updatePlanDetails(appsData);
-                await common.generateToken(cookieData, appId).catch(err => {throw err});
-                await common.encryptAndStore('appDetails', appId + common.keySeparator + appCode).catch(err => {throw err});
-                await common.encryptAndStore('apiKeys', appId).catch(err => {throw err});
-                console.log('Default App Selected - ' + appId);
-            }else{
-                console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
-            }
-        }catch(error){
-            console.log(error.message);
-        }
+        await common.loginFlow(result['Email'], result['Password']);
     });
 }
 
@@ -143,7 +90,7 @@ program
     .command('refresh')
     .description('Refresh account setup')
     .action(function (options:any) {
-        common.refreshAccount();
+        common.refreshAccount(true);
     });
 
 
