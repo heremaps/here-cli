@@ -50,8 +50,6 @@ const tableConsole = require("console.table");
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
-// export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
-// const account_api_url = 'https://stg.account.api.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
