@@ -85,8 +85,8 @@ export async function verifyProLicense() {
             // console.log("allowing this pro feature under GA");
             return;
         } else {
-            console.log("This is a Pro feature and your plan does not have access to this command")
-            console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings");
+            console.log("This is a Pro feature and your plan does not have access to this command.")
+            console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
             console.log("If you wish to upgrade your plan, please visit developer.here.com");
             process.exit(1);
         }
