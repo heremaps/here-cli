@@ -104,11 +104,13 @@ export async function updatePlanDetails(accountMe: any) {
     if (apps) {
         for (let appId of Object.keys(apps)) {
             let app = apps[appId];
-            if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
-                settings.set('ProEnabled', 'true');
-                proBetaCheck = false;
-                console.log("Pro features enabled");
-                break;
+            if(!app.blocked) {
+                if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
+                    settings.set('ProEnabled', 'true');
+                    proBetaCheck = false;
+                    console.log("Pro features enabled");
+                    break;
+                }
             }
         }
     } else {
