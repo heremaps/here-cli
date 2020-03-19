@@ -49,14 +49,14 @@ const questions = [
     {
         type: "checkbox",
         name: "tagChoices",
-        message: "Select attributes to be added as tags like key@value",
+        message: "Select attributes to be added as tags, like key@value",
         choices: choiceList
     },
     {
         type: "checkbox",
         name: "idChoice",
         message:
-            "Select attributes which would be used as the GeoJSON Feature ID (must be unique)",
+            "Select attributes to be used as the GeoJSON Feature ID (must be unique)",
         choices: choiceList
     }
 ];
@@ -195,7 +195,7 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
         }
     } else {
         if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
-            console.log("Operation FAILED - Insufficient Rights to perform action");
+            console.log("Operation FAILED - Insufficient rights to perform action");
         } else {
             console.log("OPERATION FAILED - " + apiError.message);
         }
@@ -327,7 +327,7 @@ async function listSpaces(options: any) {
     const cType = "application/json";
     const { response, body } = await execute(uri, "GET", cType, "", options.token);
     if (body.length == 0) {
-        console.log("No xyzspace found");
+        console.log("No XYZ space found");
     } else {
         let fields = ["id", "title", "description"];
         if (options.prop.length > 0) {
@@ -469,7 +469,7 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("--token <token>", "a external token to access another user's space")
+    .option("--token <token>", "an external token to access another user's space")
     .action(function (id, options) {
         analyzeSpace(id, options)
             .catch((error) => {
@@ -540,11 +540,11 @@ async function analyzeSpace(id: string, options: any) {
 
 program
     .command('hexbin <id>')
-    .description('create hexbins (and their centroids) using points in an XYZ space and upload them to another space')
+    .description('create fixed height hexbins (and their centroids) using points in an XYZ space, and upload them to another space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, comma-separate multiple values")
     .option("-i, --ids", "add IDs of features counted within the hexbin as an array in the hexbin's feature property")
     .option("-p, --groupBy <groupBy>", "name of the feature property by which hexbin counts will be further grouped")
-    .option("-a, --aggregate <aggregate>", "name of the feature property used for aggregating sum value of all the features inside hexbin")
+    .option("-a, --aggregate <aggregate>", "name of the feature property used for aggregating sum value of all the features inside a hexbin")
     .option("-r, --readToken <readToken>", "token of another user's source space, from which points will be read")
     .option("-w, --writeToken <writeToken>", "token of another user's target space to which hexbins will be written")
     //.option("-d, --destSpace <destSpace>", "Destination Space name where hexbins and centroids will be uploaded")
@@ -866,8 +866,8 @@ program
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
-    .option("-w, --web", "display  XYZ space on http://geojson.tools")
-    .option("-v, --vector", "analzye XYZ Space Invader and tangram.js")
+    .option("-w, --web", "display XYZ space on http://geojson.tools")
+    .option("-v, --vector", "inspect and analyze using XYZ Space Invader and tangram.js")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -974,7 +974,7 @@ async function showSpace(id: string, options: any) {
 
 program
     .command("delete <id>")
-    .description("delete the xyzspace with the given id")
+    .description("delete the XYZ space with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
@@ -1010,12 +1010,12 @@ async function deleteSpace(geospaceId: string, options:any) {
         options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210)
-        console.log("xyzspace '" + geospaceId + "' deleted successfully");
+        console.log("XYZ space '" + geospaceId + "' deleted successfully");
 }
 
 program
     .command("create")
-    .description("create a new xyzspace")
+    .description("create a new XYZ space")
     // .option("-tmin, --tileMinLevel [tileMinLevel]", "Minimum Supported Tile Level")
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
     .option("-t, --title [title]", "Title for XYZ space")
@@ -1030,10 +1030,10 @@ program
 async function createSpace(options: any) {
     if (options) {
         if (!options.title) {
-            options.title = "a new xyzspace created from commandline";
+            options.title = "a new XYZ space created from commandline";
         }
         if (!options.message) {
-            options.message = "a new xyzspace created from commandline";
+            options.message = "a new XYZ space created from commandline";
         }
     }
     let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
@@ -1063,13 +1063,13 @@ async function createSpace(options: any) {
 
 
     const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("xyzspace '" + body.id + "' created successfully");
+    console.log("XYZ space '" + body.id + "' created successfully");
     return body;
 }
 
 program
     .command("clear <id>")
-    .description("clear data from xyz space")
+    .description("clear data from XYZ space")
     .option("-t, --tags <tags>", "tags for the XYZ space")
     .option("-i, --ids <ids>", "ids for the XYZ space")
     .option("--token <token>", "a external token to clear another user's space data")
@@ -1087,7 +1087,7 @@ async function clearSpace(id: string, options: any) {
         if (!options.ids) {
             await printDeleteWarning(id, options);
         }
-        console.log("Are you sure you want to clear data ?");
+        console.log("Are you sure you want to clear data?");
         const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
 
         const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -1215,25 +1215,25 @@ program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
     .option("-f, --file <file>", "upload local GeoJSON, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs)")
-    .option("-c, --chunk [chunk]", "chunk size, default 200")
-    .option("-t, --tags [tags]", "tags for the xyz space")
+    .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (e.g. 1-10) to allow safer uploads of large geometries, use higher values (e.g. 500-10000) for faster uploads of smaller geometries")
+    .option("-t, --tags [tags]", "fixed tags for the XYZ space")
     .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
     .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
-    .option("-p, --ptag [ptag]", "property names to be used to add tags")
-    .option("-i, --id [id]", "property name(s) to be used as the unique feature ID")
-    .option("-a, --assign","lists sample data assign fields which needs to be selected as tags")
-    .option("-u, --unique","option to enforce uniqueness to the id by creating a hash of feature and use that as id")
-    .option("-o, --override", "override the data even if it shares the same feature id")
-    .option("-s, --stream", "streaming data support for large csv and geojson uploads")
-    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
-    .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, best for limited quantitative values")
+    .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
+    .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
+    .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
+    .option("-o, --override", "override default property hash feature ID generation and use existing GeoJSON feature IDs")
+    .option("-s, --stream", "streaming data support for fast and/or large csv and geojson uploads")
+    .option('-d, --delimiter [,]', 'alternate delimiter used in CSV', ',')
+    .option('-q, --quote ["]', 'quote used in CSV', '"')
     .option('-e, --errors', 'print data upload errors')
-    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
-    .option('--noCoords', 'upload csv files without coordinates geometry fields')
+    .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
     .action(async function (id, options) {
         if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
@@ -1697,13 +1697,13 @@ async function uploadDataToSpaceWithTags(
                     console.log(
                         "'" +
                         options.file +
-                        "' uploaded to xyzspace '" +
+                        "' uploaded to XYZ space '" +
                         id +
                         "'"
                     );
                 else
                     console.log(
-                        "data upload to xyzspace '" + id + "' completed"
+                        "data upload to XYZ space '" + id + "' completed"
                     );
 
                 if (upresult.failed > 0) {
@@ -1729,7 +1729,7 @@ function extractOption(callBack: any) {
                 name: "choice",
                 type: "list",
                 message:
-                    "xyz upload will generate unique IDs for all features by default (no features will be overwritten). See upload -h for more options.",
+                    "XYZ upload will generate unique IDs based on a hash of properties for all features by default (no features will be overwritten). See upload -h for more options.",
                 choices: ["continue", "quit"],
                 default: 0
             }
@@ -1833,9 +1833,9 @@ async function mergeAllTags(
             "***************************************************************"
         );
         console.log(
-            "We detected duplicate records, only the first was uploaded. Duplicates listed below.\n"
+            "We detected duplicate features in this chunk and only the first was uploaded. Features that had duplicates:\n"
         );
-        common.drawTable(duplicates, ["id", "geometry", "properties"]);
+        common.drawTable(duplicates, ["id", "geometry", "properties"]); // TODO: suppress geometry of lines,polygons
         console.log(
             "uploading " +
             featuresOut.length +
@@ -1981,7 +1981,7 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
     if(!token){
         token = await common.verify(true);
     }
-    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags;
+    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     const opn = require("opn");
     opn(
         uri
@@ -2024,15 +2024,15 @@ program
     .option("--cacheTTL <cacheTTL>", "set cacheTTL value for the space with valid number")
     .option("--stats", "see detailed space statistics")
     .option("--token <token>", "a external token to access another user's space config and stats information")
-    .option("-r, --raw", "show raw output")
-    .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
-    .option("--searchable", "view or configure searchable properties of an xyz space")
-    .option("--tagrules", "add, remove, view the conditional rules to tag your features automatically, at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
+    .option("-r, --raw", "show raw json output")
+    .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data, use with add/delete/update")
+    .option("--searchable", "view or configure searchable properties of an xyz space, use with add/delete/update")
+    .option("--tagrules", "add, remove, view the conditional rules to tag your features automatically, use with add/delete/update -- at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
     .option("--delete", "use with schema/searchable/tagrules options to remove the respective configurations")
     .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
-    .option("--activitylog","this option lets you configure activity logs for your space interactively")
+    .option("--activitylog","configure activity logs for your space interactively")
 
     .action(function (id, options) {
         configXyzSpace(id, options).catch((error) => {
@@ -2049,19 +2049,19 @@ async function configXyzSpace(id: string, options: any) {
     let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
 
     if (counter > 1) {
-        console.log("conflict of options, searchable/schema/tagrules/activitylog options can not be used together.")
+        console.log("conflicting options, searchable/schema/tagrules/activitylog options can not be used together.")
         process.exit(1);
     }
 
     if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
         (options.shared || options.title || options.message || options.copyright || options.stats)) {
-        console.log("conflict of options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+        console.log("conflicting options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
         process.exit(1);
     }
 
     if (!(options.schema || options.searchable || options.tagrules) &&
         (options.delete || options.add || options.view)) {
-        console.log("invalid options, add/view/delete options can not be used without searchable/schema/tagrules options")
+        console.log("invalid options, add/view/delete options cannot be used without searchable/schema/tagrules options")
         process.exit(1);
     }
 
@@ -2480,9 +2480,9 @@ function showSpaceConfig(spacedef: any) {
 
 program
     .command("join <id>")
-    .description("{xyz pro} create a new virtual XYZ space using csv file as a associate space")    
-    .option("-f, --file <file>", "file that needs to be uploaded to associated space")
-    .option("-k, --keyField <keyField>", "field in csv file to become id")
+    .description("{XYZ Pro} create a new virtual XYZ space with a CSV and a space with geometries, associating by feature ID")    
+    .option("-f, --file <file>", "csv to be uploaded and associated")
+    .option("-k, --keyField <keyField>", "field in csv file to become feature id")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
@@ -2490,8 +2490,8 @@ program
     .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option("--token <token>", "a external token to create another user's spaces")
-    .option("-s, --stream", "streaming data support for large csv uploads")
-    .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
+    .option("-s, --stream", "streaming data for faster uploads and large csv support")
+    .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .action(function (id, options) {
         createJoinSpace(id, options).catch((error) => {
             handleError(error, true);
@@ -2505,7 +2505,7 @@ async function createJoinSpace(id:string, options:any){
         return;
     }
     //setting title and message for new space creation
-    options.title = path.parse(options.file).name + ' data which will be used as assocaited space with ' +  id + ' for virtual space';
+    options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
     options.message = 'space data to be joined with ' + id + ' in new virtual space ';
     const response:any = await createSpace(options).catch(err => 
         {
@@ -2532,8 +2532,8 @@ program
     .description("{xyz pro} create a new virtual XYZ space")
     .option("-t, --title [title]", "Title for virtual XYZ space")
     .option("-d, --message [message]", "set description for the space")
-    .option("-g, --group [spaceids]", "Group the spaces (All objects of each space will be part of the response) - enter comma separated space ids")
-    .option("-a, --associate [spaceids]", "Associate the spaces. Features same id will be merged into one feature. Enter comma separated space ids, space1,space2. space1 properties will be merged into space2 features.")
+    .option("-g, --group [spaceids]", "Group the spaces (all objects of each space will be part of the response) - enter comma separated space ids")
+    .option("-a, --associate [spaceids]", "Associate the spaces. Features with same id will be merged into one feature. Enter comma separated space ids [space1,space2] -- space1 properties will be merged into space2 features.")
     .action(options => createVirtualSpace(options).catch((err) => { handleError(err) }));
 
 async function createVirtualSpace(options: any) {
@@ -2991,7 +2991,7 @@ async function searchableConfig(id: string, options: any) {
             }
             if (stats.properties) {
                 if (stats.properties.searchable == 'ALL') {
-                    console.log("All the properties of your space are searchable by default currently since your space size (feature count) is less than 10,000");
+                    console.log("All the properties of your space are currently searchable by default since your space size (feature count) is less than 10,000");
                     console.log("Manually configured settings will take effect once the space size (feature count) is more than 10,000");
                     stats.properties.value.forEach((prop: any) => {
                         if (!spacedef.searchableProperties ||
@@ -3049,7 +3049,7 @@ async function searchableConfig(id: string, options: any) {
             }
             if (stats.properties) {
                 if (stats.properties.searchable == 'ALL') {
-                    console.log("All the properties of your space are searchable by default currently since your space size (feature count) is less than 10,000");
+                    console.log("All the properties of your space are currently searchable by default since your space size (feature count) is less than 10,000");
                     console.log("Manually configured settings will take effect once the space size (feature count) is more than 10,000");
                     stats.properties.value.forEach((prop: any) => {
                         if (!spacedef.searchableProperties ||
@@ -3095,15 +3095,15 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{xyz pro} perform gis operations with space data")
-    .option("--centroid", "calculates centroids of Line and Polygon features and uploads in different space")
+    .option("--centroid", "calculates centroids of Line and Polygon features and uploads in a different space")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
-    .option("--tin", "calculates tin Polygons of point features and uploads in different space")
-    .option("--property <property>", "populates tin polygons' properties based on the feature property specified here")
-    .option("-c, --chunk [chunk]", "chunk size, default 20")
-    .option("-t, --tags <tags>", "Tags to filter on")
-    .option("--samespace", "option to upload centroids/voronoi/tin to same space")
+    .option("--tin", "calculates Delaunay Polygons of point features and uploads in different space")
+    .option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
+    .option("-c, --chunk [chunk]", "chunk size, default 20 -- default for polygons, increase for faster point feature uploads")
+    .option("-t, --tags <tags>", "source space tags to filter on")
+    .option("--samespace", "option to upload centroids/voronoi/tin to same space, use tags to filter")
     .action(function (id, options) {
         gis.performGisOperation(id, options).catch((error) => {
             handleError(error, true);
