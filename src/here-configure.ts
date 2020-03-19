@@ -99,9 +99,9 @@ async function setUserPass(env?: any) {
                     appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
                     if(app.status.toLowerCase() == 'active'){
                         if (key == defaultAppId) {
-                            choiceList.push({ name: app.dsAppId + " (Plan-" + app.dsPlanType + ")" + ' (DEFAULT)', value: app.dsAppId  });
+                            choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")" + ' (DEFAULT)', value: app.dsAppId  });
                         } else {
-                            choiceList.push({ name: app.dsAppId + " (Plan-" + app.dsPlanType + ")", value: app.dsAppId });
+                            choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")", value: app.dsAppId });
                         }
                     }
                 }
