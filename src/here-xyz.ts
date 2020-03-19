@@ -562,7 +562,8 @@ program
     .action(function (id, options) {
         (async () => {
             try {
-                await common.verifyProBetaLicense();
+                await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -873,8 +874,11 @@ program
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
-    .option("-w, --web", "display XYZ space on http://geojson.tools")
-    .option("-v, --vector", "inspect and analyze using XYZ Space Invader and tangram.js")
+    .option("--spatial","indicate to make spatial search on the space")
+    .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
+    .option("--center <center>", "comma separated lat,lon values to specify the center point for radius search")
+    .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
+    .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -886,8 +890,20 @@ async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
     let cType = "application/json";
     let tableFunction = common.drawTable;
+    let requestMethod = "GET";
+    let postData = "";
 
     uri = uri + "/" + id;
+
+    if(options.vector && options.spatial) {
+        console.log("options vector and spatial can not be used together");
+        process.exit(1);
+    }
+
+    if(options.web && options.geometry) {
+        console.log("usage of options web and geometry together is not supported yet, please try option web with radius, feature/center options");
+        process.exit(1);
+    }
 
     if (options.raw) {
         tableFunction = function (data: any, columns: any) {
@@ -900,14 +916,15 @@ async function showSpace(id: string, options: any) {
     }
 
     if (options.search || options.prop) {
-        await common.verifyProBetaLicense();
+        await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     }
 
     cType = "application/geo+json";
     if (!options.limit) {
         options.limit = 5000;
     }
-    const spFunction = options.offset ? "iterate" : "search";
+    const spFunction = options.offset ? "iterate" : ( options.spatial ? "spatial" : "search" );
     if (options.limit) {
         uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
         if (options.offset) {
@@ -924,19 +941,56 @@ async function showSpace(id: string, options: any) {
             const expression = replaceOpearators(options.search);
             uri = uri + "&" + expression;
         }
+
+        if(options.spatial) {
+            if(options.radius && options.center) {
+                if(options.center.indexOf("'") >= 0 || options.center.indexOf('"') >= 0) {
+                    options.center = options.center.replace(/'/g,'').replace(/"/g,'');
+                }
+                const latlon = options.center.split(",");
+                const lat = latlon[0];
+                const lon = latlon[1];
+                uri = uri + "&" + "lat="+lat+"&lon="+lon+"&radius="+options.radius;
+            }
+            if(options.feature) {
+                const refspacefeature = options.feature.split(',');
+                const refspace = refspacefeature[0];
+                const reffeature = refspacefeature[1];
+                uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature;
+                if(options.radius) {
+                    uri = uri + "&" + "radius="+ options.radius;
+                }
+            } else if(options.geometry) {
+                let geocontent = await transform.read(options.geometry, false);
+                let geometryinput = JSON.parse(geocontent);
+                if(geometryinput.type && geometryinput.type == 'FeatureCollection') {
+                    console.log("you have supplied FeatureCollection instead of GeoJson-Geometry. Kindly supply one Feature or GeoJson-Geometry.");
+                    process.exit(1);
+                } else if (geometryinput.type && geometryinput.type == 'Feature') {
+                    geocontent = JSON.stringify(geometryinput.geometry);
+                }
+                requestMethod = "POST";
+                postData = geocontent;
+                if(options.radius) {
+                    uri = uri + "&" + "radius="+ options.radius;
+                }
+            }
+        }
         cType = "application/geo+json";
     }
     if (options.vector) {
         await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token);
     }
     else if (options.web) {
+        //console.log(uri);
         await launchHereGeoJson(uri, options.token);
     } else {
+       // console.log(uri);
         const { response, body } = await execute(
             uri,
-            "GET",
+            requestMethod,
             cType,
-            "",
+            postData,
             options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
@@ -1047,7 +1101,8 @@ async function createSpace(options: any) {
 
     if (options.schema) {
 
-        await common.verifyProBetaLicense();
+        await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
 
         if (options.schema == true) {
             console.log("Please add local filepath / http link for your schema definition")
@@ -2057,7 +2112,8 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
 
     let patchRequest: any = {};
     let spacedef: any = null;
@@ -2263,7 +2319,8 @@ async function configXyzSpace(id: string, options: any) {
 
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
-    await common.verifyProBetaLicense();  
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();  
     let patchRequest:any = {};
 
     let tabledata:any = {};
@@ -2516,7 +2573,8 @@ program
     })
 
 async function createJoinSpace(id:string, options:any){
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
         return;
@@ -2555,7 +2613,9 @@ program
 
 async function createVirtualSpace(options: any) {
 
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  
+  //  await common.verifyProBetaLicense();
 
     if (options) {
         if (options.group && options.associate) {
@@ -2712,7 +2772,8 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
 //     })
 
 async function tagRuleConfig(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
@@ -2976,7 +3037,8 @@ async function tagRuleConfig(id: string, options: any) {
 //     })
 
 async function searchableConfig(id: string, options: any) {
-    await common.verifyProBetaLicense();
+    await common.verifyProLicense();
+  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
