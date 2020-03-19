@@ -152,6 +152,12 @@ const searchablePropertiesDisable = [
     }
 ]
 
+const streamconfirmationPrompt = [{
+    type: 'confirm',
+    name: 'streamconfirmation',
+    message: 'Do you want to enable streaming in upload? This will be considerably faster, and will enable you to upload much larger CSVs and GeoJSON files',
+    default: false
+}]
 
 const tagruleDeletePrompt = [
     {
@@ -360,6 +366,7 @@ program
     .action(function (id, options) {
         (async () => {
             try {
+                console.warn('\x1b[33m%s\x1b[0m',"[WARNING] 'describe' command is deprecated and will be removed in next release. Please use 'config' command with '--stats' option.");
                 let featureCollection = await getSpaceDataFromXyz(id, options);
                 summary.summarize(featureCollection.features, id, false);
             } catch (error) {
@@ -1254,7 +1261,13 @@ program
                     process.exit(1);
                 });
             id = response.id;
-
+            
+            if(!options.stream && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+                const streamInput = await inquirer.prompt<{ streamconfirmation?: boolean }>(streamconfirmationPrompt);
+                if(streamInput.streamconfirmation){
+                    options.stream = true;
+                }
+            }
         }
         uploadToXyzSpace(id, options).catch((error) => {
             handleError(error, true);
@@ -1381,6 +1394,9 @@ export async function uploadToXyzSpace(id: string, options: any) {
         process.exit(1);
     }
 
+    if(!options.stream && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+        console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
+    }
 
     if (options.file) {
         const fs = require("fs");
