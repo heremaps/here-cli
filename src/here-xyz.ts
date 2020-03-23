@@ -873,6 +873,8 @@ program
     .option("-r, --raw", "show raw XYZ space content")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
+    .option("-w, --web", "display XYZ space on http://geojson.tools")
+    .option("-v, --vector", "inspect and analyze using XYZ Space Invader and tangram.js")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
