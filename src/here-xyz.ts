@@ -38,6 +38,7 @@ import * as summary from "./summary";
 let cq = require("block-queue");
 import { isBoolean } from "util";
 import { ApiError } from "./api-error";
+import { settings } from "cluster";
 const gsv = require("geojson-validation");
 const path = require('path');
 
@@ -183,6 +184,13 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
             console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
         } else if (apiError.statusCode == 403) {
             console.log("Operation FAILED : Insufficient rights to perform action");
+            let requestAccessIndex = apiError.message.indexOf("Request access:");
+            if(requestAccessIndex != -1) {
+                if(apiError.message.indexOf("accessConnectors") > requestAccessIndex || apiError.message.indexOf("useCapabilities") > requestAccessIndex) {
+                    // It indicates that the Pro feature access was denied, resetting the Pro Timestamp will sync account access in the next command related to pro
+                    common.resetProTS();
+                }
+            }
         } else if (apiError.statusCode == 404) {
             if (isIdSpaceId) {
                 console.log("Operation FAILED: Space does not exist");
@@ -2083,7 +2091,7 @@ program
     .option("-d,--message [message]", "set description for the space")
     .option("-c,--copyright [copyright]", "set copyright text for the space")
     .option("--stats", "see detailed space statistics")
-    .option("--token <token>", "a external token to access another user's space config and stats information")
+    .option("--token <token>", "an external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data")
     .option("--searchable", "view or configure searchable properties of an xyz space")
@@ -2101,13 +2109,15 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
-
+    
     let patchRequest: any = {};
     let spacedef: any = null;
 
     let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
+
+    if(counter > 0) {
+        await common.verifyProLicense();
+    }
 
     if (counter > 1) {
         console.log("conflict of options, searchable/schema/tagrules/activitylog options can not be used together.")

@@ -50,9 +50,6 @@ const tableConsole = require("console.table");
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
-// export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
-// const account_api_url = 'https://stg.account.api.here.com/authentication/v1.1';
-
 export const keySeparator = "%%";
 
 export let validated = false;
@@ -80,20 +77,37 @@ export async function resetTermsFlag() {
     settings.set('ProBetaLicense', 'false');
 }
 
+export async function resetProTS() {
+    settings.set('ProEnabledTS', 0);
+}
+
 export async function verifyProLicense() {
-    if (settings.get('ProBetaLicense')) {
+    let now = new Date().getTime();
+    let minutesInMilis = 1000 * 60 * 2;
+    let dayInMillis = 1 * ( 1000 * 60 * 60 * 24 ) ;
+
+    if (settings.get('ProBetaLicense') != null && settings.get('ProEnabledTS') != null) {
         if (settings.get('ProBetaLicense') === 'true') {
-            //  console.log("allowing this pro feature under beta");
-            return;
+            if(settings.get('ProEnabledTS') + dayInMillis >= now) {
+                return;
+            } else {
+                console.log("Syncing your account access..")
+                await refreshAccount();
+                await verifyProLicense();
+                return;
+            }
         }
     }
-    // let now = new Date().getTime();
-    // let minutesInMilis = 1000 * 60 * 1;
-    // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
-    if (settings.get('ProEnabled')) {
-        if (settings.get('ProEnabled') === 'true') {
-            // console.log("allowing this pro feature under GA");
-            return;
+    
+    if (settings.get('ProEnabled') != null && settings.get('ProEnabledTS') != null) {
+        if (settings.get('ProEnabled') === 'true' ) {
+            if(settings.get('ProEnabledTS') + dayInMillis >= now) {
+                return;
+            } else {
+                console.log("Syncing your account access..")
+                await refreshAccount();
+                await verifyProLicense();
+            }
         } else {
             console.log("This is a Pro feature and your plan does not have access to this command.")
             console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
@@ -109,6 +123,9 @@ export async function verifyProLicense() {
 
 export async function updatePlanDetails(accountMe: any) {
     settings.set('ProEnabled', 'false');
+    settings.set('ProBetaLicense', 'false');
+    settings.set('ProEnabledTS', 0);
+
     let proBetaCheck = true;
     let apps = accountMe.apps;
     if (apps) {
@@ -127,12 +144,14 @@ export async function updatePlanDetails(accountMe: any) {
     } else {
         console.log("Warning : could not update plan details.")
     }
-    const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-    if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
-        if (proBetaCheck) {
+
+    if (proBetaCheck) {
+        const proTcAcceptedAt = accountMe.proTcAcceptedAt;
+        if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
             console.log("Pro features enabled under Beta agreement.");
+            settings.set('ProBetaLicense', 'true');
+            settings.set('ProEnabledTS', new Date().getTime());
         }
-        settings.set('ProBetaLicense', 'true');
     }
 }
 
@@ -198,11 +217,16 @@ export async function refreshAccount(fullRefresh = false) {
             const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
             const accountMeStr = await getAppIds(mainCoookie);
             const accountMe = JSON.parse(accountMeStr);
-            const newtoken = await generateToken(mainCoookie, appDetails[0]);
-            if (newtoken) {
+            if (settings.get('ProEnabled') === 'true' || settings.get('ProBetaLicense') === 'true') {
+                // this is to avoid token generation daily..
                 await updatePlanDetails(accountMe);
-                console.log("Successfully refreshed account!");
+            } else {
+                const newtoken = await generateToken(mainCoookie, appDetails[0]);
+                if (newtoken) {
+                    await updatePlanDetails(accountMe);
+                }    
             }
+            console.log("Successfully refreshed account!");            
         }        
     } catch (e) {
         console.log(e.message);
