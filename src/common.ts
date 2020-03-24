@@ -50,6 +50,7 @@ const tableConsole = require("console.table");
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
+
 export const keySeparator = "%%";
 
 export let validated = false;
@@ -218,7 +219,7 @@ export async function refreshAccount(fullRefresh = false) {
             const accountMeStr = await getAppIds(mainCoookie);
             const accountMe = JSON.parse(accountMeStr);
             if (settings.get('ProEnabled') === 'true' || settings.get('ProBetaLicense') === 'true') {
-                // this is to avoid token generation daily..
+                // this is to avoid token generation daily..since already the user is pro / pro beta
                 await updatePlanDetails(accountMe);
             } else {
                 const newtoken = await generateToken(mainCoookie, appDetails[0]);

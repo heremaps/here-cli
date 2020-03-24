@@ -30,9 +30,6 @@ const url = "https://account.here.com/sign-in?client-id=es1HEn2LGqFocvfD1eEt&ver
 const signInURL ="https://account.here.com/api/account/sign-in-with-password";
 const xyzRoot = "https://xyz.api.here.com";
 
-// const url = "https://st.p.account.here.com/sign-in?client-id=OGcBkUWtCuojIxzrb7CT&version=3&sdk=true&type=frame&uri=https%3A%2F%2Fxyz.here.com&sign-in-screen-config=password,heread&track-id=trackUPMUI&lang=en-us";
-// const signInURL ="https://st.p.account.here.com/api/account/sign-in-with-password";
-// const xyzRoot = "https://xyz.sit.cpdev.aws.in.here.com";
 const maxRightsURL = xyzRoot+"/token-api/maxRights";
 const tokenURL = xyzRoot+"/token-api/token?tokenType=PERMANENT"
 
