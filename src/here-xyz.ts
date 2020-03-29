@@ -1569,11 +1569,21 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     options.file,
                     false
                 );
+                let object = JSON.parse(result);
+                if(!(object.features && object.features.length > 0 && object.features[0].geometry)){
+                    object = {
+                        features: await transform.transform(
+                            object,
+                            options
+                        ),
+                        type: "FeatureCollection"
+                    };
+                }
                 await uploadData(
                     id,
                     options,
                     tags,
-                    JSON.parse(result),
+                    object,
                     true,
                     options.ptag,
                     options.file,
