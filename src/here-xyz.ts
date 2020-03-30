@@ -1570,7 +1570,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     false
                 );
                 let object = JSON.parse(result);
-                if(!(object.features && object.features.length > 0 && object.features[0].geometry)){
+                if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
                     object = {
                         features: await transform.transform(
                             object,
