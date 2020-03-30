@@ -599,16 +599,19 @@ export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:
 
 
 export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, options:any, streamFuntion:Function) {
+    let isGeoJson : boolean = false;
+    let isQuestionAsked : boolean = false;
     return readData(incomingPath, 'geojson').then(path => {
         return new Promise((resolve, reject) => {
             let dataArray = new Array<any>();
             const JSONStream = require('JSONStream');
             const  es = require('event-stream');
-            const fileStream = fs.createReadStream(path, {encoding: 'utf8'});
+            let fileStream = fs.createReadStream(path, {encoding: 'utf8'});
             let stream = fileStream.pipe(JSONStream.parse('features.*'));
             stream.pipe(es.through(async function (data:any) {
                 dataArray.push(data);
                 if(dataArray.length >=chunckSize){
+                    isGeoJson = true;
                     stream.pause();
                     fileStream.pause();
                     await streamFuntion(dataArray);
@@ -619,6 +622,7 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                 return data;
             },function end () {
                 if(dataArray.length >0){
+                    isGeoJson = true;
                     (async()=>{
                         const queue = await streamFuntion(dataArray);
                         await queue.shutdown();
@@ -628,8 +632,47 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                         resolve();
                     })();
                 }
+
+                if(!isGeoJson){
+                    fileStream = fs.createReadStream(path, {encoding: 'utf8'});
+                    stream = fileStream.pipe(JSONStream.parse('*'));
+                    stream.pipe(es.through(async function (data:any) {
+                        if(!isQuestionAsked){
+                            stream.pause();
+                            fileStream.pause();
+                            await toGeoJsonFeature(data, options, true);//calling this to ask Lat Lon question to the user for only one time
+                            isQuestionAsked = true;
+                            stream.resume();
+                            fileStream.resume();
+                        }
+                        dataArray.push(data);
+                        if(dataArray.length >=chunckSize){
+                            stream.pause();
+                            fileStream.pause();
+                            dataArray = await transform(dataArray, options);
+                            await streamFuntion(dataArray);
+                            dataArray=new Array<any>();
+                            stream.resume();
+                            fileStream.resume();
+                        }
+                        return data;
+                    },function end () {
+                        if(dataArray.length >0){
+                            (async()=>{
+                                dataArray = await transform(dataArray, options);
+                                const queue = await streamFuntion(dataArray);
+                                await queue.shutdown();
+                                options.totalCount = queue.uploadCount;
+                                console.log("");
+                                dataArray=new Array<any>();
+                                resolve();
+                            })();
+                        }
+                    }));
+                }
             }));
-         });
+
+        });
     });
 }
                 
