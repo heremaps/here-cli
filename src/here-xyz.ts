@@ -228,27 +228,28 @@ async function execInternal(
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
-    const isJson = contentType == "application/json" ? true : false;
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
         method: method,
-        json: isJson,
         headers: {
             Authorization: "Bearer " + token,
             "Content-Type": contentType,
             "App-Name": "HereCLI"
         },
-        body: method === "GET" ? undefined : data
+        json: method === "GET" ? undefined : data,
+        allowGetBody: true,
+        responseType: responseType
     };
 
 
-    const { response, body } = await requestAsync(reqJson);
+    const response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
         //throw new Error("Invalid response - " + message);
         throw new ApiError(response.statusCode, message);
     }
-    return { response, body };
+    return response;
 }
 
 function gzip(data: zlib.InputType): Promise<Buffer> {
@@ -271,35 +272,36 @@ async function execInternalGzip(
     retry: number = 3
 ) {
     const zippedData = await gzip(data);
-    const isJson = contentType == "application/json" ? true : false;
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
-        method,
-        json: isJson,
+        method: method,
         headers: {
             Authorization: "Bearer " + token,
             "Content-Type": contentType,
             "Content-Encoding": "gzip",
             "Accept-Encoding": "gzip"
         },
-        gzip: true,
-        body: method === "GET" ? undefined : zippedData
+        decompress: true,
+        body: method === "GET" ? undefined : zippedData,
+        allowGetBody: true,
+        responseType: responseType
     };
 
-    let { response, body } = await requestAsync(reqJson);
+    let response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
-            body = await execInternalGzip(uri, method, contentType, data, token, --retry);
+            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
         }
     }
-    return { response, body };
+    return response;
 }
 
 async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
@@ -331,8 +333,8 @@ program
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", options.token);
-    if (body.length == 0) {
+    const response = await execute(uri, "GET", cType, "", options.token);
+    if (response.body.length == 0) {
         console.log("No XYZ space found");
     } else {
         let fields = ["id", "title", "description"];
@@ -341,12 +343,12 @@ async function listSpaces(options: any) {
         }
         if (options.raw) {
             try {
-                console.log(JSON.stringify(JSON.parse(body), null, 2));
+                console.log(JSON.stringify(JSON.parse(response.body), null, 2));
             } catch (e) {
-                console.log(JSON.stringify(body, null, 2));
+                console.log(JSON.stringify(response.body, null, 2));
             }
         } else {
-            common.drawNewTable(body, fields, [10, 40, 60]);
+            common.drawNewTable(response.body, fields, [10, 40, 60]);
         }
     }
 }
@@ -433,7 +435,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                 }
                 do {
                     process.stdout.write(".");
-                    let { response, body } = await execute(
+                    let response = await execute(
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -441,7 +443,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                         options.token,
                         true
                     );
-                    jsonOut = body;
+                    jsonOut = response.body;
                     if (jsonOut.constructor !== {}.constructor) {
                         jsonOut = JSON.parse(jsonOut);
                     }
@@ -513,7 +515,7 @@ async function analyzeSpace(id: string, options: any) {
     process.stdout.write("Operation may take a while. Please wait...");
     do {
         process.stdout.write(".");
-        let { response, body } = await execute(
+        let response = await execute(
             getUrI(String(cHandle)),
             "GET",
             cType,
@@ -521,7 +523,7 @@ async function analyzeSpace(id: string, options: any) {
             options.token,
             true
         );
-        const jsonOut = JSON.parse(body);
+        const jsonOut = response.body;
         cHandle = jsonOut.handle;
         if (jsonOut.features) {
             recordLength += jsonOut.features.length;
@@ -807,8 +809,8 @@ async function updateClientSpaceWithNewSpaceId(newSpaceType: string, sourceId: s
             [key] : newSpaceId
         }
     }
-    const { response, body } = await execute(uri, "PATCH", cType, data);
-    return body;
+    const response = await execute(uri, "PATCH", cType, data);
+    return response.body;
 }
 
 async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: string[], cellSizes: string[], token: string | null = null) {
@@ -820,8 +822,8 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
             cellSizes: cellSizes
         }
     }
-    const { response, body } = await execute(uri, "PATCH", cType, data, token);
-    return body;
+    const response = await execute(uri, "PATCH", cType, data, token);
+    return response.body;
 }
 
 async function getBoundingBoxFromUser() {
@@ -833,8 +835,8 @@ async function getBoundingBoxFromUser() {
 export async function getSpaceMetaData(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", token);
-    return body;
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function getKeyByValue(object: any, value: any) {
@@ -849,7 +851,7 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
 }
 
 async function getStatisticsData(spaceId: string, token: string | null = null) {
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + spaceId + "/statistics",
         "GET",
         "application/json",
@@ -857,7 +859,7 @@ async function getStatisticsData(spaceId: string, token: string | null = null) {
         token,
         true
     );
-    return body;
+    return response.body;
 }
 
 function replaceOpearators(expr: string) {
@@ -988,7 +990,7 @@ async function showSpace(id: string, options: any) {
         await launchHereGeoJson(uri, options.token);
     } else {
        // console.log(uri);
-        const { response, body } = await execute(
+        const response = await execute(
             uri,
             requestMethod,
             cType,
@@ -1004,7 +1006,7 @@ async function showSpace(id: string, options: any) {
                 "createdAt",
                 "updatedAt"
             ];
-            const responseBody = JSON.parse(body);
+            const responseBody = response.body;
             const allFeatures = responseBody.features;
             const responseHandle = responseBody.handle;
             if (responseHandle)
@@ -1026,7 +1028,7 @@ async function showSpace(id: string, options: any) {
 
                 fields = (str).split(",")
             }
-            tableFunction(options.raw ? body : allFeatures, fields);
+            tableFunction(options.raw ? response.body : allFeatures, fields);
         } else {
             if (response.statusCode == 404) {
                 console.log("OPERATION FAILED : " + id + " does not exist");
@@ -1065,7 +1067,7 @@ async function deleteSpace(geospaceId: string, options:any) {
         }
     }
 
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
         "DELETE",
         "application/json",
@@ -1126,9 +1128,9 @@ async function createSpace(options: any) {
     }
 
 
-    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("XYZ space '" + body.id + "' created successfully");
-    return body;
+    const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
+    console.log("XYZ space '" + response.body.id + "' created successfully");
+    return response.body;
 }
 
 program
@@ -1185,7 +1187,7 @@ async function clearSpace(id: string, options: any) {
     let finalOpt = tagOption + idOption;
 
     //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + id + "/features?" + finalOpt + "&clientId=cli",
         "DELETE",
         "application/geo+json",
@@ -1257,13 +1259,13 @@ async function listTokens() {
         }
     };
 
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode != 200) {
-        console.log("Error while fetching maxrights :" + body);
+        console.log("Error while fetching maxrights :" + response.body);
         return;
     }
 
-    const tokenInfo = JSON.parse(body);
+    const tokenInfo = JSON.parse(response.body);
     const currentToken = await common.decryptAndGet("keyInfo", "No token found");
     console.log(
         "===================================================="
@@ -1971,7 +1973,7 @@ function getFileName(fileName: string) {
 async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "POST",
         "application/geo+json",
@@ -1986,7 +1988,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     );
 
     if (response.statusCode >= 200 && response.statusCode < 210) {
-        let res = JSON.parse(body);
+        let res = response.body;
         if (res.features)
             upresult.success = upresult.success + res.features.length;
         if (res.failed) {
@@ -2011,7 +2013,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
 }
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "PUT",
         "application/geo+json",
@@ -2019,7 +2021,7 @@ async function iterateChunk(chunk: any, url: string) {
         null,
         true
     );
-    return body;
+    return response.body;
 }
 
 function chunkify(data: any[], chunksize: number) {
@@ -2041,8 +2043,8 @@ async function launchHereGeoJson(uri: string, token: string) {
         uri.indexOf("?") == -1
             ? "?access_token=" + token
             : "&access_token=" + token;
-    const opn = require("opn");
-    opn(
+    const open = require("open");
+    open(
         "http://geojson.tools/index.html?url=" +
         common.xyzRoot() +
         uri +
@@ -2055,8 +2057,8 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
         token = await common.verify(true);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
-    const opn = require("opn");
-    opn(
+    const open = require("open");
+    open(
         uri
         , { wait: false });
 }
@@ -2072,14 +2074,14 @@ async function getStatsAndBasicForSpace(spaceId: string) {
 
     if (response.statusCode >= 200 && response.statusCode < 210) {
         url = `/hub/spaces/${spaceId}`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
             ""
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
-            statsbody['spacedef'] = body;
+            statsbody['spacedef'] = response.body;
         }
         return statsbody;
     }
@@ -2157,13 +2159,13 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.schema) {
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
             ""
         );
-        spacedef = body;
+        spacedef = response.body;
     }
 
 
@@ -2209,16 +2211,16 @@ async function configXyzSpace(id: string, options: any) {
                     while (i--) {
                         let processor = spacedef.processors[i];
                         if (processor.id === 'schema-validator') {
-                            const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
-                            console.log(JSON.stringify(body, null, 3));
+                            const response = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                            console.log(JSON.stringify(response.body, null, 3));
                             process.exit(1);
                         }
                     }
                 } else {
                     let schemaValidatorProcessor = spacedef.processors['schema-validator'];
                     if(schemaValidatorProcessor && schemaValidatorProcessor.length > 0){
-                        const { response, body } = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
-                        console.log(JSON.stringify(body, null, 3));
+                        const response = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
+                        console.log(JSON.stringify(response.body, null, 3));
                         process.exit(1);
                     }
                 }
@@ -2279,7 +2281,7 @@ async function configXyzSpace(id: string, options: any) {
         }
 
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",
@@ -2300,7 +2302,7 @@ async function configXyzSpace(id: string, options: any) {
         }
     } else {
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
@@ -2310,9 +2312,9 @@ async function configXyzSpace(id: string, options: any) {
 
         if (response.statusCode >= 200 && response.statusCode < 210) {
             if (options.raw) {
-                console.log(body);
+                console.log(response.body);
             } else {
-                showSpaceConfig(body);
+                showSpaceConfig(response.body);
             }
         }
     }
@@ -2327,13 +2329,13 @@ async function activityLogConfig(id:string, options:any) {
 
     let tabledata:any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
-    const { response, body } = await execute(
+    const response = await execute(
             url,
             "GET",
             "application/json",
             ""                
         );
-    let spacedef = body;
+    let spacedef = response.body;
     let enabled = false;
     //console.log(JSON.stringify(spacedef));
     if(spacedef.listeners) {
@@ -2399,7 +2401,7 @@ async function activityLogConfig(id:string, options:any) {
    //console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
     const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
                 url,
                 "PATCH",
                 "application/json",
@@ -2430,8 +2432,8 @@ function getEmptyAcitivityLogListenerProfile() {
 export async function getSpaceStatistics(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", token);
-    return body;
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function showSpaceStats(spacestatsraw: any) {
@@ -2646,9 +2648,9 @@ async function createVirtualSpace(options: any) {
     }
 
     const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
-    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
     if (response.statusCode >= 200 && response.statusCode < 210) {
-        console.log("virtual xyzspace '" + body.id + "' created successfully");
+        console.log("virtual xyzspace '" + response.body.id + "' created successfully");
     }
 }
 
@@ -2779,13 +2781,13 @@ async function tagRuleConfig(id: string, options: any) {
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "GET",
         "application/json",
         ""
     );
-    spacedef = body;
+    spacedef = response.body;
     if (spacedef != null) {
         let ruleTagger = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger');
         let ruleTaggerAsync = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger-async');
@@ -3010,7 +3012,7 @@ async function tagRuleConfig(id: string, options: any) {
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`;
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",
@@ -3158,7 +3160,7 @@ async function searchableConfig(id: string, options: any) {
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",

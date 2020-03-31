@@ -22,17 +22,9 @@
   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import * as request from 'request';
-
+const got = require('got');
 // async wrapper around request
-export function requestAsync(options: request.CoreOptions & request.UrlOptions): Promise<{ response: request.Response, body: any }>
+export function requestAsync(options: any): Promise<any>
 {
-    return new Promise((resolve, reject) => {
-        request(options, function(err, response, body) {
-            if (err)
-                reject(err);
-            else
-                resolve({ response, body });
-        });
-    });
+    return got(options);
 }

@@ -27,12 +27,11 @@
 import * as shapefile from "shapefile";
 import * as fs from "fs";
 import * as tmp from "tmp";
-import * as request from "request";
+const got = require('got');
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
-import { deprecate } from "util";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
 
@@ -55,14 +54,14 @@ export function readShapeFile(path: string) {
                     reject(err);
 
                 const dest = fs.createWriteStream(tempFilePath);
-                dest.on('finish', function (err) {
+                dest.on('finish', function (err: any) {
                     if (err)
                         reject(err);
                     else
                         resolve(readShapeFileInternal(tempFilePath));
                 });
-                request.get(path)
-                    .on('error', err => reject(err))
+                got.stream(path)
+                    .on('error', (err: any) => reject(err))
                     .pipe(dest);
             })
         );
@@ -146,14 +145,14 @@ export async function read(path: string, needConversion: boolean, opt: any = nul
 }
 
 async function readDataFromURL(path: string, needConversion: boolean, opt: any = null) {
-    const { response, body } = await requestAsync({ url: path });
+    const response = await requestAsync({ url: path });
     if (response.statusCode != 200)
-        throw new Error("Error requesting: " + body);
+        throw new Error("Error requesting: " + response.body);
 
     if (needConversion)
-        return await dataToJson(body, opt);
+        return await dataToJson(response.body, opt);
     else
-        return body;
+        return response.body;
 }
 
 async function readDataFromFile(path: string, needConversion: boolean, opt: any = null) {
@@ -492,13 +491,12 @@ function readData(path: string, postfix: string): Promise<string> {
                 if (err)
                     reject(err);
                 const dest = fs.createWriteStream(tempFilePath);
-                dest.on('finish', function (e) {
+                dest.on('finish', function (e: any) {
                     resolve(tempFilePath);
                 });
-                request.get(path)
-                .on('error', function(err) {
-                    reject(err);
-                }).pipe(dest);
+                got.stream(path)
+                    .on('error', (err: any) => reject(err))
+                    .pipe(dest);
             });
         } else {
             resolve(path);
