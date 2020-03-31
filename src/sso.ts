@@ -47,9 +47,9 @@ export async function getToken(userName: string, password: string) {
 
 export async function executeWithCookie(userName: string, password: string) {
 
-    const { response, body } = await requestAsync({ url });
+    const response = await requestAsync({ url });
 
-    let csrfToken = body as string;
+    let csrfToken = response.body as string;
 
     const cookies = response.headers['set-cookie'];
     csrfToken = csrfToken.substring(csrfToken.indexOf("csrf"));
@@ -66,7 +66,7 @@ export async function executeWithCookie(userName: string, password: string) {
         body : requestBody
     };
 
-    const { response: res, body: csrfBody } = await requestAsync(options);
+    const res = await requestAsync(options);
 
     if (res.statusCode !== 200){
         throw new Error("Error while Authenticating. Please check credentials and try again.");
@@ -103,11 +103,11 @@ export async function fetchMaxRights(cookies: string){
         }
     };
 
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode >= 300)
-        throw new Error("Error while fetching maxrights: " + JSON.stringify(body));
+        throw new Error("Error while fetching maxrights: " + JSON.stringify(response.body));
 
-    return body;
+    return response.body;
 }
 
 export async function fetchToken(cookies: string, requestBody: any, appId : string) {
@@ -122,9 +122,9 @@ export async function fetchToken(cookies: string, requestBody: any, appId : stri
         }
     }
 
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode >= 300)
-        throw new Error("Error while fetching token: " + body);
+        throw new Error("Error while fetching token: " + response.body);
 
-    return JSON.parse(body);
+    return JSON.parse(response.body);
 }
