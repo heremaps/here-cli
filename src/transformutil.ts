@@ -342,7 +342,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
         let key = k.trim();
         if (key == options.point) { // we shouldn't automatically look for a field called points
             //console.log('extracting lat/lon from',pointField,object[k])
-            const point = object[k].match(/([-]?\d+[.]?\d*)/g);
+            const point = object[k] ? object[k].match(/([-]?\d+[.]?\d*)/g) : null;
             if(point) {
                 if(options.lonlat){
                     lat = point[1];
@@ -367,10 +367,10 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
         } else {
             if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isNumeric(object[k])){
                 props[key] = parseFloat(object[k]);
-            } else if(!(options.stringFields && options.stringFields.split(",").includes(k)) && isBoolean(object[k].trim())){
-                props[key] = object[k].trim().toLowerCase() == 'true' ? true : false;
+            } else if(!(options.stringFields && options.stringFields.split(",").includes(k)) && object[k] && isBoolean(object[k].trim())){
+                props[key] = object[k] ? (object[k].trim().toLowerCase() == 'true' ? true : false) : null;
             } else {
-                props[key] = object[k].trim();
+                props[key] = object[k] ? object[k].trim() : null;
             }
         }
     }
