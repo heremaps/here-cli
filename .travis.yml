@@ -4,8 +4,9 @@ os:
 - linux
 - osx
 node_js:
+- '13'
+- '12'
 - '10'
-- '8'
 script:
 # build
 - npm install
