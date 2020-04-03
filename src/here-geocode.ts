@@ -61,8 +61,6 @@ async function geoCode(locationString: string) {
     }
 
     let response = await execGeoCode(locationString, hasAppCode, appInfo);
-    console.log("response - " + JSON.stringify(response));
-    console.log("statusCode - " + JSON.stringify(response.statusCode));
     if (response.statusCode !== 200) {
         if(response.statusCode === 401 && !hasAppCode) {
             await common.encryptAndStore("apiKeys", appId);

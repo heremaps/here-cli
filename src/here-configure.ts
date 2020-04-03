@@ -26,7 +26,6 @@
 
 import program = require('commander');
 import common = require('./common');
-import * as inquirer from "inquirer";
 
 const prompter = require('prompt');
 
@@ -34,12 +33,13 @@ const prompter = require('prompt');
 program
     .version('0.1.0');
 
+/*
 program
     .command('set')
     .arguments('[env]')
     .description('configure HERE credentials for authentiction')
-    .action(function(env, options) {
-        setUserPass(env);
+    .action(function(options) {
+        setUserPass();
     });
 
 function setAuth(env?: any) {
@@ -55,15 +55,16 @@ function setAuth(env?: any) {
         common.login(result['AppId'], result['AppCode']).catch(err => console.error(err));
     });
 }
+*/
 
 program
     .command('account')
     .description('configure HERE account email/password for authentiction. Account can be created from https://developer.here.com/')
-    .action(function (env, options) {
-        setUserPass(env);
+    .action(function (options) {
+        setUserPass();
     });
 
-async function setUserPass(env?: any) {
+async function setUserPass() {
     prompter.start();
     prompter.get([{
         name: 'Email',
@@ -79,7 +80,7 @@ async function setUserPass(env?: any) {
 
 program
     .command('verify')
-    .arguments('[env]')
+    //.arguments('[env]')
     .description('Verify credentials')
     .action(function (env, options) {
         common.verify();
@@ -93,17 +94,14 @@ program
         common.refreshAccount(true);
     });
 
-
-
-
 prompter.stop();
+//program.parse(process.argv);
 
-program.parse(process.argv);
-
-if (!program.args.length) {
+if (process.argv.length == 2) {
     setUserPass();
 } else {
-    common.validate(["help","set","verify","account","refresh"], [process.argv[2]], program);
+    common.validate(["help","verify","account","refresh"], [process.argv[2]], program);
+    program.parse(process.argv);
 }
 
 process.on('uncaughtException', error => {
