@@ -46,7 +46,7 @@ program
     .option('-z, --point [point]', 'points field name')
     .option('--string-fields <stringFields>', 'comma seperated property names which needs to be converted as String even though they are numbers or boolean e.g. postal code')
     .action(async function (path, opt) {
-        transform.read(path, true, { delimiter: opt.delimiter, quote: opt.quote }).then(async result => {
+        transform.read(path, true, { headers: true, delimiter: opt.delimiter, quote: opt.quote }).then(async result => {
             const json = JSON.stringify({ features: await transform.transform(result, opt), type: "FeatureCollection" }, null, 3); //Converted json object from csv data
             console.log(json);
         });
