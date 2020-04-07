@@ -2075,12 +2075,13 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
 
 async function getStatsAndBasicForSpace(spaceId: string) {
     let url = `/hub/spaces/${spaceId}/statistics?clientId=cli&skipCache=true`
-    const { response, body: statsbody } = await execute(
+    const response = await execute(
         url,
         "GET",
         "application/json",
         ""
     );
+    let statsbody = response.body;
 
     if (response.statusCode >= 200 && response.statusCode < 210) {
         url = `/hub/spaces/${spaceId}`
