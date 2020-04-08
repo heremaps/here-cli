@@ -430,11 +430,13 @@ export function getSpaceDataFromXyz(id: string, options: any) {
 
             try {
                 let cHandle = options.handle ? options.handle : 0;
-                if (cHandle === 0) {
+                if (cHandle === 0 && !options.ignoreLogs) {
                     process.stdout.write("Operation may take a while. Please wait...");
                 }
                 do {
-                    process.stdout.write(".");
+                    if(!options.ignoreLogs){
+                        process.stdout.write(".");
+                    }
                     let response = await execute(
                         getUrI(String(cHandle)),
                         "GET",
@@ -873,6 +875,9 @@ program
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw XYZ space content")
+    .option("--all", "iterate over entire XYZ space to get entire data of space, output will be shown on the console in geojson format")
+    .option("--geojsonl", "to print output of --all in geojsonl format")
+    .option("-c, --chunk [chunk]", "chunk size to use in --all option, default 5000")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-w, --web", "display XYZ space on http://geojson.tools")
@@ -907,6 +912,47 @@ async function showSpace(id: string, options: any) {
     if(options.web && options.geometry) {
         console.log("usage of options web and geometry together is not supported yet, please try option web with radius, feature/center options");
         process.exit(1);
+    }
+
+    if(options.all){
+        options.totalRecords = Number.MAX_SAFE_INTEGER;
+        options.currentHandleOnly = true;
+        options.handle = 0;
+        options.ignoreLogs = true;
+        if(options.chunk){
+            options.limit = options.chunk;
+        }
+        let cHandle;
+        if(!options.geojsonl){
+            process.stdout.write('{"type":"FeatureCollection","features":[');
+        }
+        do {
+            let jsonOut = await getSpaceDataFromXyz(id, options);
+            cHandle = jsonOut.handle;
+            if (jsonOut.features && jsonOut.features.length > 0) {
+                jsonOut.features.forEach((element: any) => {
+                    if(element.properties && element.properties['@ns:com:here:xyz']){
+                        delete element.properties['@ns:com:here:xyz'];
+                    }
+                });
+                if(options.geojsonl){
+                    console.log(JSON.stringify(jsonOut));
+                } else {
+                    if(options.handle != 0){
+                        process.stdout.write(",");
+                    }
+                    let outString = JSON.stringify(jsonOut);
+                    process.stdout.write(outString.substring(1, outString.length-1));
+                }
+            } else {
+                cHandle = -1;
+            }
+            options.handle = jsonOut.handle;
+        } while (cHandle >= 0);
+        if(!options.geojsonl){
+            process.stdout.write(']}');
+        }
+        process.exit(0);
     }
 
     if (options.raw) {
