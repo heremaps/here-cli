@@ -941,7 +941,7 @@ async function showSpace(id: string, options: any) {
                     if(options.handle != 0){
                         process.stdout.write(",");
                     }
-                    let outString = JSON.stringify(jsonOut);
+                    let outString = JSON.stringify(jsonOut.features);
                     process.stdout.write(outString.substring(1, outString.length-1));
                 }
             } else {
