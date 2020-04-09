@@ -76,7 +76,7 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
     let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
     let prjFile: any = '';
     if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
-        console.log(prjFilePath + " file exists, using this file for crs transformation");
+        //console.log(prjFilePath + " file exists, using this file for crs transformation");
         prjFile = await readDataFromFile(prjFilePath, false);
     }
     const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
