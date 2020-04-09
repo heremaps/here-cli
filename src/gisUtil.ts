@@ -41,7 +41,7 @@ export async function performGisOperation(id:string, options:any){
                 if(options.voronoi || options.tin){
                     if(feature.geometry && (feature.geometry.type == 'Point')){
                         if(options.tin){
-                            tinFeaturesMap.set(feature.geometry.coordinates.toString(), feature);
+                            tinFeaturesMap.set(feature.geometry.coordinates.slice(0,2).toString(), feature);
                         } else {
                             gisFeatures.push(feature);
                         }
