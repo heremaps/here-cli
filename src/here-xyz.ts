@@ -934,10 +934,11 @@ async function showSpace(id: string, options: any) {
                     if(element.properties && element.properties['@ns:com:here:xyz']){
                         delete element.properties['@ns:com:here:xyz'];
                     }
+                    if(options.geojsonl){
+                        console.log(JSON.stringify(element));
+                    }
                 });
-                if(options.geojsonl){
-                    console.log(JSON.stringify(jsonOut));
-                } else {
+                if(!options.geojsonl){
                     if(options.handle != 0){
                         process.stdout.write(",");
                     }
