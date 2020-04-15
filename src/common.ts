@@ -32,6 +32,16 @@ import {table,getBorderCharacters} from 'table';
 const fs = require('fs');
 const path = require('path');
 
+let choiceList: { name: string, value: string}[] = [];
+const questions = [
+    {
+        type: "list",
+        name: "tagChoices",
+        message: "Select default AppId.",
+        choices: choiceList
+    }
+];
+
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
 //const tableNew = require("table");
@@ -40,17 +50,18 @@ const tableConsole = require("console.table");
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
+
 export const keySeparator = "%%";
 
 export let validated = false;
 let rows = 100;
 
-const tableConfig:any = {
+const tableConfig: any = {
     border: getBorderCharacters(`norc`),
     columnDefault: {
         wrapWord: true
     },
-    drawHorizontalLine: (index:number, size:number) => {
+    drawHorizontalLine: (index: number, size: number) => {
         return index === 0 || index === 1 || index === rows || index === size;
     }
 };
@@ -67,44 +78,158 @@ export async function resetTermsFlag() {
     settings.set('ProBetaLicense', 'false');
 }
 
+export async function verifyProLicense() {
+    if (settings.get('ProBetaLicense')) {
+        if (settings.get('ProBetaLicense') === 'true') {
+            //  console.log("allowing this pro feature under beta");
+            return;
+        }
+    }
+    // let now = new Date().getTime();
+    // let minutesInMilis = 1000 * 60 * 1;
+    // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
+    if (settings.get('ProEnabled')) {
+        if (settings.get('ProEnabled') === 'true') {
+            // console.log("allowing this pro feature under GA");
+            return;
+        } else {
+            console.log("This is a Pro feature and your plan does not have access to this command.")
+            console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
+            console.log("If you wish to upgrade your plan, please visit developer.here.com.");
+            process.exit(1);
+        }
+    } else {
+        console.log("Refreshing your account access..")
+        await refreshAccount();
+        await verifyProLicense();
+    }
+}
+
+export async function updatePlanDetails(accountMe: any) {
+    settings.set('ProEnabled', 'false');
+    let proBetaCheck = true;
+    let apps = accountMe.apps;
+    if (apps) {
+        for (let appId of Object.keys(apps)) {
+            let app = apps[appId];
+            if(!app.blocked) {
+                if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
+                    settings.set('ProEnabled', 'true');
+                    settings.set('ProEnabledTS', new Date().getTime());
+                    proBetaCheck = false;
+                    console.log("Pro features enabled.");
+                    break;
+                }
+            }
+        }
+    } else {
+        console.log("Warning : could not update plan details.")
+    }
+    const proTcAcceptedAt = accountMe.proTcAcceptedAt;
+    if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
+        if (proBetaCheck) {
+            console.log("Pro features enabled under Beta agreement.");
+        }
+        settings.set('ProBetaLicense', 'true');
+    }
+}
+
+export async function loginFlow(email: string, password: string) {
+    try {
+        await resetTermsFlag();
+
+        let cookieData = await hereAccountLogin(email, password);
+        let appsData = await getAppIds(cookieData);
+        appsData = JSON.parse(appsData);
+        let hereAccountID = appsData.aid;
+        let updateTC = false;
+        let appIdAppCodeMap : any = {};
+        if (appsData.apps) {
+            let apps = appsData.apps;
+            let defaultAppId = appsData.defaultAppId;
+            updateTC = appsData.tcAcceptedAt == 0 ? true : false;
+            for (let key in apps) {
+                let app = apps[key];
+                appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
+                if(app.status.toLowerCase() == 'active'){
+                    if (key == defaultAppId) {
+                        choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")" + ' (DEFAULT)', value: app.dsAppId  });
+                    } else {
+                        choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")", value: app.dsAppId });
+                    }
+                }
+            }
+        }
+        if(choiceList.length > 0){
+            let appId;
+            if(choiceList.length === 1){
+                appId = choiceList[0].value;
+            } else {
+                let appIdAnswers : any = await inquirer.prompt(questions);
+                appId = appIdAnswers.tagChoices;
+            }
+            let appCode = appIdAppCodeMap[appId];
+            await updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
+            await updatePlanDetails(appsData);
+            await generateToken(cookieData, appId).catch(err => {throw err});
+            await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
+            await encryptAndStore('apiKeys', appId).catch(err => {throw err});
+            console.log('Default App Selected - ' + appId);
+        }else{
+            console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
+        }
+    }catch(error){
+        console.log(error.message);
+    }
+}
+
+export async function refreshAccount(fullRefresh = false) {
+    const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.");
+    const appDataStored: string = await decryptAndGet("appDetails");
+    const appDetails = appDataStored.split("%%");
+    const credentials = accountInfo.split("%%");
+
+    try {
+        if(fullRefresh) {
+            await loginFlow(credentials[0], credentials[1]);
+        } else {
+            const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
+            const accountMeStr = await getAppIds(mainCoookie);
+            const accountMe = JSON.parse(accountMeStr);
+            const newtoken = await generateToken(mainCoookie, appDetails[0]);
+            if (newtoken) {
+                await updatePlanDetails(accountMe);
+                console.log("Successfully refreshed account!");
+            }
+        }        
+    } catch (e) {
+        console.log(e.message);
+    }
+}
+
 export async function verifyProBetaLicense() {
-    
     if (settings.get('ProBetaLicense') === 'true') {
         return;
     } else {
-        const accountInfo:string = await decryptAndGet("accountInfo","Please run `here configure` command.")
-        const appDataStored:string= await decryptAndGet("appDetails");
-
-        const appDetails = appDataStored.split("%%");        
+        const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.")
+        const appDataStored: string = await decryptAndGet("appDetails");
+        const appDetails = appDataStored.split("%%");
         const credentials = accountInfo.split("%%");
         console.log("Setting up your HERE XYZ Pro beta access..");
         const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
         const accountMeStr = await getAppIds(mainCoookie);
         const accountMe = JSON.parse(accountMeStr);
         const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-        if(proTcAcceptedAt != null && proTcAcceptedAt > 0) {
+        if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
             const newtoken = await generateToken(mainCoookie, appDetails[0]);
-            if(newtoken) {
+            if (newtoken) {
                 settings.set('ProBetaLicense', 'true');
                 console.log("Successfully obtained HERE XYZ Pro beta access!");
             }
-            
         } else {
-           const accepted:boolean = await showLicenseConfirmationForProBeta();
-           if(accepted == true) {
-                await upgradeToProBeta(mainCoookie, accountMe.aid);
-                const newtoken = await generateToken(mainCoookie, appDetails[0]);
-                if(newtoken) {
-                    settings.set('ProBetaLicense', 'true');
-                    console.log("Successfully obtained HERE XYZ Pro beta access!");
-                }
-                
-           } else {
-            console.log("In order to use the HERE XYZ Pro Beta functionality, you will need to accept the Beta license agreement. You can continue using the existing HERE XYZ functionalities");
+            console.log("In order to use the HERE XYZ Pro features, ");
             process.exit(1);
-           }
         }
-        
     }
 }
 
@@ -112,7 +237,7 @@ async function showLicenseConfirmationForProBeta() {
     console.log(fs.readFileSync(path.resolve(__dirname, 'pro-beta-terms.txt'), 'utf8'));
     try {
         const opn = require("opn");
-        opn("https://legal.here.com/en-gb/HERE-XYZ-Pro-Beta-Terms-and-Conditions",{wait:false});
+        opn("https://legal.here.com/en-gb/HERE-XYZ-Pro-Beta-Terms-and-Conditions", { wait: false });
     } catch {
     }
     const answer = await inquirer.prompt<{ license?: string }>(questionLicense);
