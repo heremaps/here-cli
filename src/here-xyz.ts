@@ -3400,12 +3400,12 @@ async function cloneProject  (id : any, options: any) {
 
     //Get the GeoSpace-ID(s) of all the layers from published projects
     let updatedLayersData = [];
-    for (let i=0; i< clonedProjectData.layers.length; i++){
+    for (let i=0; i < clonedProjectData.layers.length; i++){
 
         //Get the current layer
         let currentLayer = clonedProjectData.layers[i];
         let geoSpaceIDToCopy = currentLayer.geospace.id;
-        console.log("Copying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
+        console.log("\nCopying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
 
         //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
         uri = "/hub/spaces/"+geoSpaceIDToCopy+"/search";
