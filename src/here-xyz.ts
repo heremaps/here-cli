@@ -181,7 +181,7 @@ function getGeoSpaceProfiles(title: string, description: string, client: any) {
 }
 
 /**
- * 
+ *
  * @param apiError error object
  * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
  */
@@ -215,7 +215,8 @@ async function execInternal(
     contentType: string,
     data: any,
     token: string,
-    gzip: boolean
+    gzip: boolean,
+    setAuthorization: boolean
 ) {
     if (gzip) {
         return await execInternalGzip(
@@ -230,18 +231,24 @@ async function execInternal(
         uri = common.xyzRoot() + uri;
     }
     const isJson = contentType == "application/json" ? true : false;
+    let headers = {
+        "Authorization" : "Bearer " + token,
+        "Content-Type": contentType,
+        "App-Name": "HereCLI"
+    }
+
+    //Remove Auth params if not required, Used to get public response from URL
+    if (setAuthorization == false) {
+        delete headers["Authorization"]
+    }
+
     const reqJson = {
         url: uri,
         method: method,
         json: isJson,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
+        headers,
         body: method === "GET" ? undefined : data
     };
-
 
     const { response, body } = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
@@ -303,11 +310,11 @@ async function execInternalGzip(
     return { response, body };
 }
 
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
     if (!token) {
         token = await common.verify();
     }
-    return await execInternal(uri, method, contentType, data, token, gzip);
+    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
 }
 
 program
@@ -444,7 +451,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
             let spFunction;
             if (options.bbox) {
                 spFunction = "bbox";
-                options.limit = 100000;//Max limit of records space api supports 
+                options.limit = 100000;//Max limit of records space api supports
             } else {
                 spFunction = "iterate";
             }
@@ -777,8 +784,8 @@ program
                     }
 
                     //hexFeatures = hexFeatures.concat(centroidFeatures);
-                    /*  
-                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+                    /*
+                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {
                         if (err) throw err;
                     });
                     */
@@ -1201,7 +1208,7 @@ async function createSpace(options: any) {
         if (!options.message) {
             options.message = "a new XYZ space created from commandline";
         }
-    }
+    }//
     let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
 
     if (options.schema) {
@@ -1242,7 +1249,7 @@ program
     .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
-        
+
         clearSpace(id, options).catch((error) => {
             handleError(error, true);
         })
@@ -1421,7 +1428,7 @@ program
                     process.exit(1);
                 });
             id = response.id;
-            
+
             if(!options.stream && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
                 const streamInput = await inquirer.prompt<{ streamconfirmation?: boolean }>(streamconfirmationPrompt);
                 if(streamInput.streamconfirmation){
@@ -2293,7 +2300,7 @@ async function configXyzSpace(id: string, options: any) {
         }
         patchRequest['cacheTTL'] = options.message;
     }
-    
+
     if (options.shared) {
         if (options.shared == 'true') {
             console.log("setting the space SHARED");
@@ -2425,7 +2432,7 @@ async function configXyzSpace(id: string, options: any) {
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();  
+  //  await common.verifyProBetaLicense();
     let patchRequest:any = {};
 
     let tabledata:any = {};
@@ -2434,7 +2441,7 @@ async function activityLogConfig(id:string, options:any) {
             url,
             "GET",
             "application/json",
-            ""                
+            ""
         );
     let spacedef = body;
     let enabled = false;
@@ -2467,7 +2474,7 @@ async function activityLogConfig(id:string, options:any) {
     } else {
         console.log("activity log for this space is not enabled.")
     }
-    
+
     if(enabled) {
         choiceList.push({'name': 'disable activity log for this space', 'value': 'disable'});
         choiceList.push({'name': 'reconfigure activity log for the space', 'value' : 'configure'});
@@ -2478,7 +2485,7 @@ async function activityLogConfig(id:string, options:any) {
 
     const answer: any = await inquirer.prompt(activityLogAction);
     const actionChoice = answer.actionChoice;
-    
+
     if(actionChoice == 'abort') {
         process.exit(1);
     } else if (actionChoice == 'disable') {
@@ -2489,11 +2496,11 @@ async function activityLogConfig(id:string, options:any) {
 
         const storageMode = Array.isArray(configAnswer.storageMode) ? configAnswer.storageMode[0] : configAnswer.storageMode;
         const state = Array.isArray(configAnswer.state) ? configAnswer.state[0] : configAnswer.state;
-        
+
         let listenerDef:any = getEmptyAcitivityLogListenerProfile();
         listenerDef['params'] = {};
         listenerDef['params'].states = state
-        listenerDef['params'].storageMode = storageMode        
+        listenerDef['params'].storageMode = storageMode
         patchRequest['listeners'] = {"activity-log": [listenerDef]};
     } else {
         console.log("please select only one option");
@@ -2514,7 +2521,7 @@ async function activityLogConfig(id:string, options:any) {
         if(response.statusCode >= 200 && response.statusCode < 210) {
             console.log("activity log configuration updated successfully, it may take a few seconds to take effect and reflect.");
         }
-    } 
+    }
     //console.log(options);
 
 }
@@ -2659,7 +2666,7 @@ function showSpaceConfig(spacedef: any) {
 
 program
     .command("join <id>")
-    .description("{XYZ Pro} create a new virtual XYZ space with a CSV and a space with geometries, associating by feature ID")    
+    .description("{XYZ Pro} create a new virtual XYZ space with a CSV and a space with geometries, associating by feature ID")
     .option("-f, --file <file>", "csv to be uploaded and associated")
     .option("-k, --keyField <keyField>", "field in csv file to become feature id")
     .option("-x, --lon [lon]", "longitude field name")
@@ -2687,10 +2694,10 @@ export async function createJoinSpace(id:string, options:any){
     //setting title and message for new space creation
     options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
     options.message = 'space data to be joined with ' + id + ' in new virtual space ';
-    const response:any = await createSpace(options).catch(err => 
+    const response:any = await createSpace(options).catch(err =>
         {
             handleError(err);
-            process.exit(1);                                           
+            process.exit(1);
         });
     const secondSpaceid = response.id;
     options.id = options.keyField;
@@ -2719,7 +2726,7 @@ program
 async function createVirtualSpace(options: any) {
 
     await common.verifyProLicense();
-  
+
   //  await common.verifyProBetaLicense();
 
     if (options) {
@@ -3325,6 +3332,197 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
     return newspaceData;
 }
 
+program
+    .command("clone <project-id>")
+    .alias("c")
+    .option("--project", "Clone XYZ Studio Project")
+    .description("Clone already published projects from Studio to your account")
+    .action(async function (id, options) {
+        cloneProject (id, options)
+            .catch((error) => {
+                handleError(error);
+            })
+    });
+
+
+//Will capture URL Query string parameters from URL
+function getParameterByName (name: any, url: any) {
+    if (!url) return null;
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
+//cloneProject - cloning projects for studio
+//
+//- Get the token from ProjectAPI and have a reference of currentUser’s token
+// https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7
+//
+//     - Take the spaceIDs from ProjectAPI
+// - Download / save response all features from the shared space from viewer url
+// https://xyz.api.here.com/hub/spaces/mOXoWyWn/search?margin=20&clip=false&clientId=viewer&access_token=AFSmufxGTfOGWwZQF11aiwA&limit=100000
+//     - Repeat downloading if multiple GeospaceIDs exists
+//
+// - Upload the file to new existing current user’s workspace
+// - Create the project for existing user
+// - Optionally - Copy layer styles that exists from older project
+async function cloneProject  (id : any, options: any) {
+
+    //Extract the ID if user has passed in the Viewer URL otherwise the input will be treated as id
+    if (id.startsWith("http")) {
+        id = getParameterByName("project_id", id)
+    }
+
+    //- Get the token from ProjectAPI and have a reference of currentUser’s token from below ProjectAPI GET URL // GET - https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7  / // GET - https://studio.here.com/viewer/?project_id=3a02af56-aa75-400c-b886-36aa8d046c08 //id = "3a02af56-aa75-400c-b886-36aa8d046c08"/ b4d1126a-fc12-4406-b506-692ace752d52
+    let uri = "/project-api/projects/"+id;
+    console.log("Cloning project : "+id);
+    let cType = "";
+
+    let { response, body } = await execute(uri, "GET", cType, "", options.token, false, false);
+
+    response.body = JSON.parse(response.body);
+
+    //Fetch the current token from user's published project
+    let publishersToken = response.body.rot;
+    let currentUsersToken = await common.verify();
+
+    //Create a new project for currentUser copying all the response body of past users data //POST - ProjectsAPI with response.body of to-be cloned project
+    uri = "/project-api/projects";
+    cType = "application/json"
+
+    //Remove id attribute before post call, the new project which will be created for current user with this data
+    delete response.body.id;
+
+    let clonedProjectData = response.body;
+
+    //Get the GeoSpace-ID(s) of all the layers from published projects
+    let updatedLayersData = [];
+    for (let i=0; i< clonedProjectData.layers.length; i++){
+
+        //Get the current layer
+        let currentLayer = clonedProjectData.layers[i];
+        let geoSpaceIDToCopy = currentLayer.geospace.id;
+        console.log("Copying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
+
+        //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
+        uri = "/hub/spaces/"+geoSpaceIDToCopy+"/search";
+        let { response:geoSpaceDataResponse, body:geoSpaceData } = await execute(uri, "GET", cType, clonedProjectData, publishersToken);
+
+        //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
+        let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
+        await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
+        console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
+
+        //Copy the contents of the downloaded space to currentUser's XYZ spaces
+        let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
+        let currentGeoSpaceID = newSpaceData.id;
+
+        //Update the geospace id for current layer
+        currentLayer.geospace.id = currentGeoSpaceID;
+
+        let uploadOptions = {
+            title: geoSpaceFileName,
+            description: "GeoSpace created from HERE CLI",
+            file: geoSpaceFileName,
+            stream: true
+        }
+
+        //Upload it to current user's space
+        await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
+
+        //Clear cache and delete the file from temp repo
+        await fs.unlinkSync(geoSpaceFileName)
+
+        updatedLayersData.push(currentLayer)
+    }
+
+
+    //Create a new project under current user with the settings of published projects
+    uri = "/project-api/projects";
+
+    //Update the layer data to cloned project - updatedLayersData
+    clonedProjectData.layers = updatedLayersData;
+
+    //Update the token for current project
+    clonedProjectData.rot = currentUsersToken;
+
+    let { response:newProjectResponse, body:newProjectBody } = await execute(uri, "POST", cType, clonedProjectData, options.token);
+
+    let studioBaseURL = "https://studio.here.com";
+    let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
+
+    //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
+    let viewerURL = studioBaseURL+"/viewer/?project_id="+newProjectBody.id
+    if (newProjectResponse.statusCode == 201) {
+        console.log("\n**** Successfully cloned ******")
+        console.log("Project cloned in your studio account : "+clonedProjectURL)
+        console.log("Viewer URL : "+viewerURL)
+    }
+
+    /*
+    let updatedLayersData = await clonedProjectData.layers.map(async (currentLayer: any) => {
+
+        let geoSpaceIDToCopy = currentLayer.geospace.id;
+        console.log("Copying layer/space : '"+geoSpaceIDToCopy+"' from published project")
+
+        //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
+        uri = "/hub/spaces/"+geoSpaceIDToCopy+"/search";
+        let { response:geoSpaceDataResponse, body:geoSpaceData } = await execute(uri, "GET", cType, clonedProjectData, publishersToken);
+
+        //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
+
+            let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
+            await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
+            console.log("GeoSpaceID locally downloaded: "+geoSpaceIDToCopy)
+
+            //Copy the contents of the downloaded space to currentUser's XYZ spaces
+            let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
+            let currentGeoSpaceID = newSpaceData.id;
+
+            //Update the geospace id for current layer
+            currentLayer.geospace.id = currentGeoSpaceID;
+
+            let uploadOptions = {
+                title: geoSpaceFileName,
+                description: "GeoSpace created from HERE CLI",
+                file: geoSpaceFileName,
+                stream: true
+            }
+
+            //Upload it to current user's space
+            await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
+
+            //Clear cache and delete the file from temp repo
+
+            return currentLayer;
+    })
+
+    */
+    /*
+    Promise.all(updatedLayersData).then(async () => {
+        //Create a new project under current user with the settings of published projects
+        uri = "/project-api/projects";
+        //Update the layer data to cloned project - updatedLayersData
+        clonedProjectData.layers = updatedLayersData;
+
+        let { response:newProjectResponse, body:newProjectBody } = await execute(uri, "POST", cType, clonedProjectData, options.token);
+
+        let studioBaseURL = "https://studio.here.com";
+        let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
+
+        //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
+        let viewerURL = studioBaseURL+"/viewer/?project_id="+newProjectBody.id
+        if (newProjectResponse.statusCode == 201) {
+            console.log("\n**** SUCCESS ******")
+            console.log("Project cloned in your studio account : "+clonedProjectURL)
+            console.log("Viewer URL : "+viewerURL)
+        }
+    })*/
+
+}
 
 // program
 //     .command("activitylog <id>")
@@ -3357,7 +3555,8 @@ common.validate(
         "vs",
         "virtualize",
         "gis",
-        "join"
+        "join",
+        "clone"
     ],
     [process.argv[2]],
     program
