@@ -40,6 +40,7 @@ import { isBoolean } from "util";
 import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
 const path = require('path');
+const weeknumber = require('weeknumber');
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -1346,6 +1347,7 @@ program
     .option('-q, --quote ["]', 'quote used in CSV', '"')
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
     .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
     .action(async function (id, options) {
         if (!id && options.file) {
@@ -1933,6 +1935,26 @@ async function mergeAllTags(
                         addTagsToList(item.properties[tp], tp, finalTags);
                     }
                 }
+            });
+        }
+
+        if(options.date){
+            options.date.split(",").forEach((element: any) => {
+                const value = item.properties[element];
+                let dateValue: Date;
+                if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
+                    dateValue = new Date(parseFloat(value.toString()));
+                } else {
+                    dateValue = new Date(value);
+                }
+                item.properties['xyz_timestamp_'+element] = dateValue.getTime();
+                item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
+                addTagsToList(dateValue.getUTCFullYear().toString(), element+'_year', finalTags);
+                addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), element+'_month', finalTags);
+                addTagsToList(dateValue.getUTCFullYear().toString() + '-' +dateValue.getUTCMonth().toString(), element+'_year_month', finalTags);
+                addTagsToList(weeknumber.weekNumber(dateValue), element+'_weekofyear', finalTags);
+                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + weeknumber.weekNumber(dateValue), element+'_year_weekofyear', finalTags);
+                addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), element+'_weekday', finalTags);
             });
         }
         const nameTag = fileName ? getFileName(fileName) : null;
