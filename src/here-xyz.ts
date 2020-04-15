@@ -38,6 +38,7 @@ import * as summary from "./summary";
 let cq = require("block-queue");
 import { isBoolean } from "util";
 import { ApiError } from "./api-error";
+import * as _ from "lodash";
 const gsv = require("geojson-validation");
 const path = require('path');
 
