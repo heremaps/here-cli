@@ -2574,7 +2574,7 @@ program
         });
     })
 
-async function createJoinSpace(id:string, options:any){
+export async function createJoinSpace(id:string, options:any){
     await common.verifyProLicense();
   //  await common.verifyProBetaLicense();
     if(!options.file){
