@@ -312,9 +312,11 @@ async function execute(uri: string, method: string, contentType: string, data: a
 program
     .command("list")
     .alias("ls")
-    .description("information about available XYZ spaces")
+    .description("information about available XYZ spaces and projects")
     .option("-r, --raw", "show raw XYZ space definition")
     .option("--token <token>", "a external token to access another user's spaces")
+    .option("--project", "List all studio projects")
+    .option("--projects", "List all studio projects")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -322,10 +324,19 @@ program
         []
     )
     .action(async function (options) {
-        listSpaces(options)
-            .catch((error) => {
-                handleError(error);
-            })
+
+        if (options.project || options.projects) {
+            listProjects(options)
+                .catch((error) => {
+                    handleError(error);
+                })
+        }
+        else {
+            listSpaces(options)
+                .catch((error) => {
+                    handleError(error);
+                })
+        }
     });
 
 async function listSpaces(options: any) {
@@ -348,6 +359,52 @@ async function listSpaces(options: any) {
         } else {
             common.drawNewTable(body, fields, [10, 40, 60]);
         }
+    }
+}
+
+
+/**
+ * Will list all the projects for the given user in below format
+ *
+ * @param options
+ */
+async function listProjects (options: any) {
+    console.log("Please wait; Fetching your list of projects...")
+    const uri = "/project-api/projects";
+    const cType = "";//"application/json";//
+    let { response, body } = await execute(uri, "GET", cType, "", options.token);
+    if (body.length == 0) {
+        console.log("No xyz projects found");
+    } else {
+        let fields = ["id", "title", "status"];
+
+        body = JSON.parse(body);
+
+        //Flattened array of project JsonObjects containing info about name, id and description, add any other info later as necessary
+        let extractProjectInfo: any[] = new Array();
+
+        //Iterate through all the projects and extract meta information in extractColumns Array having JSON Objects with keys of id, name and description,
+        _.forEach(body, (currentProject: { status: string; id: string; meta: { name: any; description: any; }; }) => {
+
+            //Check whether meta info like project description and name exists for that project? - > If exists Push the meta info with id in new
+            if (_.has(currentProject, 'meta')) {
+                let viewerURL = "";
+                if (currentProject.status.toUpperCase() === "PUBLISHED") {
+                    viewerURL = "https://xyz.here.com/viewer/?project_id=" + currentProject.id;
+                }
+                let currentProjectDetails = {
+                    id: currentProject.id,
+                    title: currentProject.meta.name,
+                    description: currentProject.meta.description,
+                    status: currentProject.status,
+                    viewerURL
+                }
+                extractProjectInfo.push(new Object(currentProjectDetails))
+            }
+        })
+
+        //List the project
+        common.drawNewTable(extractProjectInfo, fields, [40, 25, 12]);
     }
 }
 
@@ -866,13 +923,14 @@ function replaceOpearators(expr: string) {
 
 program
     .command("show <id>")
-    .description("shows the content of the given [id]")
+    .description("shows the content of the given space or project [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw XYZ space content")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
+    .option("--project", "Will open published projects of Studio")
     .option("-w, --web", "display XYZ space on http://geojson.tools")
     .option("-v, --vector", "inspect and analyze using XYZ Space Invader and tangram.js")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
@@ -882,11 +940,30 @@ program
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
     .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
     .action(function (id, options) {
-        showSpace(id, options)
-            .catch((error) => {
-                handleError(error, true);
-            });
+
+        if (options.project) {
+            showProject (id, options)
+                .catch((error) => {
+                    handleError(error);
+                })
+        }
+        else {
+            showSpace(id, options)
+                .catch((error) => {
+                    handleError(error, true);
+                });
+        }
+
     });
+
+
+async function showProject (id : any, options: any) {
+    const opn = require("opn");
+    opn(
+        "https://xyz.here.com/viewer/?project_id="+id
+        , { wait: false });
+}
+
 
 async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
@@ -1037,19 +1114,44 @@ async function showSpace(id: string, options: any) {
 
 program
     .command("delete <id>")
-    .description("delete the XYZ space with the given id")
+    .description("delete the XYZ space or project with the given id")
     .option("--force", "skip the confirmation prompt")
+    .option("-p, --project", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-        
-
-        deleteSpace(geospaceId, options)
-            .catch((error) => {
-                handleError(error, true);
-            })
+        if (options.project) {
+            deleteProject(geospaceId, options)
+                .catch((error) => {
+                    handleError(error, true);
+                })
+        }
+        else {
+            deleteSpace(geospaceId, options)
+                .catch((error) => {
+                    handleError(error, true);
+                })
+        }
 
     });
+
+
+async function deleteProject  (id : any, options: any) {
+    console.log("Deleting project : "+id)
+
+    //If project exists send a DELETE request for that projectID
+    const uri = "/project-api/projects/"+id;
+    const cType = "";
+    let { response, body } = await execute(uri, "DELETE", cType, "", options.token);
+
+    if (response && response.statusCode === 204) {
+        console.log("Successfully deleted project.")
+    }
+    else {
+        console.log("Unable to delete project having project-id: "+id)
+    }
+}
+
 
 async function deleteSpace(geospaceId: string, options:any) {
 
