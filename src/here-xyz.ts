@@ -1951,20 +1951,22 @@ async function mergeAllTags(
         if(options.date){
             options.date.split(",").forEach((element: any) => {
                 const value = item.properties[element];
-                let dateValue: Date;
-                if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
-                    dateValue = new Date(parseFloat(value.toString()));
-                } else {
-                    dateValue = new Date(value);
+                if(value){
+                    let dateValue: Date;
+                    if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
+                        dateValue = new Date(parseFloat(value.toString()));
+                    } else {
+                        dateValue = new Date(value);
+                    }
+                    item.properties['xyz_timestamp_'+element] = dateValue.getTime();
+                    item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
+                    addTagsToList(dateValue.getUTCFullYear().toString(), element+'_year', finalTags);
+                    addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), element+'_month', finalTags);
+                    addTagsToList(dateValue.getUTCFullYear().toString() + '-' +dateValue.getUTCMonth().toString(), element+'_year_month', finalTags);
+                    addTagsToList(weeknumber.weekNumber(dateValue), element+'_weekofyear', finalTags);
+                    addTagsToList(dateValue.getUTCFullYear().toString() + '-' + weeknumber.weekNumber(dateValue), element+'_year_weekofyear', finalTags);
+                    addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), element+'_weekday', finalTags);
                 }
-                item.properties['xyz_timestamp_'+element] = dateValue.getTime();
-                item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
-                addTagsToList(dateValue.getUTCFullYear().toString(), element+'_year', finalTags);
-                addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), element+'_month', finalTags);
-                addTagsToList(dateValue.getUTCFullYear().toString() + '-' +dateValue.getUTCMonth().toString(), element+'_year_month', finalTags);
-                addTagsToList(weeknumber.weekNumber(dateValue), element+'_weekofyear', finalTags);
-                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + weeknumber.weekNumber(dateValue), element+'_year_weekofyear', finalTags);
-                addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), element+'_weekday', finalTags);
             });
         }
         const nameTag = fileName ? getFileName(fileName) : null;
