@@ -53,7 +53,8 @@ async function start() {
     program
     .version(getVersion())
         .command('configure [set|verify]', 'setup configuration for authentication').alias('c')
-        .command('xyz [list|create|upload]', 'work with xyz spaces and projects').alias('xs')
+        .command('xyz [list|create|upload]', 'work with xyz spaces').alias('xs')
+        .command('studio [list|delete|show]', 'work with xyz studio projects').alias('s')
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);
