@@ -3334,7 +3334,7 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
 
 program
     .command('studio <command>')
-    .description('Manage studio projects')
+    .description('manage studio projects')
     .command("clone <project-id>")
     .alias("c")
     .option("--project", "Clone XYZ Studio Project")
