@@ -3400,45 +3400,64 @@ async function cloneProject  (id : any, options: any) {
 
     //Get the GeoSpace-ID(s) of all the layers from published projects
     let updatedLayersData = [];
-    for (let i=0; i < clonedProjectData.layers.length; i++){
+    for (let i=0; i < clonedProjectData.layers.length; i++) {
 
         //Get the current layer
         let currentLayer = clonedProjectData.layers[i];
-        let geoSpaceIDToCopy = currentLayer.geospace.id;
-        console.log("\nCopying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
 
-        //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
-        uri = "/hub/spaces/"+geoSpaceIDToCopy+"/search";
-        let { response:geoSpaceDataResponse, body:geoSpaceData } = await execute(uri, "GET", cType, clonedProjectData, publishersToken);
+        //Check if the layer has tags eg. Building Footprints tags -> In Such cases copy the whole currentLayer as is -> Otherwise copy the space from the user
+        if (currentLayer.meta
+            && currentLayer.meta.tags
+            && currentLayer.meta.tags.length > 0) {
 
-        //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
-        let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
-        await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
-        console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
-
-        //Copy the contents of the downloaded space to currentUser's XYZ spaces
-        let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
-        let currentGeoSpaceID = newSpaceData.id;
-
-        //Update the geospace id for current layer
-        currentLayer.geospace.id = currentGeoSpaceID;
-
-        let uploadOptions = {
-            title: geoSpaceFileName,
-            description: "GeoSpace created from HERE CLI",
-            file: geoSpaceFileName,
-            stream: true
+            //Update the project layer as is without any modifications
+            updatedLayersData.push(currentLayer)
         }
+        else {
 
-        //Upload it to current user's space
-        await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
+            //Download the space locally and reference the space for current user
+            let geoSpaceIDToCopy = currentLayer.geospace.id;
+            console.log("\nCopying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
 
-        //Clear cache and delete the file from temp repo
-        await fs.unlinkSync(geoSpaceFileName)
+            //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
+            let geoSpaceDownloadOptions = {
+                token : publishersToken
+            }
+            let geoSpaceData = await getSpaceDataFromXyz(geoSpaceIDToCopy, geoSpaceDownloadOptions);
+            if (geoSpaceData.features && geoSpaceData.features.length === 0) {
+                console.log("\nNo features are available to download");
+                //process.exit();
+            }
 
-        updatedLayersData.push(currentLayer)
+            //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
+            let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
+            await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
+            console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
+
+            //Copy the contents of the downloaded space to currentUser's XYZ spaces
+            let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
+            let currentGeoSpaceID = newSpaceData.id;
+
+            //Update the geospace id for current layer
+            currentLayer.geospace.id = currentGeoSpaceID;
+
+            let uploadOptions = {
+                title: geoSpaceFileName,
+                description: "GeoSpace created from HERE CLI",
+                file: geoSpaceFileName,
+                stream: true
+            }
+
+            //Upload it to current user's space
+            await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
+
+            //Clear cache and delete the file from temp repo
+            await fs.unlinkSync(geoSpaceFileName)
+
+            //Update the modified layer data.
+            updatedLayersData.push(currentLayer)
+        }
     }
-
 
     //Create a new project under current user with the settings of published projects
     uri = "/project-api/projects";
