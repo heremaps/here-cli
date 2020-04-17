@@ -40,12 +40,13 @@ const commands = ["list", "clone", "open"];
 program
     .version('0.1.0');
 
+
 program
-    .command('list')
-    .description('list all studio projects')
-    .action(async function (id, options) {
+    .command("list")
+    .description("information about available XYZ Studio Projects")
+    .action(async function (options) {
         listProjects(options)
-            .catch((error:any) => {
+            .catch((error: any) => {
                 handleError(error);
             })
     });
