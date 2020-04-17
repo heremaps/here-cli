@@ -541,7 +541,6 @@ export async function uploadToXyzSpace(id: string, options: any) {
     //})();
 }
 
-
 export function streamingQueue() {
     let queue = cq(10, function (task: any, done: Function) {
         uploadData(task.id, task.options, task.tags, task.fc,
@@ -916,8 +915,6 @@ export function createQuestionsList(object: any) {
     }
     return questions;
 }
-
-
 
 export function uploadData(
     id: string,
