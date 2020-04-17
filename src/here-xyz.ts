@@ -304,8 +304,6 @@ program
     .description("information about available XYZ spaces and projects")
     .option("-r, --raw", "show raw XYZ space definition")
     .option("--token <token>", "a external token to access another user's spaces")
-    .option("--project", "List all studio projects")
-    .option("--projects", "List all studio projects")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -313,19 +311,10 @@ program
         []
     )
     .action(async function (options) {
-
-        if (options.project || options.projects) {
-            listProjects(options)
-                .catch((error) => {
-                    handleError(error);
-                })
-        }
-        else {
             listSpaces(options)
                 .catch((error) => {
                     handleError(error);
                 })
-        }
     });
 
 async function listSpaces(options: any) {
@@ -828,7 +817,6 @@ program
     .option("-r, --raw", "show raw XYZ space content")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
-    .option("--project", "Will open published projects of Studio")
     .option("-w, --web", "display XYZ space on http://geojson.tools")
     .option("-v, --vector", "inspect and analyze using XYZ Space Invader and tangram.js")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
@@ -838,29 +826,11 @@ program
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
     .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
     .action(function (id, options) {
-
-        if (options.project) {
-            showProject (id, options)
-                .catch((error) => {
-                    handleError(error);
-                })
-        }
-        else {
             showSpace(id, options)
                 .catch((error) => {
                     handleError(error, true);
                 });
-        }
-
     });
-
-
-async function showProject (id : any, options: any) {
-    const opn = require("opn");
-    opn(
-        "https://xyz.here.com/viewer/?project_id="+id
-        , { wait: false });
-}
 
 
 async function showSpace(id: string, options: any) {
@@ -1014,23 +984,13 @@ program
     .command("delete <id>")
     .description("delete the XYZ space or project with the given id")
     .option("--force", "skip the confirmation prompt")
-    .option("-p, --project", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-        if (options.project) {
-            deleteProject(geospaceId, options)
-                .catch((error) => {
-                    handleError(error, true);
-                })
-        }
-        else {
             deleteSpace(geospaceId, options)
                 .catch((error) => {
                     handleError(error, true);
                 })
-        }
-
     });
 
 
@@ -1367,7 +1327,7 @@ function createQuestionsList(object: any) {
     return questions;
 }
 
-async function uploadData(
+async function uploadData (
     id: string,
     options: any,
     tags: any,
@@ -2666,219 +2626,6 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
         }
     }
     return newspaceData;
-}
-
-program
-    .command('studio <command>')
-    .description('manage studio projects')
-    .command("clone <project-id>")
-    .alias("c")
-    .option("--project", "Clone XYZ Studio Project")
-    .description("Clone already published projects from Studio to your account")
-    .action(async function (id, options) {
-        cloneProject (id, options)
-            .catch((error) => {
-                handleError(error);
-            })
-    });
-
-
-//Will capture URL Query string parameters from URL
-function getParameterByName (name: any, url: any) {
-    if (!url) return null;
-    name = name.replace(/[\[\]]/g, '\\$&');
-    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-        results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return '';
-    return decodeURIComponent(results[2].replace(/\+/g, ' '));
-}
-
-//cloneProject - cloning projects for studio
-//
-//- Get the token from ProjectAPI and have a reference of currentUser’s token
-// https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7
-//
-//     - Take the spaceIDs from ProjectAPI
-// - Download / save response all features from the shared space from viewer url
-// https://xyz.api.here.com/hub/spaces/mOXoWyWn/search?margin=20&clip=false&clientId=viewer&access_token=AFSmufxGTfOGWwZQF11aiwA&limit=100000
-//     - Repeat downloading if multiple GeospaceIDs exists
-//
-// - Upload the file to new existing current user’s workspace
-// - Create the project for existing user
-// - Optionally - Copy layer styles that exists from older project
-async function cloneProject  (id : any, options: any) {
-
-    //Extract the ID if user has passed in the Viewer URL otherwise the input will be treated as id
-    if (id.startsWith("http")) {
-        id = getParameterByName("project_id", id)
-    }
-
-    //- Get the token from ProjectAPI and have a reference of currentUser’s token from below ProjectAPI GET URL // GET - https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7  / // GET - https://studio.here.com/viewer/?project_id=3a02af56-aa75-400c-b886-36aa8d046c08 //id = "3a02af56-aa75-400c-b886-36aa8d046c08"/ b4d1126a-fc12-4406-b506-692ace752d52
-    let uri = "/project-api/projects/"+id;
-    console.log("Cloning project : "+id);
-    let cType = "";
-
-    let { response, body } = await execute(uri, "GET", cType, "", options.token, false, false);
-
-    response.body = JSON.parse(response.body);
-
-    //Fetch the current token from user's published project
-    let publishersToken = response.body.rot;
-    let currentUsersToken = await common.verify();
-
-    //Create a new project for currentUser copying all the response body of past users data //POST - ProjectsAPI with response.body of to-be cloned project
-    uri = "/project-api/projects";
-    cType = "application/json"
-
-    //Remove id attribute before post call, the new project which will be created for current user with this data
-    delete response.body.id;
-
-    let clonedProjectData = response.body;
-
-    //Get the GeoSpace-ID(s) of all the layers from published projects
-    let updatedLayersData = [];
-    for (let i=0; i < clonedProjectData.layers.length; i++) {
-
-        //Get the current layer
-        let currentLayer = clonedProjectData.layers[i];
-
-        //Check if the layer has tags eg. Building Footprints tags -> In Such cases copy the whole currentLayer as is -> Otherwise copy the space from the user
-        if (currentLayer.meta
-            && currentLayer.meta.tags
-            && currentLayer.meta.tags.length > 0) {
-
-            //Update the project layer as is without any modifications
-            updatedLayersData.push(currentLayer)
-        }
-        else {
-
-            //Download the space locally and reference the space for current user
-            let geoSpaceIDToCopy = currentLayer.geospace.id;
-            console.log("\nCopying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
-
-            //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
-            let geoSpaceDownloadOptions = {
-                token : publishersToken
-            }
-            let geoSpaceData = await getSpaceDataFromXyz(geoSpaceIDToCopy, geoSpaceDownloadOptions);
-            if (geoSpaceData.features && geoSpaceData.features.length === 0) {
-                console.log("\nNo features are available to download");
-                //process.exit();
-            }
-
-            //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
-            let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
-            await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
-            console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
-
-            //Copy the contents of the downloaded space to currentUser's XYZ spaces
-            let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
-            let currentGeoSpaceID = newSpaceData.id;
-
-            //Update the geospace id for current layer
-            currentLayer.geospace.id = currentGeoSpaceID;
-
-            let uploadOptions = {
-                title: geoSpaceFileName,
-                description: "GeoSpace created from HERE CLI",
-                file: geoSpaceFileName,
-                stream: true
-            }
-
-            //Upload it to current user's space
-            await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
-
-            //Clear cache and delete the file from temp repo
-            await fs.unlinkSync(geoSpaceFileName)
-
-            //Update the modified layer data.
-            updatedLayersData.push(currentLayer)
-        }
-    }
-
-    //Create a new project under current user with the settings of published projects
-    uri = "/project-api/projects";
-
-    //Update the layer data to cloned project - updatedLayersData
-    clonedProjectData.layers = updatedLayersData;
-
-    //Update the token for current project
-    clonedProjectData.rot = currentUsersToken;
-
-    let { response:newProjectResponse, body:newProjectBody } = await execute(uri, "POST", cType, clonedProjectData, options.token);
-
-    let studioBaseURL = "https://studio.here.com";
-    let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
-
-    //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
-    let viewerURL = studioBaseURL+"/viewer/?project_id="+newProjectBody.id
-    if (newProjectResponse.statusCode == 201) {
-        console.log("\n**** Successfully cloned ******")
-        console.log("Project cloned in your studio account : "+clonedProjectURL)
-        console.log("Viewer URL : "+viewerURL)
-    }
-
-    /*
-    let updatedLayersData = await clonedProjectData.layers.map(async (currentLayer: any) => {
-
-        let geoSpaceIDToCopy = currentLayer.geospace.id;
-        console.log("Copying layer/space : '"+geoSpaceIDToCopy+"' from published project")
-
-        //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
-        uri = "/hub/spaces/"+geoSpaceIDToCopy+"/search";
-        let { response:geoSpaceDataResponse, body:geoSpaceData } = await execute(uri, "GET", cType, clonedProjectData, publishersToken);
-
-        //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
-
-            let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
-            await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
-            console.log("GeoSpaceID locally downloaded: "+geoSpaceIDToCopy)
-
-            //Copy the contents of the downloaded space to currentUser's XYZ spaces
-            let newSpaceData = await createSpace({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
-            let currentGeoSpaceID = newSpaceData.id;
-
-            //Update the geospace id for current layer
-            currentLayer.geospace.id = currentGeoSpaceID;
-
-            let uploadOptions = {
-                title: geoSpaceFileName,
-                description: "GeoSpace created from HERE CLI",
-                file: geoSpaceFileName,
-                stream: true
-            }
-
-            //Upload it to current user's space
-            await uploadToXyzSpace(currentGeoSpaceID, uploadOptions);
-
-            //Clear cache and delete the file from temp repo
-
-            return currentLayer;
-    })
-
-    */
-    /*
-    Promise.all(updatedLayersData).then(async () => {
-        //Create a new project under current user with the settings of published projects
-        uri = "/project-api/projects";
-        //Update the layer data to cloned project - updatedLayersData
-        clonedProjectData.layers = updatedLayersData;
-
-        let { response:newProjectResponse, body:newProjectBody } = await execute(uri, "POST", cType, clonedProjectData, options.token);
-
-        let studioBaseURL = "https://studio.here.com";
-        let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
-
-        //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
-        let viewerURL = studioBaseURL+"/viewer/?project_id="+newProjectBody.id
-        if (newProjectResponse.statusCode == 201) {
-            console.log("\n**** SUCCESS ******")
-            console.log("Project cloned in your studio account : "+clonedProjectURL)
-            console.log("Viewer URL : "+viewerURL)
-        }
-    })*/
-
 }
 
 // program

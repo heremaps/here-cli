@@ -43,7 +43,7 @@ program
 
 program
     .command("list")
-    .description("information about available XYZ Studio Projects")
+    .description("information about available xyz studio projects")
     .action(async function (options) {
         listProjects(options)
             .catch((error: any) => {
@@ -63,7 +63,7 @@ program
 
 program
     .command("show <project-id>")
-    .description("Open the project with the given id")
+    .description("open the project with the given id")
     .action(async (geospaceId, options) => {
         showProject (geospaceId, options)
             .catch((error) => {
@@ -73,7 +73,7 @@ program
 
 program
     .command("clone <project-id>")
-    .description("Open the project with the given id")
+    .description("open the project with the given id")
     .action(async (geospaceId, options) => {
         cloneProject (geospaceId, options)
             .catch((error) => {
