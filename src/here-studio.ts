@@ -35,7 +35,7 @@ import * as program from 'commander';
 import {getSpaceDataFromXyz, uploadToXyzSpace, handleError, execute, createSpace} from "./xyzCommon";
 
 const prompter = require('prompt');
-const commands = ["list", "clone", "open"];
+const commands = ["list", "clone", "open", "show", "delete"];
 
 program
     .version('0.1.0');
