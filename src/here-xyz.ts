@@ -318,6 +318,7 @@ program
     .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
     .option("--token <token>", "a external token to access another user's spaces")
+    .option("--filter <filter>", "a comma separted strings to filter spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -342,14 +343,21 @@ async function listSpaces(options: any) {
         if (options.prop.length > 0) {
             fields = options.prop;
         }
+        let result = response.body;
+        if(options.filter){
+            const filterArray = options.filter.split(",");
+            result = result.filter((element: any) => {
+                for (var i=0; i<filterArray.length; i++) {
+                    if(element.title.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1){
+                        return true;
+                    }
+                }
+            });
+        }
         if (options.raw) {
-            try {
-                console.log(JSON.stringify(JSON.parse(response.body), null, 2));
-            } catch (e) {
-                console.log(JSON.stringify(response.body, null, 2));
-            }
+            console.log(JSON.stringify(result, null, 2));
         } else {
-            common.drawNewTable(response.body, fields, [10, 40, 60]);
+            common.drawNewTable(result, fields, [10, 40, 60]);
         }
     }
 }
