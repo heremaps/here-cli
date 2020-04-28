@@ -2196,8 +2196,9 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
+    if(options.schema || options.searchable || options.tagrules || options.activitylog){
+        await common.verifyProLicense();
+    }
 
     let patchRequest: any = {};
     let spacedef: any = null;
