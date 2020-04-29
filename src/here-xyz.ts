@@ -1985,7 +1985,7 @@ async function mergeAllTags(
                         item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
                         if(options.datetag){
                             let allTags: boolean = false;
-                            if(!(options.datetag == true || options.datetag == undefined)){
+                            if(options.datetag == true || options.datetag == undefined){
                                 allTags = true;
                             }
                             let inputTagsList = options.datetag.split(',');
