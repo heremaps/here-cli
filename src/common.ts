@@ -80,12 +80,6 @@ export async function resetTermsFlag() {
 }
 
 export async function verifyProLicense() {
-    if (settings.get('ProBetaLicense')) {
-        if (settings.get('ProBetaLicense') === 'true') {
-            //  console.log("allowing this pro feature under beta");
-            return;
-        }
-    }
     // let now = new Date().getTime();
     // let minutesInMilis = 1000 * 60 * 1;
     // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
@@ -108,7 +102,6 @@ export async function verifyProLicense() {
 
 export async function updatePlanDetails(accountMe: any) {
     settings.set('ProEnabled', 'false');
-    let proBetaCheck = true;
     let apps = accountMe.apps;
     if (apps) {
         for (let appId of Object.keys(apps)) {
@@ -117,7 +110,6 @@ export async function updatePlanDetails(accountMe: any) {
                 if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
                     settings.set('ProEnabled', 'true');
                     settings.set('ProEnabledTS', new Date().getTime());
-                    proBetaCheck = false;
                     console.log("Pro features enabled.");
                     break;
                 }
@@ -125,13 +117,6 @@ export async function updatePlanDetails(accountMe: any) {
         }
     } else {
         console.log("Warning : could not update plan details.")
-    }
-    const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-    if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
-        if (proBetaCheck) {
-            console.log("Pro features enabled under Beta agreement.");
-        }
-        settings.set('ProBetaLicense', 'true');
     }
 }
 
@@ -206,71 +191,6 @@ export async function refreshAccount(fullRefresh = false) {
     } catch (e) {
         console.log(e.message);
     }
-}
-
-export async function verifyProBetaLicense() {
-    if (settings.get('ProBetaLicense') === 'true') {
-        return;
-    } else {
-        const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.")
-        const appDataStored: string = await decryptAndGet("appDetails");
-        const appDetails = appDataStored.split("%%");
-        const credentials = accountInfo.split("%%");
-        console.log("Setting up your HERE XYZ Pro beta access..");
-        const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
-        const accountMeStr = await getAppIds(mainCoookie);
-        const accountMe = JSON.parse(accountMeStr);
-        const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-        if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
-            const newtoken = await generateToken(mainCoookie, appDetails[0]);
-            if (newtoken) {
-                settings.set('ProBetaLicense', 'true');
-                console.log("Successfully obtained HERE XYZ Pro beta access!");
-            }
-        } else {
-            console.log("In order to use the HERE XYZ Pro features, ");
-            process.exit(1);
-        }
-    }
-}
-
-async function showLicenseConfirmationForProBeta() {
-    console.log(fs.readFileSync(path.resolve(__dirname, 'pro-beta-terms.txt'), 'utf8'));
-    try {
-        const open = require("open");
-        open("https://legal.here.com/en-gb/HERE-XYZ-Pro-Beta-Terms-and-Conditions", { wait: false });
-    } catch {
-    }
-    const answer = await inquirer.prompt<{ license?: string }>(questionLicense);
-
-    const termsResp = answer.license ? answer.license.toLowerCase() : 'decline';
-    if (termsResp === "a" || termsResp === "accept") {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-export async function upgradeToProBeta(cookies?: string, accountId?: string) {
-    //proTcAcceptedAt
-    console.log("Requesting XYZ Pro beta access...");
-    const proTS = new Date().getTime();
-    let payload : any = {proTcAcceptedAt: proTS};   
-    
-        var options = {
-            url : xyzRoot()+`/account-api/accounts/${accountId}`,
-            method : 'PATCH',
-            headers : {
-                "Cookie": cookies
-            },
-            json : payload,
-            responseType: "json"
-        }
-        const response = await requestAsync(options);
-        if (response.statusCode < 200 || response.statusCode > 299) {
-            throw new Error("Account operation failed : " + JSON.stringify(response.body));
-        }
-        return response.body;
 }
 
 function rightsRequest(appId: string) {
