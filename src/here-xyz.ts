@@ -1978,7 +1978,10 @@ async function mergeAllTags(
                             if(options.datetag == true || options.datetag == undefined){
                                 allTags = true;
                             }
-                            let inputTagsList = options.datetag.split(',');
+                            let inputTagsList = [];
+                            if(!allTags){
+                                inputTagsList = options.datetag.split(',');
+                            }
                             if(allTags || inputTagsList.include('year')){
                                 addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
                             }
