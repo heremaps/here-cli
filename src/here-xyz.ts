@@ -576,7 +576,6 @@ program
         (async () => {
             try {
                 await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -977,7 +976,6 @@ async function showSpace(id: string, options: any) {
 
     if (options.search || options.prop) {
         await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     }
 
     cType = "application/geo+json";
@@ -1162,7 +1160,6 @@ async function createSpace(options: any) {
     if (options.schema) {
 
         await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
 
         if (options.schema == true) {
             console.log("Please add local filepath / http link for your schema definition")
@@ -2442,7 +2439,6 @@ async function configXyzSpace(id: string, options: any) {
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();  
     let patchRequest:any = {};
 
     let tabledata:any = {};
@@ -2696,7 +2692,6 @@ program
 
 async function createJoinSpace(id:string, options:any){
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
         return;
@@ -2736,8 +2731,6 @@ program
 async function createVirtualSpace(options: any) {
 
     await common.verifyProLicense();
-  
-  //  await common.verifyProBetaLicense();
 
     if (options) {
         if (options.group && options.associate) {
@@ -2895,7 +2888,6 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
 
 async function tagRuleConfig(id: string, options: any) {
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
@@ -3160,7 +3152,6 @@ async function tagRuleConfig(id: string, options: any) {
 
 async function searchableConfig(id: string, options: any) {
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
