@@ -1361,7 +1361,6 @@ program
             console.log("--datetag option is only allowed with --date option");
             process.exit(1);
         }
-        console.log("datetag - " + options.datetag);
         if(options.datetag){
             if(!(options.datetag == true || options.datetag == undefined)){
                 options.datetag.split(',').forEach((tag: string) => {
