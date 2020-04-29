@@ -1971,44 +1971,49 @@ async function mergeAllTags(
         }
 
         if(options.date){
-            options.date.split(",").forEach((element: any) => {
-                const value = item.properties[element];
-                if(value){
-                    let dateValue: Date;
-                    if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
-                        dateValue = new Date(parseFloat(value.toString()));
-                    } else {
-                        dateValue = new Date(value);
+            try{
+                options.date.split(",").forEach((element: any) => {
+                    const value = item.properties[element];
+                    if(value){
+                        let dateValue: Date;
+                        if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
+                            dateValue = new Date(parseFloat(value.toString()));
+                        } else {
+                            dateValue = new Date(value);
+                        }
+                        item.properties['xyz_timestamp_'+element] = dateValue.getTime();
+                        item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
+                        if(options.datetag){
+                            let allTags: boolean = false;
+                            if(!(options.datetag == true || options.datetag == undefined)){
+                                allTags = true;
+                            }
+                            let inputTagsList = options.datetag.split(',');
+                            if(allTags || inputTagsList.include('year')){
+                                addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
+                            }
+                            if(allTags || inputTagsList.include('month')){
+                                addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), 'date_'+element+'_month', finalTags);
+                            }
+                            if(allTags || inputTagsList.include('year_month')){
+                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (dateValue.getUTCMonth()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
+                            }
+                            if(allTags || inputTagsList.include('week')){
+                                addTagsToList(("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_week', finalTags);
+                            }
+                            if(allTags || inputTagsList.include('year_week')){
+                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_year_week', finalTags);
+                            }
+                            if(allTags || inputTagsList.include('weekday')){
+                                addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), 'date_'+element+'_weekday', finalTags);
+                            }
+                        }                
                     }
-                    item.properties['xyz_timestamp_'+element] = dateValue.getTime();
-                    item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
-                    if(options.datetag){
-                        let allTags: boolean = false;
-                        if(!(options.datetag == true || options.datetag == undefined)){
-                            allTags = true;
-                        }
-                        let inputTagsList = options.datetag.split(',');
-                        if(allTags || inputTagsList.include('year')){
-                            addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
-                        }
-                        if(allTags || inputTagsList.include('month')){
-                            addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), 'date_'+element+'_month', finalTags);
-                        }
-                        if(allTags || inputTagsList.include('year_month')){
-                            addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (dateValue.getUTCMonth()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
-                        }
-                        if(allTags || inputTagsList.include('week')){
-                            addTagsToList(("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_week', finalTags);
-                        }
-                        if(allTags || inputTagsList.include('year_week')){
-                            addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_year_week', finalTags);
-                        }
-                        if(allTags || inputTagsList.include('weekday')){
-                            addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), 'date_'+element+'_weekday', finalTags);
-                        }
-                    }                
-                }
-            });
+                });
+            } catch(e){
+                console.log("Invalid time format - " + e.message);
+                process.exit(1);
+            }    
         }
         const nameTag = fileName ? getFileName(fileName) : null;
         if (nameTag) {
