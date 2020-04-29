@@ -1992,22 +1992,22 @@ async function mergeAllTags(
                             if(!allTags){
                                 inputTagsList = options.datetag.split(',');
                             }
-                            if(allTags || inputTagsList.include('year')){
+                            if(allTags || inputTagsList.includes('year')){
                                 addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
                             }
-                            if(allTags || inputTagsList.include('month')){
+                            if(allTags || inputTagsList.includes('month')){
                                 addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), 'date_'+element+'_month', finalTags);
                             }
-                            if(allTags || inputTagsList.include('year_month')){
+                            if(allTags || inputTagsList.includes('year_month')){
                                 addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (dateValue.getUTCMonth()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
                             }
-                            if(allTags || inputTagsList.include('week')){
+                            if(allTags || inputTagsList.includes('week')){
                                 addTagsToList(("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_week', finalTags);
                             }
-                            if(allTags || inputTagsList.include('year_week')){
+                            if(allTags || inputTagsList.includes('year_week')){
                                 addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_year_week', finalTags);
                             }
-                            if(allTags || inputTagsList.include('weekday')){
+                            if(allTags || inputTagsList.includes('weekday')){
                                 addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), 'date_'+element+'_weekday', finalTags);
                             }
                         }                
