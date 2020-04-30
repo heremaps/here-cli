@@ -30,6 +30,8 @@ import {requestAsync} from "./requestAsync";
 import {ApiError} from "./api-error";
 import * as zlib from "zlib";
 import * as inquirer from "inquirer";
+const weeknumber = require('weeknumber');
+
 import * as summary from "./summary";
 
 const gsv = require("geojson-validation");
@@ -38,7 +40,7 @@ let cq = require("block-queue");
 export const bboxDirections = ["west", "south", "east", "north"];
 export let choiceList: { name: string, value: string }[] = [];
 
-export async function createSpace (options: any) {
+export async function createSpace(options: any) {
     if (options) {
         if (!options.title) {
             options.title = "a new XYZ space created from commandline";
@@ -52,7 +54,6 @@ export async function createSpace (options: any) {
     if (options.schema) {
 
         await common.verifyProLicense();
-        //  await common.verifyProBetaLicense();
 
         if (options.schema == true) {
             console.log("Please add local filepath / http link for your schema definition")
@@ -74,9 +75,9 @@ export async function createSpace (options: any) {
     }
 
 
-    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("XYZ space '" + body.id + "' created successfully");
-    return body;
+    const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
+    console.log("XYZ space '" + response.body.id + "' created successfully");
+    return response.body;
 }
 
 /**
@@ -136,37 +137,35 @@ export async function execInternal(
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
-    const isJson = contentType == "application/json" ? true : false;
-    let headers = {
-        "Authorization" : "Bearer " + token,
-        "Content-Type": contentType,
-        "App-Name": "HereCLI"
-    }
-
-    //Remove Auth params if not required, Used to get public response from URL
-    if (setAuthorization == false) {
-        delete headers["Authorization"]
-    }
-
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
         method: method,
-        json: isJson,
-        headers,
-        body: method === "GET" ? undefined : data
+        headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": contentType,
+            "App-Name": "HereCLI"
+        },
+        json: method === "GET" ? undefined : data,
+        allowGetBody: true,
+        responseType: responseType
     };
 
-    const { response, body } = await requestAsync(reqJson);
+    //Remove Auth params if not required, Used to get public response from URL
+    if (setAuthorization == false) {
+        delete reqJson.headers.Authorization;
+    }
+
+    const response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
         //throw new Error("Invalid response - " + message);
         throw new ApiError(response.statusCode, message);
     }
-    return { response, body };
+    return response;
 }
 
-
-async function execInternalGzip(
+export async function execInternalGzip(
     uri: string,
     method: string,
     contentType: string,
@@ -175,35 +174,36 @@ async function execInternalGzip(
     retry: number = 3
 ) {
     const zippedData = await gzip(data);
-    const isJson = contentType == "application/json" ? true : false;
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
-        method,
-        json: isJson,
+        method: method,
         headers: {
             Authorization: "Bearer " + token,
             "Content-Type": contentType,
             "Content-Encoding": "gzip",
             "Accept-Encoding": "gzip"
         },
-        gzip: true,
-        body: method === "GET" ? undefined : zippedData
+        decompress: true,
+        body: method === "GET" ? undefined : zippedData,
+        allowGetBody: true,
+        responseType: responseType
     };
 
-    let { response, body } = await requestAsync(reqJson);
+    let response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
-            body = await execInternalGzip(uri, method, contentType, data, token, --retry);
+            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
         }
     }
-    return { response, body };
+    return response;
 }
 
 function gzip(data: zlib.InputType): Promise<Buffer> {
@@ -217,7 +217,7 @@ function gzip(data: zlib.InputType): Promise<Buffer> {
     );
 }
 
-function getGeoSpaceProfiles(title: string, description: string, client: any) {
+export function getGeoSpaceProfiles(title: string, description: string, client: any) {
     return {
         title,
         description,
@@ -291,12 +291,14 @@ export function getSpaceDataFromXyz(id: string, options: any) {
 
             try {
                 let cHandle = options.handle ? options.handle : 0;
-                if (cHandle === 0) {
+                if (cHandle === 0 && !options.ignoreLogs) {
                     process.stdout.write("Operation may take a while. Please wait...");
                 }
                 do {
-                    process.stdout.write(".");
-                    let { response, body } = await execute(
+                    if(!options.ignoreLogs){
+                        process.stdout.write(".");
+                    }
+                    let response = await execute(
                         getUrI(String(cHandle)),
                         "GET",
                         cType,
@@ -304,7 +306,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                         options.token,
                         true
                     );
-                    jsonOut = body;
+                    jsonOut = response.body;
                     if (jsonOut.constructor !== {}.constructor) {
                         jsonOut = JSON.parse(jsonOut);
                     }
@@ -367,7 +369,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         process.exit(1);
     }
 
-    if(!options.stream && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+    if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
         console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
     }
 
@@ -485,11 +487,21 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     options.file,
                     false
                 );
+                let object = JSON.parse(result);
+                if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
+                    object = {
+                        features: await transform.transform(
+                            object,
+                            options
+                        ),
+                        type: "FeatureCollection"
+                    };
+                }
                 await uploadData(
                     id,
                     options,
                     tags,
-                    JSON.parse(result),
+                    object,
                     true,
                     options.ptag,
                     options.file,
@@ -532,6 +544,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                 console.log(
                     "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
                 );
+                process.exit(1);
             }
         });
     }
@@ -591,10 +604,10 @@ export function collate(result: Array<any>) {
     }, []);
 }
 
-export async function iterateChunks (chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
+export async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
     const item = chunks.shift();
     const fc = { type: "FeatureCollection", features: item };
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "POST",
         "application/geo+json",
@@ -609,7 +622,7 @@ export async function iterateChunks (chunks: any, url: string, index: number, ch
     );
 
     if (response.statusCode >= 200 && response.statusCode < 210) {
-        let res = JSON.parse(body);
+        let res = response.body;
         if (res.features)
             upresult.success = upresult.success + res.features.length;
         if (res.failed) {
@@ -793,6 +806,55 @@ export async function mergeAllTags(
                 }
             });
         }
+
+        if(options.date){
+            try{
+                options.date.split(",").forEach((element: any) => {
+                    const value = item.properties[element];
+                    if(value){
+                        let dateValue: Date;
+                        if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
+                            dateValue = new Date(parseFloat(value.toString()));
+                        } else {
+                            dateValue = new Date(value);
+                        }
+                        item.properties['xyz_timestamp_'+element] = dateValue.getTime();
+                        item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
+                        if(options.datetag){
+                            let allTags: boolean = false;
+                            if(options.datetag == true || options.datetag == undefined){
+                                allTags = true;
+                            }
+                            let inputTagsList = [];
+                            if(!allTags){
+                                inputTagsList = options.datetag.split(',');
+                            }
+                            if(allTags || inputTagsList.includes('year')){
+                                addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('month')){
+                                addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), 'date_'+element+'_month', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('year_month')){
+                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (dateValue.getUTCMonth()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('week')){
+                                addTagsToList(("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_week', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('year_week')){
+                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_year_week', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('weekday')){
+                                addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), 'date_'+element+'_weekday', finalTags);
+                            }
+                        }
+                    }
+                });
+            } catch(e){
+                console.log("Invalid time format - " + e.message);
+                process.exit(1);
+            }
+        }
         const nameTag = fileName ? getFileName(fileName) : null;
         if (nameTag) {
             finalTags.push(nameTag);
@@ -849,7 +911,6 @@ export function getFileName(fileName: string) {
     }
 }
 
-
 export function addTagsToList(value: string, tp: string, finalTags: string[]) {
     value = value.toString().toLowerCase();
     value = value.replace(/\s+/g, "_");
@@ -862,7 +923,6 @@ export function addTagsToList(value: string, tp: string, finalTags: string[]) {
     finalTags.push(tp + "@" + value);
     return finalTags;
 }
-
 
 export function createUniqueId(idStr: string, item: any) {
     const ids = idStr.split(",");

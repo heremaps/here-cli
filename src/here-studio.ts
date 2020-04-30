@@ -73,7 +73,7 @@ program
 
 program
     .command("clone <project-id>")
-    .description("open the project with the given id")
+    .description("clone a project with the given id or viewer-url")
     .action(async (geospaceId, options) => {
         cloneProject (geospaceId, options)
             .catch((error) => {
@@ -82,8 +82,8 @@ program
     });
 
 
-//cloneProject - cloning projects for studio
-//
+// cloneProject - cloning projects for studio
+// Steps :
 //- Get the token from ProjectAPI and have a reference of currentUser’s token
 // https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7
 //

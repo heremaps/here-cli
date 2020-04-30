@@ -60,30 +60,29 @@ async function geoCode(locationString: string) {
         hasAppCode = false;
     }
 
-    let result = await execGeoCode(locationString, hasAppCode, appInfo);
-
-    if (result.response.statusCode !== 200) {
-        if(result.response.statusCode === 401 && !hasAppCode) {
+    let response = await execGeoCode(locationString, hasAppCode, appInfo);
+    if (response.statusCode !== 200) {
+        if(response.statusCode === 401 && !hasAppCode) {
             await common.encryptAndStore("apiKeys", appId);
-            result = await execGeoCode(locationString, hasAppCode, appInfo);
-            if(result.response.statusCode !== 200) {
-                if(result.response.statusCode === 401) {
+            response = await execGeoCode(locationString, hasAppCode, appInfo);
+            if(response.statusCode !== 200) {
+                if(response.statusCode === 401) {
                     console.log("API Keys for AppId "+ appId +" is disabled or not generated. \n" +
                         "Please generate/enable your API Keys at https://developer.here.com." +
                         "If already generated/enabled, please try again in a few minutes.");
                     process.exit(1);
                 } else {
-                    throw new Error(result.response.body);
+                    throw new Error(response.body);
                 }
             }
-        } else if(result.response.statusCode === 403) {
+        } else if(response.statusCode === 403) {
             console.log("Invalid credentials for AppId "+appId+". Please re-run 'here configure'.");
             process.exit(1);
         } else {
-            throw new Error(result.response.body);
+            throw new Error(response.body);
         }
     }
-    let geocodeJson = JSON.parse(result.body);
+    let geocodeJson = JSON.parse(response.body);
     if (geocodeJson.Response.View.length == 0) {
         console.log("Could not geocode the place '" + locationString + "'");
     } else {

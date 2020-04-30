@@ -41,8 +41,9 @@ import { ApiError } from "./api-error";
 import * as _ from "lodash";
 const gsv = require("geojson-validation");
 const path = require('path');
-import * as xyzComm from './xyzCommon'
+const weeknumber = require('weeknumber');
 
+import * as xyzComm from './xyzCommon'
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 let choiceList: { name: string, value: string }[] = [];
@@ -211,33 +212,29 @@ async function execInternal(
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
-    const isJson = contentType == "application/json" ? true : false;
-    let headers = {
-        "Authorization" : "Bearer " + token,
-        "Content-Type": contentType,
-        "App-Name": "HereCLI"
-    }
 
-    //Remove Auth params if not required, Used to get public response from URL
-    if (setAuthorization == false) {
-        delete headers["Authorization"]
-    }
-
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
         method: method,
-        json: isJson,
-        headers,
-        body: method === "GET" ? undefined : data
+        headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": contentType,
+            "App-Name": "HereCLI"
+        },
+        json: method === "GET" ? undefined : data,
+        allowGetBody: true,
+        responseType: responseType
     };
 
-    const { response, body } = await requestAsync(reqJson);
+
+    const response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
         //throw new Error("Invalid response - " + message);
         throw new ApiError(response.statusCode, message);
     }
-    return { response, body };
+    return response;
 }
 
 function gzip(data: zlib.InputType): Promise<Buffer> {
@@ -260,35 +257,36 @@ async function execInternalGzip(
     retry: number = 3
 ) {
     const zippedData = await gzip(data);
-    const isJson = contentType == "application/json" ? true : false;
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
-        method,
-        json: isJson,
+        method: method,
         headers: {
             Authorization: "Bearer " + token,
             "Content-Type": contentType,
             "Content-Encoding": "gzip",
             "Accept-Encoding": "gzip"
         },
-        gzip: true,
-        body: method === "GET" ? undefined : zippedData
+        decompress: true,
+        body: method === "GET" ? undefined : zippedData,
+        allowGetBody: true,
+        responseType: responseType
     };
 
-    let { response, body } = await requestAsync(reqJson);
+    let response = await requestAsync(reqJson);
     if (response.statusCode < 200 || response.statusCode > 210) {
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
-            body = await execInternalGzip(uri, method, contentType, data, token, --retry);
+            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
         }
     }
-    return { response, body };
+    return response;
 }
 
 async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
@@ -304,6 +302,7 @@ program
     .description("information about available XYZ spaces and projects")
     .option("-r, --raw", "show raw XYZ space definition")
     .option("--token <token>", "a external token to access another user's spaces")
+    .option("--filter <filter>", "a comma separted strings to filter spaces")
     .option(
         "-p, --prop <prop>",
         "property fields to include in table",
@@ -320,22 +319,29 @@ program
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", options.token);
-    if (body.length == 0) {
+    const response = await execute(uri, "GET", cType, "", options.token);
+    if (response.body.length == 0) {
         console.log("No XYZ space found");
     } else {
         let fields = ["id", "title", "description"];
         if (options.prop.length > 0) {
             fields = options.prop;
         }
+        let result = response.body;
+        if(options.filter){
+            const filterArray = options.filter.split(",");
+            result = result.filter((element: any) => {
+                for (var i=0; i<filterArray.length; i++) {
+                    if(element.title.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1 || element.description.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1){
+                        return true;
+                    }
+                }
+            });
+        }
         if (options.raw) {
-            try {
-                console.log(JSON.stringify(JSON.parse(body), null, 2));
-            } catch (e) {
-                console.log(JSON.stringify(body, null, 2));
-            }
+            console.log(JSON.stringify(result, null, 2));
         } else {
-            common.drawNewTable(body, fields, [10, 40, 60]);
+            common.drawNewTable(result, fields, [10, 40, 60]);
         }
     }
 }
@@ -457,7 +463,7 @@ async function analyzeSpace(id: string, options: any) {
     process.stdout.write("Operation may take a while. Please wait...");
     do {
         process.stdout.write(".");
-        let { response, body } = await execute(
+        let response = await execute(
             getUrI(String(cHandle)),
             "GET",
             cType,
@@ -465,7 +471,7 @@ async function analyzeSpace(id: string, options: any) {
             options.token,
             true
         );
-        const jsonOut = JSON.parse(body);
+        const jsonOut = response.body;
         cHandle = jsonOut.handle;
         if (jsonOut.features) {
             recordLength += jsonOut.features.length;
@@ -507,7 +513,6 @@ program
         (async () => {
             try {
                 await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
                 //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
@@ -751,8 +756,8 @@ async function updateClientSpaceWithNewSpaceId(newSpaceType: string, sourceId: s
             [key] : newSpaceId
         }
     }
-    const { response, body } = await execute(uri, "PATCH", cType, data);
-    return body;
+    const response = await execute(uri, "PATCH", cType, data);
+    return response.body;
 }
 
 async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: string[], cellSizes: string[], token: string | null = null) {
@@ -764,8 +769,8 @@ async function updateCellSizeAndZoomLevelsInHexbinSpace(id: string, zoomLevels: 
             cellSizes: cellSizes
         }
     }
-    const { response, body } = await execute(uri, "PATCH", cType, data, token);
-    return body;
+    const response = await execute(uri, "PATCH", cType, data, token);
+    return response.body;
 }
 
 async function getBoundingBoxFromUser() {
@@ -777,8 +782,8 @@ async function getBoundingBoxFromUser() {
 export async function getSpaceMetaData(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", token);
-    return body;
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function getKeyByValue(object: any, value: any) {
@@ -793,7 +798,7 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
 }
 
 async function getStatisticsData(spaceId: string, token: string | null = null) {
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + spaceId + "/statistics",
         "GET",
         "application/json",
@@ -801,7 +806,7 @@ async function getStatisticsData(spaceId: string, token: string | null = null) {
         token,
         true
     );
-    return body;
+    return response.body;
 }
 
 function replaceOpearators(expr: string) {
@@ -815,6 +820,9 @@ program
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw XYZ space content")
+    .option("--all", "iterate over entire XYZ space to get entire data of space, output will be shown on the console in geojson format")
+    .option("--geojsonl", "to print output of --all in geojsonl format")
+    .option("-c, --chunk [chunk]", "chunk size to use in --all option, default 5000")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-w, --web", "display XYZ space on http://geojson.tools")
@@ -852,6 +860,48 @@ async function showSpace(id: string, options: any) {
         process.exit(1);
     }
 
+    if(options.all){
+        options.totalRecords = Number.MAX_SAFE_INTEGER;
+        options.currentHandleOnly = true;
+        options.handle = 0;
+        options.ignoreLogs = true;
+        if(options.chunk){
+            options.limit = options.chunk;
+        }
+        let cHandle;
+        if(!options.geojsonl){
+            process.stdout.write('{"type":"FeatureCollection","features":[');
+        }
+        do {
+            let jsonOut = await getSpaceDataFromXyz(id, options);
+            cHandle = jsonOut.handle;
+            if (jsonOut.features && jsonOut.features.length > 0) {
+                jsonOut.features.forEach((element: any) => {
+                    if(element.properties && element.properties['@ns:com:here:xyz']){
+                        delete element.properties['@ns:com:here:xyz'];
+                    }
+                    if(options.geojsonl){
+                        console.log(JSON.stringify(element));
+                    }
+                });
+                if(!options.geojsonl){
+                    if(options.handle != 0){
+                        process.stdout.write(",");
+                    }
+                    let outString = JSON.stringify(jsonOut.features);
+                    process.stdout.write(outString.substring(1, outString.length-1));
+                }
+            } else {
+                cHandle = -1;
+            }
+            options.handle = jsonOut.handle;
+        } while (cHandle >= 0);
+        if(!options.geojsonl){
+            process.stdout.write(']}');
+        }
+        process.exit(0);
+    }
+
     if (options.raw) {
         tableFunction = function (data: any, columns: any) {
             try {
@@ -864,7 +914,6 @@ async function showSpace(id: string, options: any) {
 
     if (options.search || options.prop) {
         await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     }
 
     cType = "application/geo+json";
@@ -933,7 +982,7 @@ async function showSpace(id: string, options: any) {
         await launchHereGeoJson(uri, options.token);
     } else {
        // console.log(uri);
-        const { response, body } = await execute(
+        const response = await execute(
             uri,
             requestMethod,
             cType,
@@ -949,7 +998,7 @@ async function showSpace(id: string, options: any) {
                 "createdAt",
                 "updatedAt"
             ];
-            const responseBody = JSON.parse(body);
+            const responseBody = response.body;
             const allFeatures = responseBody.features;
             const responseHandle = responseBody.handle;
             if (responseHandle)
@@ -971,7 +1020,7 @@ async function showSpace(id: string, options: any) {
 
                 fields = (str).split(",")
             }
-            tableFunction(options.raw ? body : allFeatures, fields);
+            tableFunction(options.raw ? response.body : allFeatures, fields);
         } else {
             if (response.statusCode == 404) {
                 console.log("OPERATION FAILED : " + id + " does not exist");
@@ -1025,7 +1074,7 @@ async function deleteSpace(geospaceId: string, options:any) {
         }
     }
 
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + geospaceId + "?clientId=cli",
         "DELETE",
         "application/json",
@@ -1049,7 +1098,6 @@ program
         .catch(error => {
             handleError(error);
         }));
-
 
 async function createSpace(options: any) {
     let body = await xyzComm.createSpace(options);
@@ -1110,7 +1158,7 @@ async function clearSpace(id: string, options: any) {
     let finalOpt = tagOption + idOption;
 
     //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
-    const { response, body } = await execute(
+    const response = await execute(
         "/hub/spaces/" + id + "/features?" + finalOpt + "&clientId=cli",
         "DELETE",
         "application/geo+json",
@@ -1182,13 +1230,13 @@ async function listTokens() {
         }
     };
 
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode != 200) {
-        console.log("Error while fetching maxrights :" + body);
+        console.log("Error while fetching maxrights :" + response.body);
         return;
     }
 
-    const tokenInfo = JSON.parse(body);
+    const tokenInfo = JSON.parse(response.body);
     const currentToken = await common.decryptAndGet("keyInfo", "No token found");
     console.log(
         "===================================================="
@@ -1200,6 +1248,7 @@ async function listTokens() {
     common.drawNewTable(tokenInfo.tokens, ["id", "type", "iat", "description"], [25, 10, 10, 70]);
 }
 
+const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week'];
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
@@ -1222,8 +1271,24 @@ program
     .option('-q, --quote ["]', 'quote used in CSV', '"')
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
+    .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
     .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
     .action(async function (id, options) {
+        if(options.datetag && !options.date){
+            console.log("--datetag option is only allowed with --date option");
+            process.exit(1);
+        }
+        if(options.datetag){
+            if(!(options.datetag == true || options.datetag == undefined)){
+                options.datetag.split(',').forEach((tag: string) => {
+                    if(!validDateTags.includes(tag)){
+                        console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
+                        process.exit(1);
+                    }
+                });
+            }
+        }
         if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
@@ -1430,9 +1495,10 @@ function getFileName(fileName: string) {
 async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
     return await xyzComm.iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed)
 }
+
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "PUT",
         "application/geo+json",
@@ -1440,7 +1506,7 @@ async function iterateChunk(chunk: any, url: string) {
         null,
         true
     );
-    return body;
+    return response.body;
 }
 
 function chunkify(data: any[], chunksize: number) {
@@ -1455,8 +1521,8 @@ async function launchHereGeoJson(uri: string, token: string) {
         uri.indexOf("?") == -1
             ? "?access_token=" + token
             : "&access_token=" + token;
-    const opn = require("opn");
-    opn(
+    const open = require("open");
+    open(
         "http://geojson.tools/index.html?url=" +
         common.xyzRoot() +
         uri +
@@ -1469,31 +1535,32 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
         token = await common.verify(true);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
-    const opn = require("opn");
-    opn(
+    const open = require("open");
+    open(
         uri
         , { wait: false });
 }
 
 async function getStatsAndBasicForSpace(spaceId: string) {
     let url = `/hub/spaces/${spaceId}/statistics?clientId=cli&skipCache=true`
-    const { response, body: statsbody } = await execute(
+    const response = await execute(
         url,
         "GET",
         "application/json",
         ""
     );
+    let statsbody = response.body;
 
     if (response.statusCode >= 200 && response.statusCode < 210) {
         url = `/hub/spaces/${spaceId}`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
             ""
         );
         if (response.statusCode >= 200 && response.statusCode < 210) {
-            statsbody['spacedef'] = body;
+            statsbody['spacedef'] = response.body;
         }
         return statsbody;
     }
@@ -1528,8 +1595,9 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
+    if(options.schema || options.searchable || options.tagrules || options.activitylog){
+        await common.verifyProLicense();
+    }
 
     let patchRequest: any = {};
     let spacedef: any = null;
@@ -1571,13 +1639,13 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.schema) {
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
             ""
         );
-        spacedef = body;
+        spacedef = response.body;
     }
 
 
@@ -1623,16 +1691,16 @@ async function configXyzSpace(id: string, options: any) {
                     while (i--) {
                         let processor = spacedef.processors[i];
                         if (processor.id === 'schema-validator') {
-                            const { response, body } = await execute(processor.params.schemaUrl, "GET", "application/json", "");
-                            console.log(JSON.stringify(body, null, 3));
+                            const response = await execute(processor.params.schemaUrl, "GET", "application/json", "");
+                            console.log(JSON.stringify(response.body, null, 3));
                             process.exit(1);
                         }
                     }
                 } else {
                     let schemaValidatorProcessor = spacedef.processors['schema-validator'];
                     if(schemaValidatorProcessor && schemaValidatorProcessor.length > 0){
-                        const { response, body } = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
-                        console.log(JSON.stringify(body, null, 3));
+                        const response = await execute(schemaValidatorProcessor[0].params.schemaUrl, "GET", "application/json", "");
+                        console.log(JSON.stringify(response.body, null, 3));
                         process.exit(1);
                     }
                 }
@@ -1693,7 +1761,7 @@ async function configXyzSpace(id: string, options: any) {
         }
 
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",
@@ -1714,7 +1782,7 @@ async function configXyzSpace(id: string, options: any) {
         }
     } else {
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "GET",
             "application/json",
@@ -1724,9 +1792,9 @@ async function configXyzSpace(id: string, options: any) {
 
         if (response.statusCode >= 200 && response.statusCode < 210) {
             if (options.raw) {
-                console.log(body);
+                console.log(response.body);
             } else {
-                showSpaceConfig(body);
+                showSpaceConfig(response.body);
             }
         }
     }
@@ -1736,18 +1804,18 @@ async function configXyzSpace(id: string, options: any) {
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
+
     let patchRequest:any = {};
 
     let tabledata:any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
-    const { response, body } = await execute(
+    const response = await execute(
             url,
             "GET",
             "application/json",
             ""
         );
-    let spacedef = body;
+    let spacedef = response.body;
     let enabled = false;
     //console.log(JSON.stringify(spacedef));
     if(spacedef.listeners) {
@@ -1813,7 +1881,7 @@ async function activityLogConfig(id:string, options:any) {
    //console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
     const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
                 url,
                 "PATCH",
                 "application/json",
@@ -1844,8 +1912,8 @@ function getEmptyAcitivityLogListenerProfile() {
 export async function getSpaceStatistics(id: string, token: string | null = null) {
     const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
     const cType = "application/json";
-    const { response, body } = await execute(uri, "GET", cType, "", token);
-    return body;
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function showSpaceStats(spacestatsraw: any) {
@@ -1990,7 +2058,6 @@ program
 
 export async function createJoinSpace(id:string, options:any){
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
         return;
@@ -2031,8 +2098,6 @@ async function createVirtualSpace(options: any) {
 
     await common.verifyProLicense();
 
-  //  await common.verifyProBetaLicense();
-
     if (options) {
         if (options.group && options.associate) {
             console.log("ERROR : please select either associate or group");
@@ -2060,9 +2125,9 @@ async function createVirtualSpace(options: any) {
     }
 
     const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
-    const { response, body } = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
+    const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
     if (response.statusCode >= 200 && response.statusCode < 210) {
-        console.log("virtual xyzspace '" + body.id + "' created successfully");
+        console.log("virtual xyzspace '" + response.body.id + "' created successfully");
     }
 }
 
@@ -2181,17 +2246,16 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
 
 async function tagRuleConfig(id: string, options: any) {
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
-    const { response, body } = await execute(
+    const response = await execute(
         url,
         "GET",
         "application/json",
         ""
     );
-    spacedef = body;
+    spacedef = response.body;
     if (spacedef != null) {
         let ruleTagger = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger');
         let ruleTaggerAsync = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger-async');
@@ -2416,7 +2480,7 @@ async function tagRuleConfig(id: string, options: any) {
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`;
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",
@@ -2446,7 +2510,6 @@ async function tagRuleConfig(id: string, options: any) {
 
 async function searchableConfig(id: string, options: any) {
     await common.verifyProLicense();
-  //  await common.verifyProBetaLicense();
     let patchRequest: any = {};
     let spacedef: any = {};
     const url = `/hub/spaces/${id}?clientId=cli`
@@ -2564,7 +2627,7 @@ async function searchableConfig(id: string, options: any) {
     if (Object.keys(patchRequest).length > 0) {
 
         const url = `/hub/spaces/${id}?clientId=cli`
-        const { response, body } = await execute(
+        const response = await execute(
             url,
             "PATCH",
             "application/json",

@@ -22,17 +22,23 @@
   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-import * as request from 'request';
-
+const got = require('got');
+import { ApiError } from "./api-error";
 // async wrapper around request
-export function requestAsync(options: request.CoreOptions & request.UrlOptions): Promise<{ response: request.Response, body: any }>
+export function requestAsync(options: any): Promise<any>
 {
-    return new Promise((resolve, reject) => {
-        request(options, function(err, response, body) {
-            if (err)
-                reject(err);
-            else
-                resolve({ response, body });
-        });
-    });
+  return new Promise(async (resolve, reject) => {
+    try{
+      let result = await got(options);
+      resolve(result);
+    } catch(e){
+      if(e.response && e.response.body && e.response.statusCode){
+        resolve({statusCode:e.response.statusCode, body:JSON.stringify(e.response.body)});
+      } else if(e.response){
+        reject(e.response);
+      } else {
+        reject(e);
+      }
+    }
+  });
 }

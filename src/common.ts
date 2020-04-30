@@ -26,6 +26,7 @@ import * as sso from "./sso";
 import { requestAsync } from "./requestAsync";
 import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
+import getMAC from 'getmac';
 
 import {table,getBorderCharacters} from 'table';
 
@@ -79,12 +80,6 @@ export async function resetTermsFlag() {
 }
 
 export async function verifyProLicense() {
-    if (settings.get('ProBetaLicense')) {
-        if (settings.get('ProBetaLicense') === 'true') {
-            //  console.log("allowing this pro feature under beta");
-            return;
-        }
-    }
     // let now = new Date().getTime();
     // let minutesInMilis = 1000 * 60 * 1;
     // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
@@ -107,7 +102,6 @@ export async function verifyProLicense() {
 
 export async function updatePlanDetails(accountMe: any) {
     settings.set('ProEnabled', 'false');
-    let proBetaCheck = true;
     let apps = accountMe.apps;
     if (apps) {
         for (let appId of Object.keys(apps)) {
@@ -116,7 +110,6 @@ export async function updatePlanDetails(accountMe: any) {
                 if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
                     settings.set('ProEnabled', 'true');
                     settings.set('ProEnabledTS', new Date().getTime());
-                    proBetaCheck = false;
                     console.log("Pro features enabled.");
                     break;
                 }
@@ -124,13 +117,6 @@ export async function updatePlanDetails(accountMe: any) {
         }
     } else {
         console.log("Warning : could not update plan details.")
-    }
-    const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-    if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
-        if (proBetaCheck) {
-            console.log("Pro features enabled under Beta agreement.");
-        }
-        settings.set('ProBetaLicense', 'true');
     }
 }
 
@@ -207,71 +193,6 @@ export async function refreshAccount(fullRefresh = false) {
     }
 }
 
-export async function verifyProBetaLicense() {
-    if (settings.get('ProBetaLicense') === 'true') {
-        return;
-    } else {
-        const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.")
-        const appDataStored: string = await decryptAndGet("appDetails");
-        const appDetails = appDataStored.split("%%");
-        const credentials = accountInfo.split("%%");
-        console.log("Setting up your HERE XYZ Pro beta access..");
-        const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
-        const accountMeStr = await getAppIds(mainCoookie);
-        const accountMe = JSON.parse(accountMeStr);
-        const proTcAcceptedAt = accountMe.proTcAcceptedAt;
-        if (proTcAcceptedAt != null && proTcAcceptedAt > 0) {
-            const newtoken = await generateToken(mainCoookie, appDetails[0]);
-            if (newtoken) {
-                settings.set('ProBetaLicense', 'true');
-                console.log("Successfully obtained HERE XYZ Pro beta access!");
-            }
-        } else {
-            console.log("In order to use the HERE XYZ Pro features, ");
-            process.exit(1);
-        }
-    }
-}
-
-async function showLicenseConfirmationForProBeta() {
-    console.log(fs.readFileSync(path.resolve(__dirname, 'pro-beta-terms.txt'), 'utf8'));
-    try {
-        const opn = require("opn");
-        opn("https://legal.here.com/en-gb/HERE-XYZ-Pro-Beta-Terms-and-Conditions", { wait: false });
-    } catch {
-    }
-    const answer = await inquirer.prompt<{ license?: string }>(questionLicense);
-
-    const termsResp = answer.license ? answer.license.toLowerCase() : 'decline';
-    if (termsResp === "a" || termsResp === "accept") {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-export async function upgradeToProBeta(cookies?: string, accountId?: string) {
-    //proTcAcceptedAt
-    console.log("Requesting XYZ Pro beta access...");
-    const proTS = new Date().getTime();
-    let payload : any = {proTcAcceptedAt: proTS};   
-    
-        var options = {
-            url : xyzRoot()+`/account-api/accounts/${accountId}`,
-            method : 'PATCH',
-            headers : {
-                "Cookie": cookies
-            },
-            json : true,
-            body : payload
-        }
-        const { response, body } = await requestAsync(options);
-        if (response.statusCode < 200 || response.statusCode > 299) {
-            throw new Error("Account operation failed : " + JSON.stringify(body));
-        }
-        return body;
-}
-
 function rightsRequest(appId: string) {
     return {
         "urm": {
@@ -307,28 +228,21 @@ function rightsRequest(appId: string) {
 }
 
 function getMacAddress() {
-    return new Promise<string>((resolve, reject) =>
-        require('getmac').getMac(function (err: any, macAddress: string) {
-            if (err)
-                reject(err);
-            else
-                resolve(macAddress);
-        })
-    );
+    return getMAC();
 }
 
 export async function login(authId: string, authSecret: string) {
-    const { response, body } = await requestAsync({
+    const response = await requestAsync({
         url: xyzRoot() + "/token-api/token?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
-        body: rightsRequest(authId),
-        json: true,
+        json: rightsRequest(authId),
+        responseType: "json"
     });
 
     if (response.statusCode < 200 || response.statusCode > 299)
-        throw new Error("Failed to login: " + JSON.stringify(body));
+        throw new Error("Failed to login: " + JSON.stringify(response.body));
 
-    encryptAndStore('keyInfo', body.tid);
+    encryptAndStore('keyInfo', response.body.tid);
     encryptAndStore('appDetails', authId + keySeparator + authSecret);
 
     console.log("Secrets verified successfully");
@@ -355,7 +269,8 @@ function readOnlyRightsRequest(maxRights:any) {
           "xyz-hub": {
             "readFeatures": maxRights['xyz-hub'].readFeatures,
             "useCapabilities": [{
-                "id" : "hexbinClustering"
+            }],
+            "accessConnectors": [{
             }]
           }
     };
@@ -373,11 +288,11 @@ export async function getAppIds(cookies: string) {
             "Cookie": cookies
         }
     };
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode > 299)
-        throw new Error("Error while fetching Apps: " + JSON.stringify(body));
+        throw new Error("Error while fetching Apps: " + JSON.stringify(response.body));
 
-    return body;
+    return response.body;
 }
 
 export async function updateDefaultAppId(cookies: string, accountId: string, appId: string, updateTC: boolean) {
@@ -392,28 +307,28 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             headers : {
                 "Cookie": cookies
             },
-            json : true,
-            body : payload
+            json : payload,
+            responseType: "json"
         }
-        const { response, body } = await requestAsync(options);
+        const response = await requestAsync(options);
         if (response.statusCode < 200 || response.statusCode > 299)
-            throw new Error("Error while fetching Apps: " + JSON.stringify(body));
+            throw new Error("Error while fetching Apps: " + JSON.stringify(response.body));
 
-        return body;
+        return response.body;
 }
 
 async function validateToken(token: string) {
     if (validated)
         return true;
 
-    const { response, body } = await requestAsync({
+    const response = await requestAsync({
         url: xyzRoot() + "/token-api/tokens/" + token,
         method: "GET",
-        json: true,
+        responseType: "json"
     });
 
     if (response.statusCode < 200 || response.statusCode > 299) {
-        console.log("Failed to login : " + JSON.stringify(body));
+        console.log("Failed to login : " + JSON.stringify(response.body));
         throw new Error("Failed to log in");
     }
 
@@ -434,16 +349,16 @@ export async function getAccountId(){
 }
 
 async function getTokenInformation(tokenId: string){
-    const { response, body } = await requestAsync({
+    const response = await requestAsync({
         url: xyzRoot() + "/token-api/tokens/" + tokenId,
         method: "GET",
-        json: true,
+        responseType: "json"
     });
 
     if (response.statusCode < 200 || response.statusCode > 299) {
         throw new Error("Fetching token information failed for Token - " + tokenId);
     }
-    return body;
+    return response.body;
 }
 
 export async function encryptAndStore(key: string, toEncrypt: string) {
@@ -598,15 +513,16 @@ export async function getApiKeys(cookies: string, appId: string) {
     const options = {
         url: account_api_url + `/apps/${hrn}/apiKeys`,
         method: 'GET',
-        auth: {
-            'bearer': token
+        headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": "application/json",
         }
     };
-    const { response, body } = await requestAsync(options);
+    const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode > 299) {
-        throw new Error("Error while fetching Api Keys: " + JSON.stringify(body));
+        throw new Error("Error while fetching Api Keys: " + JSON.stringify(response.body));
     }
-    const resp = JSON.parse(body);
+    const resp = JSON.parse(response.body);
     let apiKeys = appId;
     if(resp.items && resp.items.length > 0) {
         for(var i=0; i<resp.items.length; i++) {
