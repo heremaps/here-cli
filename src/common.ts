@@ -269,7 +269,8 @@ function readOnlyRightsRequest(maxRights:any) {
           "xyz-hub": {
             "readFeatures": maxRights['xyz-hub'].readFeatures,
             "useCapabilities": [{
-                "id" : "hexbinClustering"
+            }],
+            "accessConnectors": [{
             }]
           }
     };
