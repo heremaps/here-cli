@@ -107,7 +107,7 @@ async function cloneProject  (id : any, options: any) {
     console.log("Cloning project : "+id);
     let cType = "";
 
-    let { response, body } = await execute(uri, "GET", cType, "", options.token, false, false);
+    let response = await execute(uri, "GET", cType, "", options.token, false, false);
 
     response.body = JSON.parse(response.body);
 
@@ -194,8 +194,9 @@ async function cloneProject  (id : any, options: any) {
     //Update the token for current project
     clonedProjectData.rot = currentUsersToken;
 
-    let { response:newProjectResponse, body:newProjectBody } = await execute(uri, "POST", cType, clonedProjectData, options.token);
+    let newProjectResponse = await execute(uri, "POST", cType, clonedProjectData, options.token);
 
+    let newProjectBody = newProjectResponse.body;
     let studioBaseURL = "https://studio.here.com";
     let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
 
@@ -232,7 +233,7 @@ async function deleteProject  (id : any, options: any) {
     //If project exists send a DELETE request for that projectID
     const uri = "/project-api/projects/"+id;
     const cType = "";
-    let { response, body } = await execute (uri, "DELETE", cType, "", options.token);
+    let response = await execute (uri, "DELETE", cType, "", options.token);
 
     if (response && response.statusCode === 204) {
         console.log("Successfully deleted project.")
@@ -252,13 +253,14 @@ export async function listProjects (options: any) {
     console.log("Please wait; Fetching your list of projects...")
     const uri = "/project-api/projects";
     const cType = "";//"application/json";//
-    let { response, body } = await execute(uri, "GET", cType, "", options.token);
-    if (body.length == 0) {
+    let response = await execute(uri, "GET", cType, "", options.token);
+    let body = JSON.parse(response.body)
+    if (response.body.length == 0) {
         console.log("No xyz projects found");
     } else {
         let fields = ["id", "title", "status"];
 
-        body = JSON.parse(body);
+        response.body = JSON.parse(response.body);
 
         //Flattened array of project JsonObjects containing info about name, id and description, add any other info later as necessary
         let extractProjectInfo: any[] = new Array();
