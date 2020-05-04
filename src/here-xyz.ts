@@ -348,7 +348,7 @@ async function listSpaces(options: any) {
             const filterArray = options.filter.split(",");
             result = result.filter((element: any) => {
                 for (var i=0; i<filterArray.length; i++) {
-                    if(element.title.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1 || element.description.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1){
+                    if(element.title.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1 || (element.description && element.description.toLowerCase().indexOf(filterArray[i].toLowerCase()) != -1)){
                         return true;
                     }
                 }
