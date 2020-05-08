@@ -843,7 +843,7 @@ async function getBoundingBoxFromUser() {
 }
 
 export async function getSpaceMetaData(id: string, token: string | null = null) {
-    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const uri = "/hub/spaces/" + id + "?clientId=cli&skipCache=true";
     const cType = "application/json";
     const response = await execute(uri, "GET", cType, "", token);
     return response.body;
@@ -854,22 +854,10 @@ function getKeyByValue(object: any, value: any) {
 }
 
 async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = null) {
-    const body = await getStatisticsData(spaceId, token);
+    const body = await getSpaceStatistics(spaceId, token);
     let bbox = body.bbox.value;
     const centreLatitude = (bbox[1] + bbox[3]) / 2;
     return centreLatitude;
-}
-
-async function getStatisticsData(spaceId: string, token: string | null = null) {
-    const response = await execute(
-        "/hub/spaces/" + spaceId + "/statistics",
-        "GET",
-        "application/json",
-        null,
-        token,
-        true
-    );
-    return response.body;
 }
 
 function replaceOpearators(expr: string) {
@@ -1239,7 +1227,6 @@ async function clearSpace(id: string, options: any) {
 
     let finalOpt = tagOption + idOption;
 
-    //console.log("/hub/spaces/"+id+"/features?"+deleteOptions);
     const response = await execute(
         "/hub/spaces/" + id + "/features?" + finalOpt + "&clientId=cli",
         "DELETE",
@@ -2194,28 +2181,9 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
 }
 
 async function getStatsAndBasicForSpace(spaceId: string) {
-    let url = `/hub/spaces/${spaceId}/statistics?clientId=cli&skipCache=true`
-    const response = await execute(
-        url,
-        "GET",
-        "application/json",
-        ""
-    );
-    let statsbody = response.body;
-
-    if (response.statusCode >= 200 && response.statusCode < 210) {
-        url = `/hub/spaces/${spaceId}`
-        const response = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""
-        );
-        if (response.statusCode >= 200 && response.statusCode < 210) {
-            statsbody['spacedef'] = response.body;
-        }
-        return statsbody;
-    }
+    let statsbody = await getSpaceStatistics(spaceId);
+    statsbody['spacedef'] = await getSpaceMetaData(spaceId);
+    return statsbody;
 }
 
 
@@ -2290,14 +2258,7 @@ async function configXyzSpace(id: string, options: any) {
         await activityLogConfig(id, options);
         process.exit(1);
     } else if (options.schema) {
-        const url = `/hub/spaces/${id}?clientId=cli`
-        const response = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""
-        );
-        spacedef = response.body;
+        spacedef = await getSpaceMetaData(id);
     }
 
 
@@ -2433,21 +2394,11 @@ async function configXyzSpace(id: string, options: any) {
             showSpaceStats(body);
         }
     } else {
-        const url = `/hub/spaces/${id}?clientId=cli`
-        const response = await execute(
-            url,
-            "GET",
-            "application/json",
-            "",
-            options.token
-        );
-
-        if (response.statusCode >= 200 && response.statusCode < 210) {
-            if (options.raw) {
-                console.log(response.body);
-            } else {
-                showSpaceConfig(response.body);
-            }
+        let result = await getSpaceMetaData(id,options.token);
+        if (options.raw) {
+            console.log(result);
+        } else {
+            showSpaceConfig(result);
         }
     }
 }
@@ -2459,14 +2410,7 @@ async function activityLogConfig(id:string, options:any) {
     let patchRequest:any = {};
 
     let tabledata:any = {};
-    const url = `/hub/spaces/${id}?clientId=cli`
-    const response = await execute(
-            url,
-            "GET",
-            "application/json",
-            ""                
-        );
-    let spacedef = response.body;
+    let spacedef = await getSpaceMetaData(id);
     let enabled = false;
     //console.log(JSON.stringify(spacedef));
     if(spacedef.listeners) {
@@ -2561,7 +2505,7 @@ function getEmptyAcitivityLogListenerProfile() {
 
 
 export async function getSpaceStatistics(id: string, token: string | null = null) {
-    const uri = "/hub/spaces/" + id + "/statistics?clientId=cli";
+    const uri = "/hub/spaces/" + id + "/statistics?clientId=cli&skipCache=true";
     const cType = "application/json";
     const response = await execute(uri, "GET", cType, "", token);
     return response.body;
@@ -2906,15 +2850,7 @@ function getProcessorFromSpaceDefinition(spacedef: any, processorName: string){
 async function tagRuleConfig(id: string, options: any) {
     await common.verifyProLicense();
     let patchRequest: any = {};
-    let spacedef: any = {};
-    const url = `/hub/spaces/${id}?clientId=cli`
-    const response = await execute(
-        url,
-        "GET",
-        "application/json",
-        ""
-    );
-    spacedef = response.body;
+    let spacedef = await getSpaceMetaData(id);
     if (spacedef != null) {
         let ruleTagger = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger');
         let ruleTaggerAsync = getProcessorFromSpaceDefinition(spacedef, 'rule-tagger-async');
@@ -3170,24 +3106,9 @@ async function tagRuleConfig(id: string, options: any) {
 async function searchableConfig(id: string, options: any) {
     await common.verifyProLicense();
     let patchRequest: any = {};
-    let spacedef: any = {};
-    const url = `/hub/spaces/${id}?clientId=cli`
-    const req = await execute(
-        url,
-        "GET",
-        "application/json",
-        ""
-    );
-    spacedef = req.body;
+    let spacedef = await getSpaceMetaData(id);
 
-    const surl = `/hub/spaces/${id}/statistics?clientId=cli`
-    const sreq = await execute(
-        surl,
-        "GET",
-        "application/json",
-        ""
-    );
-    let stats = sreq.body;
+    let stats = await getSpaceStatistics(id);
 
     if (spacedef != null) {
         let searchableProperties = spacedef.searchableProperties;
