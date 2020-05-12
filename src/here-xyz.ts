@@ -901,7 +901,17 @@ async function showSpace(id: string, options: any) {
     uri = uri + "/" + id;
 
     if(options.vector && options.spatial) {
-        console.log("options vector and spatial can not be used together");
+        console.log("options 'vector' and 'spatial' can not be used together");
+        process.exit(1);
+    }
+
+    if(options.limit && options.all){
+        console.log("options 'limit' and 'all' can not be used together");
+        process.exit(1);
+    }
+
+    if(options.spatial && !(options.radius || options.center || options.feature || options.geometry)) {
+        console.log("spatial option needs one of the following options to search - center, radius, feature or geometry");
         process.exit(1);
     }
 
@@ -954,9 +964,13 @@ async function showSpace(id: string, options: any) {
 
     if (options.raw) {
         tableFunction = function (data: any, columns: any) {
-            try {
-                console.log(JSON.stringify(JSON.parse(data), null, 2));
-            } catch (e) {
+            if(options.geojsonl){
+                if (data.features && data.features.length > 0) {
+                    data.features.forEach((element: any) => {
+                        console.log(JSON.stringify(element));
+                    });
+                } 
+            } else {
                 console.log(JSON.stringify(data, null, 2));
             }
         };
@@ -2297,7 +2311,7 @@ async function configXyzSpace(id: string, options: any) {
     }
 
     if (options.schema) {
-        if (options.schema == true && options.delete != true) {
+        if ((options.schema == true && options.delete != true) || options.view) {
             if (spacedef.processors) {
                 if(Array.isArray(spacedef.processors)){
                     let i = spacedef.processors.length;
