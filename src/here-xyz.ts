@@ -976,10 +976,6 @@ async function showSpace(id: string, options: any) {
         };
     }
 
-    if (options.search || options.prop) {
-        await common.verifyProLicense();
-    }
-
     cType = "application/geo+json";
     if (!options.limit) {
         options.limit = 5000;
