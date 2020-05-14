@@ -40,7 +40,7 @@
     "tmp": "0.1.0",
     "user-settings": "0.2.0",
     "xmldom": "0.3.0",
-    "weeknumber": "1.1.2"
+    "moment": "2.25.3"
   },
   "devDependencies": {
     "@turf/nearest-point-to-line": "6.0.0",
