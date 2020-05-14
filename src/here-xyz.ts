@@ -40,7 +40,7 @@ import { isBoolean } from "util";
 import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
 const path = require('path');
-const weeknumber = require('weeknumber');
+import * as moment from 'moment';
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -1327,7 +1327,7 @@ async function listTokens() {
     common.drawNewTable(tokenInfo.tokens, ["id", "type", "iat", "description"], [25, 10, 10, 70]);
 }
 
-const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week'];
+const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
@@ -1351,11 +1351,16 @@ program
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
+    .option('--timezone <timezone>', 'timezone value for date field')
     .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
     .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
     .action(async function (id, options) {
         if(options.datetag && !options.date){
             console.log("--datetag option is only allowed with --date option");
+            process.exit(1);
+        }
+        if(options.timezone && !options.date){
+            console.log("--timezone option is only allowed with --date option");
             process.exit(1);
         }
         if(options.datetag){
@@ -1972,15 +1977,19 @@ async function mergeAllTags(
                 options.date.split(",").forEach((element: any) => {
                     const value = item.properties[element];
                     if(value){
-                        let dateValue: Date;
+                        let dateValue: moment.Moment;
                         if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
-                            dateValue = new Date(parseFloat(value.toString()));
+                            dateValue = moment.parseZone(parseFloat(value.toString()));
                         } else {
-                            dateValue = new Date(value);
+                            dateValue = moment.parseZone(value);
                         }
-                        item.properties['xyz_timestamp_'+element] = dateValue.getTime();
+                        item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
                         item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
+                        if(options.timezone){
+                            dateValue = dateValue.utcOffset(options.timezone);
+                        }
                         if(options.datetag){
+                            dateValue.locale('en');
                             let allTags: boolean = false;
                             if(options.datetag == true || options.datetag == undefined){
                                 allTags = true;
@@ -1990,22 +1999,25 @@ async function mergeAllTags(
                                 inputTagsList = options.datetag.split(',');
                             }
                             if(allTags || inputTagsList.includes('year')){
-                                addTagsToList(dateValue.getUTCFullYear().toString(), 'date_'+element+'_year', finalTags);
+                                addTagsToList(dateValue.year().toString(), 'date_'+element+'_year', finalTags);
                             }
                             if(allTags || inputTagsList.includes('month')){
-                                addTagsToList(dateValue.toLocaleString('UTC', { month: 'long' }), 'date_'+element+'_month', finalTags);
+                                addTagsToList(dateValue.format('MMMM'), 'date_'+element+'_month', finalTags);
                             }
                             if(allTags || inputTagsList.includes('year_month')){
-                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (dateValue.getUTCMonth()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
+                                addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.month()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
                             }
                             if(allTags || inputTagsList.includes('week')){
-                                addTagsToList(("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_week', finalTags);
+                                addTagsToList(("0" + (dateValue.week())).slice(-2), 'date_'+element+'_week', finalTags);
                             }
                             if(allTags || inputTagsList.includes('year_week')){
-                                addTagsToList(dateValue.getUTCFullYear().toString() + '-' + ("0" + (weeknumber.weekNumber(dateValue)+　1)).slice(-2), 'date_'+element+'_year_week', finalTags);
+                                addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2), 'date_'+element+'_year_week', finalTags);
                             }
                             if(allTags || inputTagsList.includes('weekday')){
-                                addTagsToList(dateValue.toLocaleString('UTC', { weekday: 'long' }), 'date_'+element+'_weekday', finalTags);
+                                addTagsToList(dateValue.format('dddd'), 'date_'+element+'_weekday', finalTags);
+                            }
+                            if(allTags || inputTagsList.includes('hour')){
+                                addTagsToList(("0" + (dateValue.hour())).slice(-2), 'date_'+element+'_hour', finalTags);
                             }
                         }                
                     }
