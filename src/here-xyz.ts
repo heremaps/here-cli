@@ -881,7 +881,7 @@ program
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
-    .option("--center <center>", "comma separated lat,lon values to specify the center point for radius search")
+    .option("--center <center>", "comma separated lon,lat values to specify the center point for radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
     .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
     .action(function (id, options) {
@@ -896,7 +896,7 @@ async function showSpace(id: string, options: any) {
     let cType = "application/json";
     let tableFunction = common.drawTable;
     let requestMethod = "GET";
-    let postData = "";
+    let postData: string = "";
 
     uri = uri + "/" + id;
 
@@ -1009,8 +1009,8 @@ async function showSpace(id: string, options: any) {
                     options.center = options.center.replace(/'/g,'').replace(/"/g,'');
                 }
                 const latlon = options.center.split(",");
-                const lat = latlon[0];
-                const lon = latlon[1];
+                const lat = latlon[1];
+                const lon = latlon[0];
                 uri = uri + "&" + "lat="+lat+"&lon="+lon+"&radius="+options.radius;
             }
             if(options.feature) {
@@ -1022,16 +1022,15 @@ async function showSpace(id: string, options: any) {
                     uri = uri + "&" + "radius="+ options.radius;
                 }
             } else if(options.geometry) {
-                let geocontent = await transform.read(options.geometry, false);
-                let geometryinput = JSON.parse(geocontent);
+                let geometryinput = JSON.parse(await transform.read(options.geometry, false));
                 if(geometryinput.type && geometryinput.type == 'FeatureCollection') {
                     console.log("you have supplied FeatureCollection instead of GeoJson-Geometry. Kindly supply one Feature or GeoJson-Geometry.");
                     process.exit(1);
                 } else if (geometryinput.type && geometryinput.type == 'Feature') {
-                    geocontent = JSON.stringify(geometryinput.geometry);
+                    geometryinput = geometryinput.geometry;
                 }
                 requestMethod = "POST";
-                postData = geocontent;
+                postData = geometryinput;
                 if(options.radius) {
                     uri = uri + "&" + "radius="+ options.radius;
                 }
@@ -1046,7 +1045,6 @@ async function showSpace(id: string, options: any) {
         //console.log(uri);
         await launchHereGeoJson(uri, options.token);
     } else {
-       // console.log(uri);
         const response = await execute(
             uri,
             requestMethod,
