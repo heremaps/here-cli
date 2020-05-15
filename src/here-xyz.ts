@@ -915,6 +915,11 @@ async function showSpace(id: string, options: any) {
         process.exit(1);
     }
 
+    if(options.center && !options.radius){
+        console.log("'radius' option is required for center spatial search to work");
+        process.exit(1);
+    }
+
     if(options.web && options.geometry) {
         console.log("usage of options web and geometry together is not supported yet, please try option web with radius, feature/center options");
         process.exit(1);
