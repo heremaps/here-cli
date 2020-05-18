@@ -30,6 +30,7 @@ import * as tmp from "tmp";
 const got = require('got');
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
+import * as common from "./common";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
@@ -295,7 +296,7 @@ export async function transformGpx(result: any[], options: any) {
 }
 
 export async function transform(result: any[], options: any) {
-    const objects: any[] = [];
+    const objects: Map<string,any> = new Map();
     if(options.assign && result.length > 0){
         await setStringFieldsFromUser(result[0],options);
     }
@@ -305,10 +306,46 @@ export async function transform(result: any[], options: any) {
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
-            objects.push(ggson);
+            if(options.groupby){
+                let key = null;
+                if(options.id){
+                    key = common.createUniqueId(options.id,ggson);
+                } else {
+                    key = result[i]['id'];
+                }
+                if(!key){
+                    console.log("'groupby' option requires 'id' field and id is not present in record  - " + JSON.stringify(ggson));
+                    process.exit(1);
+                }
+                let value: any = {};
+                let properties: any;
+                if(objects.get(key)){
+                    value = objects.get(key);
+                    properties = ggson.properties;
+                } else {
+                    properties = ggson.properties;
+                    value = ggson;
+                    delete value.properties;
+                    value.properties = {};
+                    if(options.id){
+                        value.properties[options.id] = properties[options.id];
+                    } else {
+                        value.properties['id'] = properties['id'];
+                    }
+                    value.properties["@ns:com:here:xyz"] = properties["@ns:com:here:xyz"];
+                    value.properties[options.groupby] = {};
+                    objects.set(key,value);
+                }
+                delete properties[options.groupby];
+                delete properties[options.id];
+                delete properties["@ns:com:here:xyz"];
+                value.properties[options.groupby][result[i][options.groupby]] = properties;
+            } else {
+                objects.set(i,ggson);
+            }
         }
     }
-    return objects;
+    return Array.from(objects.values());
 }
 
 async function setStringFieldsFromUser(object:any, options: any){
@@ -419,6 +456,10 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             let idAnswer : any = await inquirer.prompt(questions);
             console.log("new featureID field selected - " + idAnswer.idChoice);
             options.id = idAnswer.idChoice;
+        }
+        if(options.groupby && !options.id && !object['id']){
+            console.log("'groupby' option requires 'id' field to be defined in csv");
+            process.exit(1);
         }
     }
     
