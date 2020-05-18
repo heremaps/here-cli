@@ -1353,6 +1353,7 @@ program
     .option('-q, --quote ["]', 'quote used in CSV', '"')
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--groupby <groupby>', 'groupby a csv features with a particular property')
     .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
     .option('--timezone <timezone>', 'timezone value for date field')
     .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
@@ -1375,6 +1376,10 @@ program
                     }
                 });
             }
+        }
+        if(options.groupby && !(options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1)){
+            console.log("'groupby' option is only allowed with csv files");
+            process.exit(1);
         }
         if (!id && options.file) {
             console.log("No space ID specified, creating a new XYZ space for this upload.");
@@ -1606,8 +1611,8 @@ export async function uploadToXyzSpace(id: string, options: any) {
                                     type: "FeatureCollection"
                                 };
                                 await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
-                                res(queue);
                             }
+                            res(queue);
                         })();
                     });
 
@@ -1925,7 +1930,7 @@ async function mergeAllTags(
         let origId = null;
         //Generate id only if doesnt exist
         if (!item.id && idStr) {
-            const fId = createUniqueId(idStr, item);
+            const fId = common.createUniqueId(idStr, item);
             if (fId && fId != "") {
                 item.id = fId;
             }
@@ -2082,19 +2087,6 @@ function addTagsToList(value: string, tp: string, finalTags: string[]) {
     return finalTags;
 }
 
-function createUniqueId(idStr: string, item: any) {
-    const ids = idStr.split(",");
-    const vals = new Array();
-    ids.forEach(function (id) {
-        const v = item.properties ? item.properties[id] : null;
-        if (v) {
-            vals.push(v);
-        }
-    });
-    const idFinal = vals.join("-");
-    return idFinal;
-}
-
 function uniqArray<T>(a: Array<T>) {
     return Array.from(new Set(a));
 }
@@ -2136,8 +2128,6 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
         if (res.failed) {
             upresult.failed = upresult.failed + res.failed.length;
             //upresult.entries = upresult.entries.concat(res.failed);
-
-
             for (let n = 0; n < res.failed.length; n++) {
                 const failedentry = res.failed[n];
                 if (printFailed) {

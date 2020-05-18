@@ -432,6 +432,19 @@ export function timeStampToLocaleString(timeStamp: number) {
     });
 }
 
+export function createUniqueId(idStr: string, item: any) {
+    const ids = idStr.split(",");
+    const vals = new Array();
+    ids.forEach(function (id) {
+        const v = item.properties ? item.properties[id] : null;
+        if (v) {
+            vals.push(v);
+        }
+    });
+    const idFinal = vals.join("-");
+    return idFinal;
+}
+
 export function drawNewTable(data: any, columns: any, columnWidth?: any) {
     if(!columnWidth && columns && columns.length > 2) {
         let size = Math.floor(115 / columns.length);
