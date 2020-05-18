@@ -1982,15 +1982,15 @@ async function mergeAllTags(
                     if(value){
                         let dateValue: moment.Moment;
                         if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
-                            dateValue = moment.parseZone(parseFloat(value.toString()));
+                            dateValue = moment.parseZone(new Date(parseFloat(value.toString())));
                         } else {
-                            dateValue = moment.parseZone(value);
+                            dateValue = moment.parseZone(new Date(value));
                         }
-                        item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
-                        item.properties['xyz_iso8601_'+element] = dateValue.toISOString();
                         if(options.timezone){
                             dateValue = dateValue.utcOffset(options.timezone);
                         }
+                        item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
+                        item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true);
                         if(options.datetag){
                             dateValue.locale('en');
                             let allTags: boolean = false;
