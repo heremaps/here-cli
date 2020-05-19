@@ -1983,12 +1983,15 @@ async function mergeAllTags(
         if(options.date){
             try{
                 options.date.split(",").forEach((element: any) => {
-                    const value = item.properties[element];
+                    let value = item.properties[element];
                     if(value){
                         let dateValue: moment.Moment;
                         if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
                             dateValue = moment.parseZone(new Date(parseFloat(value.toString())));
                         } else {
+                            if(value.indexOf("Z") == -1){
+                                value = value + ' Z+00:00';
+                            }
                             dateValue = moment.parseZone(new Date(value));
                         }
                         if(options.timezone){
