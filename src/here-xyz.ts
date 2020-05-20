@@ -1987,16 +1987,20 @@ async function mergeAllTags(
                     if(value){
                         let dateValue: moment.Moment;
                         if(!isNaN(Number(value)) && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))){
-                            dateValue = moment.parseZone(new Date(parseFloat(value.toString())));
+                            dateValue = moment(new Date(parseFloat(value.toString())));
                         } else {
+                            /*
                             if(value.indexOf("Z") == -1){
                                 value = value + ' Z+00:00';
                             }
-                            dateValue = moment.parseZone(new Date(value));
+                            */
+                            dateValue = moment(new Date(value));
                         }
+                        /*
                         if(options.timezone){
                             dateValue = dateValue.utcOffset(options.timezone);
                         }
+                        */
                         item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
                         item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true);
                         if(options.datetag){
