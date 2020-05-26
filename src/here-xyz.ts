@@ -1355,22 +1355,32 @@ program
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--groupby <groupby>', 'groupby a csv features with a particular property')
     .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
-    .option('--timezone <timezone>', 'timezone value for date field')
     .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
+    .option('--dateprops [datepropsString]', 'comma separated list of date properties to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
     .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
     .action(async function (id, options) {
         if(options.datetag && !options.date){
             console.log("--datetag option is only allowed with --date option");
             process.exit(1);
         }
-        if(options.timezone && !options.date){
-            console.log("--timezone option is only allowed with --date option");
+        if (options.dateprops && !options.date) {
+            console.log("--dateprops option is only allowed with --date option");
             process.exit(1);
         }
         if(options.datetag){
             if(!(options.datetag == true || options.datetag == undefined)){
                 options.datetag.split(',').forEach((tag: string) => {
                     if(!validDateTags.includes(tag)){
+                        console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
+                        process.exit(1);
+                    }
+                });
+            }
+        }
+        if (options.dateprops) {
+            if (!(options.dateprops == true || options.dateprops == undefined)) {
+                options.dateprops.split(',').forEach((tag: string) => {
+                    if (!validDateTags.includes(tag)) {
                         console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
                         process.exit(1);
                     }
@@ -1996,45 +2006,14 @@ async function mergeAllTags(
                             */
                             dateValue = moment(new Date(value));
                         }
-                        /*
-                        if(options.timezone){
-                            dateValue = dateValue.utcOffset(options.timezone);
-                        }
-                        */
                         item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
                         item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
                         if(options.datetag){
-                            dateValue.locale('en');
-                            let allTags: boolean = false;
-                            if(options.datetag == true || options.datetag == undefined){
-                                allTags = true;
-                            }
-                            let inputTagsList = [];
-                            if(!allTags){
-                                inputTagsList = options.datetag.split(',');
-                            }
-                            if(allTags || inputTagsList.includes('year')){
-                                addTagsToList(dateValue.year().toString(), 'date_'+element+'_year', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('month')){
-                                addTagsToList(dateValue.format('MMMM'), 'date_'+element+'_month', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('year_month')){
-                                addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.month()+　1)).slice(-2).toString(), 'date_'+element+'_year_month', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('week')){
-                                addTagsToList(("0" + (dateValue.week())).slice(-2), 'date_'+element+'_week', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('year_week')){
-                                addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2), 'date_'+element+'_year_week', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('weekday')){
-                                addTagsToList(dateValue.format('dddd'), 'date_'+element+'_weekday', finalTags);
-                            }
-                            if(allTags || inputTagsList.includes('hour')){
-                                addTagsToList(("0" + (dateValue.hour())).slice(-2), 'date_'+element+'_hour', finalTags);
-                            }
-                        }                
+                            addDatetimeTag(dateValue, element, options, finalTags);
+                        }
+                        if(options.dateprops){
+                            addDatetimeProperty(dateValue, element, options, item);
+                        }              
                     }
                 });
             } catch(e){
@@ -2078,6 +2057,72 @@ async function mergeAllTags(
         return featuresOut;
     } else {
         return features;
+    }
+}
+
+function addDatetimeTag(dateValue:moment.Moment, element:string, options: any, finalTags: Array<string>){
+    dateValue.locale('en');
+    let allTags = false;
+    if (options.datetag == true || options.datetag == undefined) {
+        allTags = true;
+    }
+    let inputTagsList = [];
+    if (!allTags) {
+        inputTagsList = options.datetag.split(',');
+    }
+    if (allTags || inputTagsList.includes('year')) {
+        addTagsToList(dateValue.year().toString(), 'date_' + element + '_year', finalTags);
+    }
+    if (allTags || inputTagsList.includes('month')) {
+        addTagsToList(dateValue.format('MMMM'), 'date_' + element + '_month', finalTags);
+    }
+    if (allTags || inputTagsList.includes('year_month')) {
+        addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.month() + 1)).slice(-2).toString(), 'date_' + element + '_year_month', finalTags);
+    }
+    if (allTags || inputTagsList.includes('week')) {
+        addTagsToList(("0" + (dateValue.week())).slice(-2), 'date_' + element + '_week', finalTags);
+    }
+    if (allTags || inputTagsList.includes('year_week')) {
+        addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2), 'date_' + element + '_year_week', finalTags);
+    }
+    if (allTags || inputTagsList.includes('weekday')) {
+        addTagsToList(dateValue.format('dddd'), 'date_' + element + '_weekday', finalTags);
+    }
+    if (allTags || inputTagsList.includes('hour')) {
+        addTagsToList(("0" + (dateValue.hour())).slice(-2), 'date_' + element + '_hour', finalTags);
+    }
+}
+
+function addDatetimeProperty(dateValue:moment.Moment, element:string, options: any, item: any){
+    dateValue.locale('en');
+    let allTags = false;
+    if (options.dateprops == true || options.dateprops == undefined) {
+        allTags = true;
+    }
+    let inputTagsList = [];
+    if (!allTags) {
+        inputTagsList = options.dateprops.split(',');
+    }
+    if (allTags || inputTagsList.includes('year')) {
+        item.properties['date_' + element + '_year'] = dateValue.year().toString();
+    }
+    if (allTags || inputTagsList.includes('month')) {
+        item.properties['date_' + element + '_month'] = dateValue.format('MMMM');
+    }
+    if (allTags || inputTagsList.includes('year_month')) {
+        item.properties['date_' + element + '_year_month'] = dateValue.year().toString() + '-' + ("0" + (dateValue.month() + 1)).slice(-2).toString();
+    }
+    if (allTags || inputTagsList.includes('week')) {
+        item.properties['date_' + element + '_week'] = ("0" + (dateValue.week())).slice(-2);
+    }
+    if (allTags || inputTagsList.includes('year_week')) {
+        item.properties['date_' + element + '_year_week'] = dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2);
+    }
+    if (allTags || inputTagsList.includes('weekday')) {
+        item.properties['date_' + element + '_weekday'] = dateValue.format('dddd');
+    }
+    if (allTags || inputTagsList.includes('hour')) {
+        item.properties['date_' + element + '_hour'] = ("0" + (dateValue.hour())).slice(-2);
     }
 }
 
