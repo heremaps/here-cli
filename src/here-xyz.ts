@@ -1358,7 +1358,11 @@ program
     .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
     .option('--dateprops [datepropsString]', 'comma separated list of date properties to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
     .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
+    .option('--history <history>', 'history command that needs to be executed')
     .action(async function (id, options) {
+        if(options.history){
+            await executeHistoryCommand(id, options);
+        }
         if(options.datetag && !options.date){
             console.log("--datetag option is only allowed with --date option");
             process.exit(1);
@@ -1422,6 +1426,39 @@ program
             handleError(error, true);
         });
     });
+
+async function executeHistoryCommand(id: string, options: any){
+    if(options.history && !id){
+        console.log("spaceId is mandatory for --history option");
+        process.exit(1);
+    }
+    let number = parseFloat(options.history.toLowerCase());
+    if (isNaN(number) || (number < 1 || number > 5)) {
+        console.log("Please enter valid number between 1 and 5 in --history option");
+        process.exit(1);
+    }
+    console.log("Fetching command history for space - " + id);
+    let spaceData = await getSpaceMetaData(id, options.token);
+    let history: Array<any> = [];
+    if(spaceData.client && spaceData.client.history){
+        history = spaceData.client.history;
+    } else {
+        console.log("No command history available for this space");
+        process.exit(1);
+    }
+    if (number > history.length) {
+        console.log("space contains only " + history.length + " commands as history, please give number below or equal to that");
+        process.exit(1);
+    }
+    let commandString: string = history[number-1].command;
+    let newArgvStringArray: Array<string> = process.argv.slice(0,3);
+    newArgvStringArray = newArgvStringArray.concat(commandString.split(" ").slice(3));
+    process.argv = newArgvStringArray;
+    console.log("Executing command - " + "here xyz upload " + process.argv.slice(3).join(" "));
+    options.history = null;
+    await program.parseAsync(process.argv);//making async call so that main thread execution stops
+    process.exit(0);//Explicitly calling exit because we dont want the execution to continue and upload to be done twice
+}
 
 function collate(result: Array<any>) {
     return result.reduce((features: any, feature: any) => {
@@ -1724,8 +1761,31 @@ export async function uploadToXyzSpace(id: string, options: any) {
     }
 
     let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
+    await updateCommandHistory(id, options);
     console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     //})();
+}
+
+async function updateCommandHistory(id: string, options: any){
+    let spaceData = await getSpaceMetaData(id, options.token);
+    let history: Array<any> = [];
+    if(spaceData.client && spaceData.client.history){
+        history = spaceData.client.history;
+    }
+    let command = {
+        "command" : "here xyz upload " + (process.argv.includes(id)? "" : ` ${id} `) + process.argv.slice(3).join(" "),
+        "timestamp": moment().toISOString(true)
+    }
+    history.push(command);
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const data = {
+        client: {
+            'history' : history.slice(Math.max(history.length - 5, 0))
+        }
+    }
+    const response = await execute(uri, "PATCH", cType, data);
+    return response.body;
 }
 
 function createQuestionsList(object: any) {
