@@ -1813,7 +1813,7 @@ async function updateCommandMetadata(id: string, options: any, isClear: boolean 
             history = spaceData.client.history;
         }
         let command = {
-            "command" : "here xyz upload " + (process.argv.includes(id)? "" : ` ${id} `) + process.argv.slice(3).join(" "),
+            "command" : `here xyz upload ${id} ` + process.argv.slice(3).map(x => x.includes(' ') ? "'" + x + "'": x).join(" "),
             "timestamp": moment().toISOString(true)
         }
         history = [command].concat(history);
