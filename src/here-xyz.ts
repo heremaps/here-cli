@@ -367,25 +367,6 @@ function collect(val: string, memo: string[]) {
     return memo;
 }
 
-program
-    .command("describe <id>")
-    .description("gives the summary details of the given space [id]")
-    .option("-l, --limit <limit>", "Number of objects to be fetched")
-    .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
-    .option("-t, --tags <tags>", "Tags to filter on")
-    .option("--token <token>", "a external token to access another user's space")
-    .action(function (id, options) {
-        (async () => {
-            try {
-                console.warn('\x1b[33m%s\x1b[0m',"[WARNING] 'describe' command is deprecated and will be removed in next release. Please use 'config' command with '--stats' option.");
-                let featureCollection = await getSpaceDataFromXyz(id, options);
-                summary.summarize(featureCollection.features, id, false);
-            } catch (error) {
-                handleError(error, true);
-            }
-        })();
-    });
-
 export function getSpaceDataFromXyz(id: string, options: any) {
     return new Promise<any>(function (resolve, reject) {
         let cType = "application/json";
@@ -3421,7 +3402,6 @@ common.validate(
         "create",
         "delete",
         "upload",
-        "describe",
         "clear",
         "token",
         "analyze",
