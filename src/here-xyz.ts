@@ -1433,8 +1433,8 @@ async function executeHistoryCommand(id: string, options: any){
         process.exit(1);
     }
     let number = parseFloat(options.history.toLowerCase());
-    if (isNaN(number) || (number < 1 || number > 5)) {
-        console.log("Please enter valid number between 1 and 5 in --history option");
+    if (isNaN(number) || (number < 0 || number > 4)) {
+        console.log("Please enter valid number between 0 and 4 in --history option");
         process.exit(1);
     }
     console.log("Fetching command history for space - " + id);
@@ -1446,11 +1446,11 @@ async function executeHistoryCommand(id: string, options: any){
         console.log("No command history available for this space");
         process.exit(1);
     }
-    if (number > history.length) {
+    if ((number + 1)  > history.length) {
         console.log("space contains only " + history.length + " commands as history, please give number below or equal to that");
         process.exit(1);
     }
-    let commandString: string = history[number-1].command;
+    let commandString: string = history[number].command;
     let newArgvStringArray: Array<string> = process.argv.slice(0,3);
     newArgvStringArray = newArgvStringArray.concat(commandString.split(" ").slice(3));
     process.argv = newArgvStringArray;
