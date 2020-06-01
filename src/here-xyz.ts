@@ -1459,6 +1459,17 @@ async function executeHistoryCommand(id: string, options: any){
                     process.exit(1);
                 }
                 commandString = history[number].command;
+                let confirmationPrompt = [{
+                    type: 'confirm',
+                    name: 'confirmation',
+                    message: 'Executing command - ' + commandString + ' , Do you want to proceed?',
+                    default: true
+                }];
+                const input = await inquirer.prompt<{ confirmation?: boolean }>(confirmationPrompt);
+                if(!input.confirmation){
+                    console.log("Exiting");
+                    process.exit(1);
+                }
             }
         }
         let newArgvStringArray: Array<string> = process.argv.slice(0,3);
@@ -1485,7 +1496,7 @@ async function askCommandSelectionPrompt(history: Array<any>){
         }
     ];
     history.forEach(function (item: any) {
-        choiceList.push({'name': item.command, 'value': item.command});
+        choiceList.push({'name': item.command + " , " + item.timestamp, 'value': item.command});
     });
     const answer: any = await inquirer.prompt(commandSelectionPrompt);
     const result = answer.command;
@@ -1813,7 +1824,7 @@ async function updateCommandMetadata(id: string, options: any, isClear: boolean 
             history = spaceData.client.history;
         }
         let command = {
-            "command" : `here xyz upload ${id} ` + process.argv.slice(3).map(x => x.includes(' ') ? "'" + x + "'": x).join(" "),
+            "command" : `here xyz upload ${id} ` + process.argv.slice(3).map(x => x.trim()).join(" "),
             "timestamp": moment().toISOString(true)
         }
         history = [command].concat(history);
