@@ -1496,7 +1496,7 @@ async function askCommandSelectionPrompt(history: Array<any>){
         }
     ];
     history.forEach(function (item: any) {
-        choiceList.push({'name': item.command + " , " + item.timestamp, 'value': item.command});
+        choiceList.push({'name': item.timestamp + " , " + item.command, 'value': item.command});
     });
     const answer: any = await inquirer.prompt(commandSelectionPrompt);
     const result = answer.command;
