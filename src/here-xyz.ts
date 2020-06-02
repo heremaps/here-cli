@@ -46,6 +46,7 @@ let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 let choiceList: { name: string, value: string }[] = [];
 const bboxDirections = ["west", "south", "east", "north"];
+const commandHistoryCount = 3;
 const questions = [
     {
         type: "checkbox",
@@ -1450,8 +1451,8 @@ async function executeHistoryCommand(id: string, options: any){
                 commandString = await askCommandSelectionPrompt(history);
             } else {
                 let number = parseFloat(options.history.toLowerCase());
-                if (isNaN(number) || (number < 0 || number > 4)) {
-                    console.log("Please enter valid number between 0 and 4 in --history option");
+                if (isNaN(number) || (number < 0 || number > (commandHistoryCount - 1))) {
+                    console.log("Please enter valid number between 0 and " + (commandHistoryCount - 1) + " in --history option");
                     process.exit(1);
                 }
                 if ((number + 1)  > history.length) {
@@ -1824,13 +1825,13 @@ async function updateCommandMetadata(id: string, options: any, isClear: boolean 
             history = spaceData.client.history;
         }
         let command = {
-            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.trim()).join(" "),
+            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.includes(' ') ? "'" + x.trim() + "'": x.trim()).join(" "),
             "timestamp": moment().toISOString(true)
         }
         history = [command].concat(history);
         data = {
             client: {
-                'history' : isClear ? [] : history.slice(Math.max(history.length - 5, 0))
+                'history' : isClear ? [] : history.slice(Math.max(history.length - commandHistoryCount, 0))
             }
         }
     }   
