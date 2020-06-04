@@ -112,6 +112,15 @@ const questionAnalyze = [
     }
 ];
 
+const filesToUpload = [
+    {
+        type: "checkbox",
+        name: "selectedFiles",
+        message: "Select the files to be uploaded",
+        choices: choiceList
+    }
+];
+
 const tagruleUpdatePrompt = [
     {
         type: "list",
@@ -1627,14 +1636,33 @@ export async function uploadToXyzSpace(id: string, options: any) {
 
     let files: string[] = [''];//Initialising as blank string, so that if options.file is not given loop will execute atleast once and else condition will be executed
     if(options.batch){
-        if(!(fs.existsSync(options.file) && fs.lstatSync(options.file).isDirectory())){
-            console.log("--batch option requires directory path in --file option");
-            process.exit(1);
-        }
-        if(options.batch.toLowerCase().indexOf(".") == -1){
+        files = [];
+        if(options.batch != true && options.batch.toLowerCase().indexOf(".") == -1){
             options.batch = "*."+options.batch;
         }
-        files = glob.sync(options.file+"/"+options.batch);
+        let directories = options.file.split(',');
+        for(let directory of directories) {
+            if(!(fs.existsSync(directory) && fs.lstatSync(directory).isDirectory())){
+                console.log("--batch option requires directory path in --file option");
+                process.exit(1);
+            }
+            if(options.batch == true){
+                const allFiles = fs.readdirSync(directory);
+                allFiles.forEach(function (item: any) {
+                    choiceList.push({'name': item, 'value': directory + "/" + item});
+                });
+            } else {
+                files = files.concat(glob.sync(directory+"/"+options.batch));
+            }
+        }
+        if(options.batch == true){
+            let answers: any = await inquirer.prompt(filesToUpload);
+            files = answers.selectedFiles;
+        }
+        if(files.length == 0){
+            console.log("No files found of the specified format in the directory");
+            process.exit(1);
+        }
     } else if(options.file){
         files = options.file.split(',');
     }
