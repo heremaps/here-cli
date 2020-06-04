@@ -2576,7 +2576,7 @@ async function configXyzSpace(id: string, options: any) {
     } else {
         let result = await getSpaceMetaData(id,options.token);
         if (options.raw) {
-            console.log(result);
+            console.log(JSON.stringify(result, null, 2));
         } else {
             showSpaceConfig(result);
         }
