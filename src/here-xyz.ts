@@ -1647,12 +1647,22 @@ export async function uploadToXyzSpace(id: string, options: any) {
                 process.exit(1);
             }
             if(options.batch == true){
-                const allFiles = fs.readdirSync(directory);
+                const allFiles = fs.readdirSync(directory, { withFileTypes: true })
+                                   .filter(dirent => dirent.isFile())
+                                   .map(dirent => dirent.name);
                 allFiles.forEach(function (item: any) {
-                    choiceList.push({'name': item, 'value': directory + "/" + item});
+                    choiceList.push({'name': item, 'value': path.join(directory,item)});
                 });
             } else {
-                files = files.concat(glob.sync(directory+"/"+options.batch));
+                files = files.concat(glob.sync(path.join(directory,options.batch)));
+                if(options.batch == 'shp' || options.batch == '*.shp'){
+                    const allDirectories = fs.readdirSync(directory, { withFileTypes: true })
+                                            .filter(dirent => dirent.isDirectory())
+                                            .map(dirent => dirent.name);
+                    for(let subDirectory of allDirectories) {
+                        files = files.concat(glob.sync(path.join(directory,subDirectory,options.batch)));
+                    }
+                }
             }
         }
         if(options.batch == true){
@@ -2307,7 +2317,6 @@ function uniqArray<T>(a: Array<T>) {
 
 function getFileName(fileName: string) {
     try {
-        const path = require("path");
         let bName = path.basename(fileName);
         if (bName.indexOf(".") != -1) {
             bName = bName.substring(0, bName.lastIndexOf("."));
