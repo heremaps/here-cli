@@ -875,7 +875,7 @@ program
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
     .option("--center <center>", "comma separated lon,lat values to specify the center point for radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
-    .option("--geometry <geometry>", "geometry file to upload for spatial query ( single Feature in geojson file )")
+    .option("--geometry <geometry>", "geometry file to upload for spatial query (single feature in geojson file)")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -1326,32 +1326,31 @@ const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_w
 program
     .command("upload [id]")
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
-    .option("-f, --file <file>", "upload local GeoJSON, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs)")
-    .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (e.g. 1-10) to allow safer uploads of large geometries, use higher values (e.g. 500-10000) for faster uploads of smaller geometries")
+    .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all appropriate files within a directory")
+    .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
     .option("-t, --tags [tags]", "fixed tags for the XYZ space")
     .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
-    //     .option("-z, --alt [alt]", "altitude field name") // this breaks geojson
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
-    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
+    .option("--lonlat", "parse a -—point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, best for limited quantitative values")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
     .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
-    .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
+//     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
     .option("-o, --override", "override default property hash feature ID generation and use existing GeoJSON feature IDs")
-    .option("-s, --stream", "streaming data support for fast and/or large csv and geojson uploads")
+    .option("-s, --stream", "streaming support for upload  and/or large csv and geojson uploads using concurrent writes, tune chunk size with -c")
     .option('-d, --delimiter [,]', 'alternate delimiter used in CSV', ',')
     .option('-q, --quote ["]', 'quote used in CSV', '"')
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
-    .option('--groupby <groupby>', 'groupby a csv features with a particular property')
-    .option('--date <date>', 'property name(s) of feature that needs to be converted to date')
-    .option('--datetag [datetagString]', 'comma separated list of date tags to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
-    .option('--dateprops [datepropsString]', 'comma separated list of date properties to be added for date fields. possible options - year, month, week, weekday, year_month, year_week')
-    .option('--noCoords', 'upload CSV files with no coordinates, generate null geometry')
-    .option('--history [history]', 'history command that needs to be executed')
-    .option('--batch [batch]', 'file type to be uploaded in batch')
+    .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
+    .option('--date <date>', 'date-related property name(s) of a feature to be normalized as a ISO 8601 datestring (xyz_iso8601_[propertyname]), and unix timestamp (xyz_timestamp_[propertyname] ')
+    .option('--datetag [datetagString]', 'comma separated list of granular date tags to be added via --date. possible options - year, month, week, weekday, year_month, year_week')
+    .option('--dateprops [datepropsString]', 'comma separated list of granular date properties to be added via --date. possible options - year, month, week, weekday, year_month, year_week')
+    .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry (best used with -i and virtual spaces)')
+    .option('--history [history]', 'repeat commands previously used to upload data to a space; save and recall a specific command using "--history save" and "--history fav" ')
+    .option('--batch [batch]', 'select type of files to be uploaded in batch (select directory with -f)')
     .action(async function (id, options) {
         if(options.history){
             await executeHistoryCommand(id, options);
