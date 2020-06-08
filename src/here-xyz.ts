@@ -2177,7 +2177,7 @@ async function mergeAllTags(
                             */
                             dateValue = moment(new Date(value));
                         }
-                        if(dateValue){
+                        if(dateValue && dateValue.isValid()){
                             item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
                             item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
                             if(options.datetag){
