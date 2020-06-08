@@ -2177,14 +2177,16 @@ async function mergeAllTags(
                             */
                             dateValue = moment(new Date(value));
                         }
-                        item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
-                        item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
-                        if(options.datetag){
-                            addDatetimeTag(dateValue, element, options, finalTags);
-                        }
-                        if(options.dateprops){
-                            addDatetimeProperty(dateValue, element, options, item);
-                        }              
+                        if(dateValue){
+                            item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
+                            item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
+                            if(options.datetag){
+                                addDatetimeTag(dateValue, element, options, finalTags);
+                            }
+                            if(options.dateprops){
+                                addDatetimeProperty(dateValue, element, options, item);
+                            }
+                        }           
                     }
                 });
             } catch(e){
