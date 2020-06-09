@@ -26,7 +26,7 @@ export async function performGisOperation(id:string, options:any){
     let isValidGisFeatures = false;
     let tinFeaturesMap = new Map();
     console.log("Performing GIS operation on the space data");
-    let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.geojsonl' });
+    let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: (options.voronoi || options.tin) ? '.geojson':'.geojsonl' });
     do {
         let jsonOut = await xyz.getSpaceDataFromXyz(id, options);
         if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
