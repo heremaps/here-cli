@@ -85,10 +85,9 @@ export async function verifyProLicense() {
     // if (settings.get('ProEnabled') && settings.get('ProEnabledTS') && settings.get('ProEnabledTS') + minutesInMilis > now) {
     if (settings.get('ProEnabled')) {
         if (settings.get('ProEnabled') === 'true') {
-            // console.log("allowing this pro feature under GA");
             return;
         } else {
-            console.log("This is a Pro feature and your plan does not have access to this command.")
+            console.log("This is a Add-on feature and your plan does not have access to this command.")
             console.log("If you have recently changed your plan, please run 'here configure refresh' command to refresh your settings.");
             console.log("If you wish to upgrade your plan, please visit developer.here.com.");
             process.exit(1);
@@ -110,7 +109,7 @@ export async function updatePlanDetails(accountMe: any) {
                 if (app.plan.internal === true || app.dsPlanType.startsWith('XYZ_PRO') || app.dsPlanType.startsWith('XYZ_ENTERPRISE')) {
                     settings.set('ProEnabled', 'true');
                     settings.set('ProEnabledTS', new Date().getTime());
-                    console.log("Pro features enabled.");
+                    console.log("Add-on features enabled.");
                     break;
                 }
             }
