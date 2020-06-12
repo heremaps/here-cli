@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env NODE_OPTIONS=--no-warnings node
 
 /*
   Copyright (C) 2018 - 2019 HERE Europe B.V.
@@ -44,6 +44,7 @@ const questionLicense = [
 ];
 
 async function start() {
+    process.removeAllListeners('warning');
     if (settings.get('GAlicense') === 'true') {
         await checkVersion();
     } else {
