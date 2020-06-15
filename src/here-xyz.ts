@@ -2883,7 +2883,7 @@ program
     .command("join <id>")
     .description("{DataHub Add-on} create a new virtual DataHub space with a CSV and a space with geometries, associating by feature ID")    
     .option("-f, --file <file>", "csv to be uploaded and associated")
-    .option("-k, --keyField <keyField>", "field in csv file to become feature id")
+    .option("-i, --keyField <keyField>", "field in csv file to become feature id")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
@@ -2893,6 +2893,7 @@ program
     .option("--token <token>", "a external token to create another user's spaces")
     .option("-s, --stream", "streaming data for faster uploads and large csv support")
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
     .action(function (id, options) {
         createJoinSpace(id, options).catch((error) => {
             handleError(error, true);
