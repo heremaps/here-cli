@@ -326,8 +326,8 @@ async function execute(uri: string, method: string, contentType: string, data: a
 program
     .command("list")
     .alias("ls")
-    .description("information about available DataHub spaces")
-    .option("-r, --raw", "show raw DataHub space definition")
+    .description("information about available Data Hub spaces")
+    .option("-r, --raw", "show raw Data Hub space definition")
     .option("--token <token>", "a external token to access another user's spaces")
     .option("--filter <filter>", "a comma separted strings to filter spaces")
     .option(
@@ -348,7 +348,7 @@ async function listSpaces(options: any) {
     const cType = "application/json";
     const response = await execute(uri, "GET", cType, "", options.token);
     if (response.body.length == 0) {
-        console.log("No DataHub space found");
+        console.log("No Data Hub space found");
     } else {
         let fields = ["id", "title", "description"];
         if (options.prop.length > 0) {
@@ -468,7 +468,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`\ngetting data from DataHub space failed: ${JSON.stringify(error)}`);
+                console.error(`\ngetting data from Data Hub space failed: ${JSON.stringify(error)}`);
                 reject(error);
             }
         })();
@@ -552,7 +552,7 @@ async function analyzeSpace(id: string, options: any) {
 
 program
     .command('hexbin <id>')
-    .description('create fixed height hexbins (and their centroids) using points in a DataHub space, and upload them to another space')
+    .description('create fixed height hexbins (and their centroids) using points in a Data Hub space, and upload them to another space')
     .option("-c, --cellsize <cellsize>", "size of hexgrid cells in meters, comma-separate multiple values")
     .option("-i, --ids", "add IDs of features counted within the hexbin as an array in the hexbin's feature property")
     .option("-p, --groupBy <groupBy>", "name of the feature property by which hexbin counts will be further grouped")
@@ -862,14 +862,14 @@ program
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
-    .option("-r, --raw", "show raw DataHub space content")
-    .option("--all", "iterate over entire DataHub space to get entire data of space, output will be shown on the console in geojson format")
+    .option("-r, --raw", "show raw Data Hub space content")
+    .option("--all", "iterate over entire Data Hub space to get entire data of space, output will be shown on the console in geojson format")
     .option("--geojsonl", "to print output of --all in geojsonl format")
     .option("-c, --chunk [chunk]", "chunk size to use in --all option, default 5000")
     .option("--token <token>", "a external token to access another user's space")
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
-    .option("-w, --web", "display DataHub space on http://geojson.tools")
-    .option("-v, --vector", "inspect and analyze using DataHub Space Invader and tangram.js")
+    .option("-w, --web", "display Data Hub space on http://geojson.tools")
+    .option("-v, --vector", "inspect and analyze using Data Hub Space Invader and tangram.js")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
@@ -1086,7 +1086,7 @@ async function showSpace(id: string, options: any) {
 
 program
     .command("delete <id>")
-    .description("delete the DataHub space with the given id")
+    .description("delete the Data Hub space with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
@@ -1122,15 +1122,15 @@ async function deleteSpace(geospaceId: string, options:any) {
         options.token
     );
     if (response.statusCode >= 200 && response.statusCode < 210)
-        console.log("DataHub space '" + geospaceId + "' deleted successfully");
+        console.log("Data Hub space '" + geospaceId + "' deleted successfully");
 }
 
 program
     .command("create")
-    .description("create a new DataHub space")
+    .description("create a new Data Hub space")
     // .option("-tmin, --tileMinLevel [tileMinLevel]", "Minimum Supported Tile Level")
     // .option("-tmax, --tileMaxLevel [tileMaxLevel]", "Maximum Supported Tile Level")
-    .option("-t, --title [title]", "Title for DataHub space")
+    .option("-t, --title [title]", "Title for Data Hub space")
     .option("-d, --message [message]", "Short description ")
     .option("--token <token>", "a external token to create space in other user's account")
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
@@ -1142,10 +1142,10 @@ program
 async function createSpace(options: any) {
     if (options) {
         if (!options.title) {
-            options.title = "a new DataHub space created from commandline";
+            options.title = "a new Data Hub space created from commandline";
         }
         if (!options.message) {
-            options.message = "a new DataHub space created from commandline";
+            options.message = "a new Data Hub space created from commandline";
         }
     }
     let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
@@ -1175,15 +1175,15 @@ async function createSpace(options: any) {
 
 
     const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("DataHub space '" + response.body.id + "' created successfully");
+    console.log("Data Hub space '" + response.body.id + "' created successfully");
     return response.body;
 }
 
 program
     .command("clear <id>")
-    .description("clear data from DataHub space")
-    .option("-t, --tags <tags>", "tags for the DataHub space")
-    .option("-i, --ids <ids>", "ids for the DataHub space")
+    .description("clear data from Data Hub space")
+    .option("-t, --tags <tags>", "tags for the Data Hub space")
+    .option("-i, --ids <ids>", "ids for the Data Hub space")
     .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
@@ -1278,7 +1278,7 @@ async function printDeleteWarning(id: string, options: any) {
 
 program
     .command("token")
-    .description("list all DataHub tokens ")
+    .description("list all Data Hub tokens ")
     .action(() => {
         listTokens().catch((error) => {
             handleError(error);
@@ -1328,7 +1328,7 @@ program
     .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
     .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
     .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
-    .option("-t, --tags [tags]", "fixed tags for the DataHub space")
+    .option("-t, --tags [tags]", "fixed tags for the Data Hub space")
     .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
@@ -1388,7 +1388,7 @@ program
             process.exit(1);
         }
         if (!id && options.file) {
-            console.log("No space ID specified, creating a new DataHub space for this upload.");
+            console.log("No space ID specified, creating a new Data Hub space for this upload.");
             const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
             options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
             const descPrompt = [{
@@ -1861,7 +1861,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         }
 
         let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
-        console.log(options.totalCount + " features uploaded to DataHub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
+        console.log(options.totalCount + " features uploaded to Data Hub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     }
     await updateCommandMetadata(id, options, false, null);
     console.log("upload completed successfully");
@@ -2044,13 +2044,13 @@ async function uploadDataToSpaceWithTags(
                     console.log(
                         "'" +
                         options.file +
-                        "' uploaded to DataHub space '" +
+                        "' uploaded to Data Hub space '" +
                         id +
                         "'"
                     );
                 else
                     console.log(
-                        "data upload to DataHub space '" + id + "' completed"
+                        "data upload to Data Hub space '" + id + "' completed"
                     );
 
                 if (upresult.failed > 0) {
@@ -2076,7 +2076,7 @@ function extractOption(callBack: any) {
                 name: "choice",
                 type: "list",
                 message:
-                    "DataHub upload will generate unique IDs based on a hash of properties for all features by default (no features will be overwritten). See upload -h for more options.",
+                    "Data Hub upload will generate unique IDs based on a hash of properties for all features by default (no features will be overwritten). See upload -h for more options.",
                 choices: ["continue", "quit"],
                 default: 0
             }
@@ -2428,7 +2428,7 @@ async function getStatsAndBasicForSpace(spaceId: string) {
 
 program
     .command("config <id>")
-    .description("configure/view advanced DataHub features for space")
+    .description("configure/view advanced Data Hub features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
@@ -2439,7 +2439,7 @@ program
     .option("--token <token>", "a external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw json output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data, use with add/delete/update")
-    .option("--searchable", "view or configure searchable properties of an DataHub space, use with add/delete/update")
+    .option("--searchable", "view or configure searchable properties of an Data Hub space, use with add/delete/update")
     .option("--tagrules", "add, remove, view the conditional rules to tag your features automatically, use with add/delete/update -- at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
     .option("--delete", "use with schema/searchable/tagrules options to remove the respective configurations")
     .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
@@ -2881,7 +2881,7 @@ function showSpaceConfig(spacedef: any) {
 
 program
     .command("join <id>")
-    .description("{DataHub Add-on} create a new virtual DataHub space with a CSV and a space with geometries, associating by feature ID")    
+    .description("{Data Hub Add-on} create a new virtual Data Hub space with a CSV and a space with geometries, associating by feature ID")    
     .option("-f, --file <file>", "csv to be uploaded and associated")
     .option("-i, --keyField <keyField>", "field in csv file to become feature id")
     .option("-x, --lon [lon]", "longitude field name")
@@ -2931,8 +2931,8 @@ async function createJoinSpace(id:string, options:any){
 program
     .command("virtualize")
     .alias("vs")
-    .description("{DataHub Add-on} create a new virtual DataHub space")
-    .option("-t, --title [title]", "Title for virtual DataHub space")
+    .description("{Data Hub Add-on} create a new virtual Data Hub space")
+    .option("-t, --title [title]", "Title for virtual Data Hub space")
     .option("-d, --message [message]", "set description for the space")
     .option("-g, --group [spaceids]", "Group the spaces (all objects of each space will be part of the response) - enter comma separated space ids")
     .option("-a, --associate [spaceids]", "Associate the spaces. Features with same id will be merged into one feature. Enter comma separated space ids [space1,space2] -- space1 properties will be merged into space2 features.")
@@ -2971,12 +2971,12 @@ async function createVirtualSpace(options: any) {
     const gp = getVirtualSpaceProfiles(options.title, options.message, spaceids, relationship);
     const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp);
     if (response.statusCode >= 200 && response.statusCode < 210) {
-        console.log("virtual DataHub space '" + response.body.id + "' created successfully");
+        console.log("virtual Data Hub space '" + response.body.id + "' created successfully");
     }
 }
 
 function createVirtualSpaceTitle(spaceids: any[], isAssociate: boolean) {
-    let title = "DataHub Virtual Space, " + spaceids[0];
+    let title = "Data Hub Virtual Space, " + spaceids[0];
     for (let i = 1; i < spaceids.length; i++) {
         title += isAssociate ? ' -> ' + spaceids[i] : ' + ' + spaceids[i];
     }
@@ -3342,7 +3342,7 @@ async function tagRuleConfig(id: string, options: any) {
 // program
 //     .alias("index")
 //     .command("searchable <id>")
-//     .description("view or configure searchable properties of an DataHub space")
+//     .description("view or configure searchable properties of an Data Hub space")
 //     .option("--add", "configure (index on) a property as searchable")
 //     .option("--delete", "remove (index on) a property from searchable")
 //     .option("--view", "view existing searchable properties")
@@ -3473,7 +3473,7 @@ async function searchableConfig(id: string, options: any) {
 
 program
     .command("gis <id>")
-    .description("{DataHub Add-on} perform gis operations with space data")
+    .description("{Data Hub Add-on} perform gis operations with space data")
     .option("--centroid", "calculates centroids of Line and Polygon features and uploads in a different space")
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
@@ -3523,7 +3523,7 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
 
 // program
 //     .command("activitylog <id>")
-//     .description("enable, disable or view the activity log for your DataHub space. activity log lets to see thru the history of feature modification")
+//     .description("enable, disable or view the activity log for your Data Hub space. activity log lets to see thru the history of feature modification")
 //     .option("--enable", "enable activitylog for the space")
 //     .option("--disable", "disable activitylog for the space")
 //     .option("--state <state>", "number of history trail for a feature you would like to keep, please enter a number")
