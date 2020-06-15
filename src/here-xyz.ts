@@ -197,8 +197,7 @@ async function execInternal(
     contentType: string,
     data: any,
     token: string,
-    gzip: boolean,
-    setAuthorization: boolean
+    gzip: boolean
 ) {
     if (gzip) {
         return await execInternalGzip(
@@ -289,17 +288,17 @@ async function execInternalGzip(
     return response;
 }
 
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
     if (!token) {
         token = await common.verify();
     }
-    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
+    return await execInternal(uri, method, contentType, data, token, gzip);
 }
 
 program
     .command("list")
     .alias("ls")
-    .description("information about available XYZ spaces and projects")
+    .description("information about available XYZ spaces")
     .option("-r, --raw", "show raw XYZ space definition")
     .option("--token <token>", "a external token to access another user's spaces")
     .option("--filter <filter>", "a comma separted strings to filter spaces")
@@ -346,51 +345,6 @@ async function listSpaces(options: any) {
     }
 }
 
-
-/**
- * Will list all the projects for the given user in below format
- *
- * @param options
- */
-async function listProjects (options: any) {
-    console.log("Please wait; Fetching your list of projects...")
-    const uri = "/project-api/projects";
-    const cType = "";//"application/json";//
-    let { response, body } = await execute(uri, "GET", cType, "", options.token);
-    if (body.length == 0) {
-        console.log("No xyz projects found");
-    } else {
-        let fields = ["id", "title", "status"];
-
-        body = JSON.parse(body);
-
-        //Flattened array of project JsonObjects containing info about name, id and description, add any other info later as necessary
-        let extractProjectInfo: any[] = new Array();
-
-        //Iterate through all the projects and extract meta information in extractColumns Array having JSON Objects with keys of id, name and description,
-        _.forEach(body, (currentProject: { status: string; id: string; meta: { name: any; description: any; }; }) => {
-
-            //Check whether meta info like project description and name exists for that project? - > If exists Push the meta info with id in new
-            if (_.has(currentProject, 'meta')) {
-                let viewerURL = "";
-                if (currentProject.status.toUpperCase() === "PUBLISHED") {
-                    viewerURL = "https://xyz.here.com/viewer/?project_id=" + currentProject.id;
-                }
-                let currentProjectDetails = {
-                    id: currentProject.id,
-                    title: currentProject.meta.name,
-                    description: currentProject.meta.description,
-                    status: currentProject.status,
-                    viewerURL
-                }
-                extractProjectInfo.push(new Object(currentProjectDetails))
-            }
-        })
-
-        //List the project
-        common.drawNewTable(extractProjectInfo, fields, [40, 25, 12]);
-    }
-}
 
 function collect(val: string, memo: string[]) {
     memo.push(val);
@@ -798,15 +752,7 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
 }
 
 async function getStatisticsData(spaceId: string, token: string | null = null) {
-    const response = await execute(
-        "/hub/spaces/" + spaceId + "/statistics",
-        "GET",
-        "application/json",
-        null,
-        token,
-        true
-    );
-    return response.body;
+    return xyzComm.getStatisticsData(spaceId, token)
 }
 
 function replaceOpearators(expr: string) {

@@ -31,7 +31,7 @@ const program = require('commander');
 const settings = require('user-settings').file('.herecli');
 const latestVersion = require('latest-version');
 
-const commands = ["xyz", "studio","xs","c","configure", "transform","tf", "help", "geocode","gc"];
+const commands = ["xyz", "studio", "s", "xs","c","configure", "transform","tf", "help", "geocode","gc"];
 const fs = require('fs');
 const path = require('path');
 

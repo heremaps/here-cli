@@ -25,17 +25,18 @@
 */
 
 import * as common from './common';
-import {ApiError} from "./api-error";
-import * as _ from "lodash";
 
 import * as fs from "fs";
 
 import * as program from 'commander';
 
-import {getSpaceDataFromXyz, uploadToXyzSpace, handleError, execute, createSpace} from "./xyzCommon";
+import {getSpaceDataFromXyz, uploadToXyzSpace, handleError, execute, createSpace, getStatisticsData} from "./xyzCommon";
 
 const prompter = require('prompt');
 const commands = ["list", "clone", "open", "show", "delete"];
+
+const studioBaseURL = "https://studio.here.com";
+const projectsUrl = "/project-api/projects";
 
 program
     .version('0.1.0');
@@ -65,7 +66,7 @@ program
     .command("show <project-id>")
     .description("open the project with the given id")
     .action(async (geospaceId, options) => {
-        showProject (geospaceId, options)
+        showProject (geospaceId)
             .catch((error) => {
                 handleError(error);
             })
@@ -111,13 +112,11 @@ async function cloneProject  (id : any, options: any) {
 
     response.body = JSON.parse(response.body);
 
-    //Fetch the current token from user's published project
+    //Fetch the token from user's published project
     let publishersToken = response.body.rot;
-    let currentUsersToken = await common.verify();
 
-    //Create a new project for currentUser copying all the response body of past users data //POST - ProjectsAPI with response.body of to-be cloned project
-    uri = "/project-api/projects";
-    cType = "application/json"
+    //Fetch current user's read only token
+    let currentUsersToken = await common.verify(true);
 
     //Remove id attribute before post call, the new project which will be created for current user with this data
     delete response.body.id;
@@ -143,50 +142,63 @@ async function cloneProject  (id : any, options: any) {
 
             //Download the space locally and reference the space for current user
             let geoSpaceIDToCopy = currentLayer.geospace.id;
-            console.log("\nCopying layer ["+(i+1)+"] : '"+geoSpaceIDToCopy+"' from published project")
+            console.log(`\nCopying layer [${i+1}] : ${geoSpaceIDToCopy} from published project`)
+
+            //Get the space title and description from the base space
+            const url = `/hub/spaces/${geoSpaceIDToCopy}?clientId=cli`
+            const response = await execute(url,"GET", "application/json", "", publishersToken);
+
+            //Copy the contents of the space config title and description for currentUser's XYZ spaces
+            let spaceConfigOptions = {
+                title : response.body.title,
+                message : response.body.description
+            }
+
+            //Get the original count of features to download from statistics API - getStatisticsData
+            let spaceStatsData = await getStatisticsData(geoSpaceIDToCopy, publishersToken);
 
             //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
             let geoSpaceDownloadOptions = {
-                token : publishersToken
+                token : publishersToken,
+                limit : spaceStatsData.count.value // Fetch all features from base spaceID
             }
             let geoSpaceData = await getSpaceDataFromXyz(geoSpaceIDToCopy, geoSpaceDownloadOptions);
-            if (geoSpaceData.features && geoSpaceData.features.length === 0) {
+
+            //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
+            if ( spaceStatsData.count.value === 0) {
                 console.log("\nNo features are available to download");
                 //process.exit();
             }
+            else {
+                let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
+                await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
+                console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
 
-            //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
-            let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
-            await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
-            console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
+                //Create a new space for currentUser
+                let newSpaceData = await createSpace (spaceConfigOptions)
+                let currentGeoSpaceID = newSpaceData.id;
 
-            //Copy the contents of the downloaded space to currentUser's XYZ spaces
-            let newSpaceData = await createSpace ({})//createNewSpaceAndUpdateMetadata(''+geoSpaceIDToCopy, ""+geoSpaceIDToCopy, {});
-            let currentGeoSpaceID = newSpaceData.id;
+                //Update the geospace id for current layer
+                currentLayer.geospace.id = currentGeoSpaceID;
 
-            //Update the geospace id for current layer
-            currentLayer.geospace.id = currentGeoSpaceID;
+                let uploadOptions = {
+                    title: geoSpaceFileName,
+                    description: "GeoSpace created from HERE CLI",
+                    file: geoSpaceFileName,
+                    stream: true
+                }
 
-            let uploadOptions = {
-                title: geoSpaceFileName,
-                description: "GeoSpace created from HERE CLI",
-                file: geoSpaceFileName,
-                stream: true
+                //Upload it to current user's space
+                await uploadToXyzSpace (currentGeoSpaceID, uploadOptions);
+
+                //Clear cache and delete the file from temp repo
+                await fs.unlinkSync(geoSpaceFileName)
+
+                //Update the modified layer data.
+                updatedLayersData.push(currentLayer)
             }
-
-            //Upload it to current user's space
-            await uploadToXyzSpace (currentGeoSpaceID, uploadOptions);
-
-            //Clear cache and delete the file from temp repo
-            await fs.unlinkSync(geoSpaceFileName)
-
-            //Update the modified layer data.
-            updatedLayersData.push(currentLayer)
         }
     }
-
-    //Create a new project under current user with the settings of published projects
-    uri = "/project-api/projects";
 
     //Update the layer data to cloned project - updatedLayersData
     clonedProjectData.layers = updatedLayersData;
@@ -194,10 +206,9 @@ async function cloneProject  (id : any, options: any) {
     //Update the token for current project
     clonedProjectData.rot = currentUsersToken;
 
-    let newProjectResponse = await execute(uri, "POST", cType, clonedProjectData, options.token);
-
+    //Create a new project under current user with the settings of published projects
+    let newProjectResponse = await createProject(clonedProjectData, options);
     let newProjectBody = newProjectResponse.body;
-    let studioBaseURL = "https://studio.here.com";
     let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
 
     //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
@@ -207,6 +218,26 @@ async function cloneProject  (id : any, options: any) {
         console.log("Project cloned in your studio account : "+clonedProjectURL)
         console.log("Viewer URL : "+viewerURL)
     }
+}
+
+/**
+ * Will create an XYZ Studio project
+ * @param projectData
+ * @param options
+ */
+async function createProject (projectData:any, options:any) {
+    let cType = "application/json"
+    let newProjectResponse = await execute(projectsUrl, "POST", cType, projectData, options.token);
+
+    let newProjectBody = newProjectResponse.body;
+    if (newProjectResponse.statusCode == 201) {
+        console.log("\nProject Created successfully")
+    }
+    else {
+        console.log("\nProject creation failed")
+        return null;
+    }
+    return newProjectResponse
 }
 
 //Will capture URL Query string parameters from URL
@@ -220,10 +251,10 @@ function getParameterByName (name: any, url: any) {
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
 
-async function showProject (id : any, options: any) {
-    const opn = require("opn");
-    opn(
-        "https://xyz.here.com/viewer/?project_id="+id
+async function showProject (id : any) {
+    const open = require("open");
+    open(
+        studioBaseURL+"/viewer/?project_id="+id
         , { wait: false });
 }
 
@@ -245,31 +276,44 @@ async function deleteProject  (id : any, options: any) {
 
 
 /**
+ * Will fetch all projects
+ * @param options
+ */
+async function findAllProjects (options:any) {
+    try {
+        const uri = "/project-api/projects";
+        const cType = "";
+        let response = await execute(uri, "GET", cType, "", options.token);
+        return response;
+    } catch (error) {
+        console.log("Unable to get all project data")
+        return null;
+    }
+}
+
+/**
  * Will list all the projects for the given user in below format
  *
  * @param options
  */
 export async function listProjects (options: any) {
     console.log("Please wait; Fetching your list of projects...")
-    const uri = "/project-api/projects";
-    const cType = "";//"application/json";//
-    let response = await execute(uri, "GET", cType, "", options.token);
-    let body = JSON.parse(response.body)
+
+    let response = await findAllProjects(options)
+    let body = JSON.parse(response.body);
     if (response.body.length == 0) {
         console.log("No xyz projects found");
     } else {
         let fields = ["id", "title", "status"];
 
-        response.body = JSON.parse(response.body);
-
         //Flattened array of project JsonObjects containing info about name, id and description, add any other info later as necessary
         let extractProjectInfo: any[] = new Array();
 
         //Iterate through all the projects and extract meta information in extractColumns Array having JSON Objects with keys of id, name and description,
-        _.forEach(body, (currentProject: { status: string; id: string; meta: { name: any; description: any; }; }) => {
+        body.map((currentProject:any) => {
 
             //Check whether meta info like project description and name exists for that project? - > If exists Push the meta info with id in new
-            if (_.has(currentProject, 'meta')) {
+            if (currentProject.hasOwnProperty("meta")) {
                 let viewerURL = "";
                 if (currentProject.status.toUpperCase() === "PUBLISHED") {
                     viewerURL = "https://xyz.here.com/viewer/?project_id=" + currentProject.id;

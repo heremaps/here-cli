@@ -335,6 +335,18 @@ export function getSpaceDataFromXyz(id: string, options: any) {
     });
 }
 
+export async function getStatisticsData(spaceId: string, token: string | null = null) {
+    const response = await execute(
+        "/hub/spaces/" + spaceId + "/statistics",
+        "GET",
+        "application/json",
+        null,
+        token,
+        true
+    );
+    return response.body;
+}
+
 export async function uploadToXyzSpace(id: string, options: any) {
     let startTime = new Date();
     //(async () => {
