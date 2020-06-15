@@ -2527,8 +2527,17 @@ async function configXyzSpace(id: string, options: any) {
     
     if (options.shared) {
         if (options.shared == 'true') {
-            console.log("setting the space SHARED");
-            patchRequest['shared'] = true;
+            console.log("Note that if you set a space to shared=true, anyone with a Data Hub account will be able to view it. If you want to share a space but limit who can see it, consider generating and distributing a read token");
+            console.log("Are you sure you want to mark the space as shared?");
+            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+            if (termsResp !== "y" && termsResp !== "yes") {
+                console.log("CANCELLED !");
+                process.exit(1);
+            } else {
+                console.log("setting the space SHARED");
+                patchRequest['shared'] = true;
+            }
         } else {
             console.log("setting the space NOT SHARED");
             patchRequest['shared'] = false;
