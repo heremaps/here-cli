@@ -1464,7 +1464,7 @@ async function executeHistoryCommand(id: string, options: any){
                 console.log("No command history available for this space");
                 process.exit(1);
             }
-            if (options.history == true) {
+            if (options.history === true) {
                 commandString = await askCommandSelectionPrompt(history);
             } else {
                 let number = parseFloat(options.history.toLowerCase());
@@ -1473,7 +1473,7 @@ async function executeHistoryCommand(id: string, options: any){
                     process.exit(1);
                 }
                 if ((number + 1)  > history.length) {
-                    console.log("space contains only " + history.length + " commands as history, please give number below or equal to that");
+                    console.log("space contains only " + history.length + " commands as history, please give number below that");
                     process.exit(1);
                 }
                 commandString = history[number].command;
