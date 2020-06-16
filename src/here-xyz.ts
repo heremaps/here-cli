@@ -40,6 +40,7 @@ import { isBoolean } from "util";
 import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
 const path = require('path');
+const open = require("open");
 import * as moment from 'moment';
 import * as glob from 'glob';
 
@@ -1279,7 +1280,13 @@ async function printDeleteWarning(id: string, options: any) {
 program
     .command("token")
     .description("list all Data Hub tokens ")
-    .action(() => {
+    .option("--console","opens web console for Data Hub")
+    .action((options) => {
+        if(options.console){
+            console.log("opening Data Hub web console")
+            open("https://xyz.api.here.com/console", { wait: false });
+            process.exit(1);
+        }
         listTokens().catch((error) => {
             handleError(error);
         })
@@ -2399,7 +2406,6 @@ async function launchHereGeoJson(uri: string, token: string) {
         uri.indexOf("?") == -1
             ? "?access_token=" + token
             : "&access_token=" + token;
-    const open = require("open");
     open(
         "http://geojson.tools/index.html?url=" +
         common.xyzRoot() +
@@ -2413,7 +2419,6 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
         token = await common.verify(true);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
-    const open = require("open");
     open(
         uri
         , { wait: false });
@@ -2427,7 +2432,7 @@ async function getStatsAndBasicForSpace(spaceId: string) {
 
 
 program
-    .command("config <id>")
+    .command("config [id]")
     .description("configure/view advanced Data Hub features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
@@ -2446,8 +2451,16 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
-
+    .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
+        if(options.console){
+            console.log("opening Data Hub web console")
+            open("https://xyz.api.here.com/console", { wait: false });
+            process.exit(1);
+        } else if(!id){
+            console.log("error: missing required argument 'id'");
+            process.exit(1);
+        }
         configXyzSpace(id, options).catch((error) => {
             handleError(error, true);
         });
