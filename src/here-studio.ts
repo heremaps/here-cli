@@ -89,8 +89,8 @@ program
 // https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7
 //
 //     - Take the spaceIDs from ProjectAPI
-// - Download / save response all features from the shared space from viewer url
-// https://xyz.api.here.com/hub/spaces/mOXoWyWn/search?margin=20&clip=false&clientId=viewer&access_token=AFSmufxGTfOGWwZQF11aiwA&limit=100000
+// - Download / save response all features from /iterate features API from the shared space from viewer url
+//
 //     - Repeat downloading if multiple GeospaceIDs exists
 //
 // - Upload the file to new existing current user’s workspace
@@ -157,7 +157,7 @@ async function cloneProject  (id : any, options: any) {
             //Get the original count of features to download from statistics API - getStatisticsData
             let spaceStatsData = await getStatisticsData(geoSpaceIDToCopy, publishersToken);
 
-            //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file - https://xyz.api.here.com/hub/spaces/uLqEizJW/search
+            //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file using /iterate features API
             let geoSpaceDownloadOptions = {
                 token : publishersToken,
                 limit : spaceStatsData.count.value // Fetch all features from base spaceID
