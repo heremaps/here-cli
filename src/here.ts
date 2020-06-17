@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env NODE_OPTIONS=--no-warnings node
 
 /*
   Copyright (C) 2018 - 2019 HERE Europe B.V.
@@ -44,6 +44,7 @@ const questionLicense = [
 ];
 
 async function start() {
+    process.removeAllListeners('warning');
     if (settings.get('GAlicense') === 'true') {
         await checkVersion();
     } else {
@@ -53,7 +54,7 @@ async function start() {
     program
     .version(getVersion())
         .command('configure [set|verify]', 'setup configuration for authentication').alias('c')
-        .command('xyz [list|create|upload]', 'work with xyz spaces').alias('xs')
+        .command('xyz [list|create|upload]', 'work with Data Hub spaces').alias('xs')
         .command('studio [list|delete|clone|show]', 'work with xyz studio projects').alias('s')
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')

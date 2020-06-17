@@ -26,10 +26,12 @@
     "geojson-validation": "^0.2.1",
     "get-stdin": "7.0.0",
     "getmac": "5.1.0",
+    "glob": "7.1.6",
     "got": "10.7.0",
     "inquirer": "7.1.0",
     "latest-version": "5.1.0",
     "line-by-line": "^0.1.6",
+    "moment": "2.25.3",
     "open": "7.0.3",
     "proj4": "2.6.1",
     "project-version": "1.2.0",
@@ -43,6 +45,7 @@
     "xmldom": "0.3.0"
   },
   "devDependencies": {
+    "@types/glob": "^7.1.1",
     "@turf/nearest-point-to-line": "6.0.0",
     "@turf/point-to-line-distance": "6.0.0",
     "@types/commander": "^2.12.2",

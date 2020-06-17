@@ -30,23 +30,36 @@ import {requestAsync} from "./requestAsync";
 import {ApiError} from "./api-error";
 import * as zlib from "zlib";
 import * as inquirer from "inquirer";
+const path = require('path');
 const weeknumber = require('weeknumber');
-
 import * as summary from "./summary";
+import * as fs from "fs";
+import * as glob from "glob";
+import * as moment from "moment";
 
 const gsv = require("geojson-validation");
 let cq = require("block-queue");
 
 export const bboxDirections = ["west", "south", "east", "north"];
 export let choiceList: { name: string, value: string }[] = [];
+export const commandHistoryCount = 3;
 
+const filesToUpload = [
+    {
+        type: "checkbox",
+        name: "selectedFiles",
+        message: "Select the files to be uploaded",
+        choices: choiceList
+    }
+];
 export async function createSpace(options: any) {
+
     if (options) {
         if (!options.title) {
-            options.title = "a new XYZ space created from commandline";
+            options.title = "a new Data Hub space created from commandline";
         }
         if (!options.message) {
-            options.message = "a new XYZ space created from commandline";
+            options.message = "a new Data Hub space created from commandline";
         }
     }
     let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
@@ -76,7 +89,7 @@ export async function createSpace(options: any) {
 
 
     const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("XYZ space '" + response.body.id + "' created successfully");
+    console.log("Data Hub space '" + response.body.id + "' created successfully");
     return response.body;
 }
 
@@ -328,7 +341,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                 jsonOut.features = features;
                 resolve(jsonOut);
             } catch (error) {
-                console.error(`\ngetting data from XYZ space failed: ${JSON.stringify(error)}`);
+                console.error(`\ngetting data from Data Hub space failed: ${JSON.stringify(error)}`);
                 reject(error);
             }
         })();
@@ -355,7 +368,6 @@ export async function getStatisticsData(spaceId: string, token: string | null = 
 }
 
 export async function uploadToXyzSpace(id: string, options: any) {
-    let startTime = new Date();
     //(async () => {
     let tags = "";
     if (options.tags) {
@@ -388,55 +400,149 @@ export async function uploadToXyzSpace(id: string, options: any) {
         process.exit(1);
     }
 
-    if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
-        console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
-    }
-
-    if (options.file) {
-        const fs = require("fs");
-        if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
-            if (!options.stream) {
-                const result: any = await transform.readLineFromFile(options.file, 100);
-                await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
-            } else {
-                let queue = streamingQueue();
-                await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
-                    return new Promise((res, rej) => {
-                        (async () => {
-                            if (result.length > 0) {
-                                await queue.send({ id: id, options: options, tags: tags, fc: { type: "FeatureCollection", features: collate(result) }, retryCount: 3 });
-                            }
-                            res(queue);
-                        })();
-                    });
+    let files: string[] = [''];//Initialising as blank string, so that if options.file is not given loop will execute atleast once and else condition will be executed
+    if(options.batch){
+        files = [];
+        if(options.batch != true && options.batch.toLowerCase().indexOf(".") == -1){
+            options.batch = "*."+options.batch;
+        }
+        let directories = options.file.split(',');
+        for(let directory of directories) {
+            if(!(fs.existsSync(directory) && fs.lstatSync(directory).isDirectory())){
+                console.log("--batch option requires directory path in --file option");
+                process.exit(1);
+            }
+            if(options.batch == true){
+                const allFiles = fs.readdirSync(directory, { withFileTypes: true })
+                    .filter(dirent => dirent.isFile())
+                    .map(dirent => dirent.name);
+                allFiles.forEach(function (item: any) {
+                    choiceList.push({'name': item, 'value': path.join(directory,item)});
                 });
-                while (queue.chunksize != 0) {
-                    await new Promise(done => setTimeout(done, 1000));
+            } else {
+                files = files.concat(glob.sync(path.join(directory,options.batch)));
+                if(options.batch == 'shp' || options.batch == '*.shp'){
+                    const allDirectories = fs.readdirSync(directory, { withFileTypes: true })
+                        .filter(dirent => dirent.isDirectory())
+                        .map(dirent => dirent.name);
+                    for(let subDirectory of allDirectories) {
+                        files = files.concat(glob.sync(path.join(directory,subDirectory,options.batch)));
+                    }
                 }
             }
-        } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
-            let result = await transform.readShapeFile(
-                options.file,
-            );
-            await uploadData(
-                id,
-                options,
-                tags,
-                result,
-                true,
-                options.ptag,
-                options.file,
-                options.id
-            );
-        } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
-            if (!options.stream) {
+        }
+        if(options.batch == true){
+            let answers: any = await inquirer.prompt(filesToUpload);
+            files = answers.selectedFiles;
+        }
+        if(files.length == 0){
+            console.log("No files found of the specified format in the directory");
+            process.exit(1);
+        }
+    } else if(options.file){
+        files = options.file.split(',');
+    }
+
+    for(let file of files) {
+        options.file = file;
+        console.log("uploading file - " + file);
+        let startTime = new Date();
+        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+            console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
+        }
+
+        if (options.file) {
+            const fs = require("fs");
+            if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
+                if (!options.stream) {
+                    const result: any = await transform.readLineFromFile(options.file, 100);
+                    await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
+                } else {
+                    let queue = streamingQueue();
+                    await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
+                        return new Promise((res, rej) => {
+                            (async () => {
+                                if (result.length > 0) {
+                                    await queue.send({ id: id, options: options, tags: tags, fc: { type: "FeatureCollection", features: collate(result) }, retryCount: 3 });
+                                }
+                                res(queue);
+                            })();
+                        });
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
+                }
+            } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
+                let result = await transform.readShapeFile(
+                    options.file,
+                );
+                await uploadData(
+                    id,
+                    options,
+                    tags,
+                    result,
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
+                );
+            } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
+                if (!options.stream) {
+                    let result = await transform.read(
+                        options.file,
+                        true,
+                        { headers: true, delimiter: options.delimiter, quote: options.quote }
+                    );
+                    const object = {
+                        features: await transform.transform(
+                            result,
+                            options
+                        ),
+                        type: "FeatureCollection"
+                    };
+                    await uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                } else {
+                    let queue = streamingQueue();
+                    await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
+                        return new Promise((res, rej) => {
+                            (async () => {
+                                if (result.length > 0) {
+                                    const fc = {
+                                        features: await transform.transform(
+                                            result,
+                                            options
+                                        ),
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
+                                }
+                                res(queue);
+                            })();
+                        });
+
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
+                }
+            } else if (options.file.indexOf(".gpx") != -1) {
                 let result = await transform.read(
                     options.file,
-                    true,
-                    { headers: true, delimiter: options.delimiter, quote: options.quote }
+                    false,
+                    {}
                 );
                 const object = {
-                    features: await transform.transform(
+                    features: await transform.transformGpx(
                         result,
                         options
                     ),
@@ -452,125 +558,113 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     options.file,
                     options.id
                 );
-            } else {
-                let queue = streamingQueue();
-                await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
-                    return new Promise((res, rej) => {
-                        (async () => {
-                            if (result.length > 0) {
-                                const fc = {
-                                    features: await transform.transform(
-                                        result,
-                                        options
-                                    ),
-                                    type: "FeatureCollection"
-                                };
-                                await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
-                                res(queue);
-                            }
-                        })();
-                    });
 
-                });
-                while (queue.chunksize != 0) {
-                    await new Promise(done => setTimeout(done, 1000));
-                }
-            }
-        } else if (options.file.indexOf(".gpx") != -1) {
-            let result = await transform.read(
-                options.file,
-                false,
-                {}
-            );
-            const object = {
-                features: await transform.transformGpx(
-                    result,
-                    options
-                ),
-                type: "FeatureCollection"
-            };
-            await uploadData(
-                id,
-                options,
-                tags,
-                object,
-                true,
-                options.ptag,
-                options.file,
-                options.id
-            );
-
-        } else {
-            if (!options.stream) {
-                let result = await transform.read(
-                    options.file,
-                    false
-                );
-                let object = JSON.parse(result);
-                if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
-                    object = {
-                        features: await transform.transform(
-                            object,
-                            options
-                        ),
-                        type: "FeatureCollection"
-                    };
-                }
-                await uploadData(
-                    id,
-                    options,
-                    tags,
-                    object,
-                    true,
-                    options.ptag,
-                    options.file,
-                    options.id
-                );
             } else {
-                let queue = streamingQueue();
-                let c = 0;
-                await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
-                    if (result.length > 0) {
-                        const fc = {
-                            features: result,
+                if (!options.stream) {
+                    let result = await transform.read(
+                        options.file,
+                        false
+                    );
+                    let object = JSON.parse(result);
+                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
+                        object = {
+                            features: await transform.transform(
+                                object,
+                                options
+                            ),
                             type: "FeatureCollection"
                         };
-                        await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
                     }
-                    return queue;
-                });
-                while (queue.chunksize != 0) {
-                    await new Promise(done => setTimeout(done, 1000));
+                    await uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                } else {
+                    let queue = streamingQueue();
+                    let c = 0;
+                    await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
+                        if (result.length > 0) {
+                            const fc = {
+                                features: result,
+                                type: "FeatureCollection"
+                            };
+                            await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
+                        }
+                        return queue;
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
                 }
+            }
+        } else {
+            const getStdin = require("get-stdin");
+            await getStdin().then((str: string) => {
+                try {
+                    const obj = JSON.parse(str);
+                    uploadData(
+                        id,
+                        options,
+                        tags,
+                        obj,
+                        false,
+                        options.ptag,
+                        null,
+                        options.id
+                    );
+                } catch (e) {
+                    console.log(
+                        "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
+                    );
+                    process.exit(1);
+                }
+            });
+        }
+
+        let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
+        console.log(options.totalCount + " features uploaded to Data Hub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
+    }
+    await updateCommandMetadata(id, options, false, null);
+    console.log("upload completed successfully");
+    //})();
+}
+
+
+export async function updateCommandMetadata(id: string, options: any, isClear: boolean = false, favCommand: string | null = null){
+    let history: Array<any> = [];
+    let data: any = {};
+    if(favCommand){
+        data = {
+            client: {
+                'favouriteCommand': favCommand
             }
         }
     } else {
-        const getStdin = require("get-stdin");
-        await getStdin().then((str: string) => {
-            try {
-                const obj = JSON.parse(str);
-                uploadData(
-                    id,
-                    options,
-                    tags,
-                    obj,
-                    false,
-                    options.ptag,
-                    null,
-                    options.id
-                );
-            } catch (e) {
-                console.log(
-                    "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
-                );
-                process.exit(1);
+        let spaceData = await getSpaceMetaData(id, options.token);
+        if(spaceData.client && spaceData.client.history){
+            history = spaceData.client.history;
+        }
+        let command = {
+            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.includes(' ') ? "'" + x.trim() + "'": x.trim()).join(" "),
+            "timestamp": moment().toISOString(true)
+        }
+        history = [command].concat(history);
+        data = {
+            client: {
+                'history' : isClear ? [] : history.slice(0, commandHistoryCount)
             }
-        });
+        }
     }
-
-    let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
-    console.log(options.totalCount + " features uploaded to XYZ space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
-    //})();
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const response = await execute(uri, "PATCH", cType, data);
+    return response.body;
 }
 
 export function streamingQueue() {
@@ -735,7 +829,7 @@ export async function uploadDataToSpaceWithTags(
                     );
                 else
                     console.log(
-                        "data upload to XYZ space '" + id + "' completed"
+                        "data upload to Data Hub space '" + id + "' completed"
                     );
 
                 if (upresult.failed > 0) {
