@@ -2156,7 +2156,7 @@ async function mergeAllTags(
         }
         if (tps) {
             tps.forEach(function (tp: any) {
-                if (item.properties[tp] || item.properties[tp] === false) {
+                if (item.properties[tp] || item.properties[tp] === false || item.properties[tp] === 0) {
                     if (Array.isArray(item.properties[tp])) {
                         for (let i in item.properties[tp]) {
                             addTagsToList(item.properties[tp][i], tp, finalTags);
