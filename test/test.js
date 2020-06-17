@@ -192,7 +192,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] , force: true});
       capcon.stopCapture(process.stdout); 
-      if (output.indexOf("XYZ space 'myspace' deleted successfully")!=-1) {
+      if (output.indexOf("Data Hub space 'myspace' deleted successfully")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -207,7 +207,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('createSpace')({ title: "test", message : "test" });
       capcon.stopCapture(process.stdout); 
-      if (output.indexOf("XYZ space 'testing' created successfully")!=-1) {
+      if (output.indexOf("Data Hub space 'testing' created successfully")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -266,7 +266,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson"});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to XYZ space 'myspace' completed")!=-1) {
+      if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -290,7 +290,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv", delimiter: ',', quote: '"'});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to XYZ space 'myspace' completed")!=-1) {
+      if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -317,13 +317,13 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.gpx" });
       capcon.stopCapture(process.stdout);
-      if (output.indexOf("data upload to XYZ space 'myspace' completed") != -1) {
+      if (output.indexOf("data upload to Data Hub space 'myspace' completed") != -1) {
         assert.ok(true, "");
       } else {
         assert.fail();
       }
       console.log(output);
-      if (output.indexOf("1400 features uploaded to XYZ space 'myspace' in") != -1) {
+      if (output.indexOf("1400 features uploaded to Data Hub space 'myspace' in") != -1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -340,7 +340,7 @@ describe('Configure', function () {
       });
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/shapesample/shapesample.shp"});
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("data upload to XYZ space 'myspace' completed")!=-1) {
+      if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -402,7 +402,7 @@ describe('Configure', function () {
       await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl"});
       capcon.stopCapture(process.stdout);     
       console.log("output::::"+output);
-      if (output.indexOf("data upload to XYZ space 'myspace' completed")!=-1) {
+      if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
