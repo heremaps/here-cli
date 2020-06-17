@@ -1285,11 +1285,11 @@ program
         if(options.console){
             console.log("opening Data Hub web console")
             open("https://xyz.api.here.com/console", { wait: false });
-            process.exit(1);
+        } else {
+            listTokens().catch((error) => {
+                handleError(error);
+            });
         }
-        listTokens().catch((error) => {
-            handleError(error);
-        })
     });
 
 async function listTokens() {
@@ -2456,14 +2456,15 @@ program
         if(options.console){
             console.log("opening Data Hub web console")
             open("https://xyz.api.here.com/console", { wait: false });
-            process.exit(1);
-        } else if(!id){
-            console.log("error: missing required argument 'id'");
-            process.exit(1);
+        } else {
+            if(!id){
+                console.log("error: missing required argument 'id'");
+                process.exit(1);
+            }
+            configXyzSpace(id, options).catch((error) => {
+                handleError(error, true);
+            });
         }
-        configXyzSpace(id, options).catch((error) => {
-            handleError(error, true);
-        });
     })
 
 async function configXyzSpace(id: string, options: any) {
