@@ -639,7 +639,7 @@ function replaceOpearators(expr: string) {
 
 program
     .command("show <id>")
-    .description("shows the content of the given space or project [id]")
+    .description("shows the content of the given space [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -855,7 +855,7 @@ async function showSpace(id: string, options: any) {
 
 program
     .command("delete <id>")
-    .description("delete the XYZ space or project with the given id")
+    .description("delete the XYZ space with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
@@ -865,23 +865,6 @@ program
                     handleError(error, true);
                 })
     });
-
-
-async function deleteProject  (id : any, options: any) {
-    console.log("Deleting project : "+id)
-
-    //If project exists send a DELETE request for that projectID
-    const uri = "/project-api/projects/"+id;
-    const cType = "";
-    let { response, body } = await execute(uri, "DELETE", cType, "", options.token);
-
-    if (response && response.statusCode === 204) {
-        console.log("Successfully deleted project.")
-    }
-    else {
-        console.log("Unable to delete project having project-id: "+id)
-    }
-}
 
 
 async function deleteSpace(geospaceId: string, options:any) {
