@@ -43,6 +43,14 @@ const path = require('path');
 const weeknumber = require('weeknumber');
 
 import * as xyzComm from './xyzCommon'
+import {
+    getSpaceMetaData,
+    handleError,
+    execInternalGzip,
+    getSchemaProcessorProfile,
+    getStatisticsData, createQuestionsList,
+    execute
+} from './xyzCommon'
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 let choiceList: { name: string, value: string }[] = [];
@@ -171,128 +179,6 @@ const tagruleDeletePrompt = [
 ]
 
 program.version("0.1.0");
-
-function getGeoSpaceProfiles(title: string, description: string, client: any) {
-    return {
-        title,
-        description,
-        client,
-        "enableUUID": true
-    };
-}
-
-/**
- *
- * @param apiError error object
- * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
- */
-function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
-    xyzComm.handleError(apiError, isIdSpaceId)
-}
-
-async function execInternal(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    gzip: boolean
-) {
-    if (gzip) {
-        return await execInternalGzip(
-            uri,
-            method,
-            contentType,
-            data,
-            token
-        );
-    }
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
-        json: method === "GET" ? undefined : data,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-
-    const response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
-        //throw new Error("Invalid response - " + message);
-        throw new ApiError(response.statusCode, message);
-    }
-    return response;
-}
-
-function gzip(data: zlib.InputType): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) =>
-        zlib.gzip(data, (error, result) => {
-            if (error)
-                reject(error)
-            else
-                resolve(result);
-        })
-    );
-}
-
-async function execInternalGzip(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    retry: number = 3
-) {
-    const zippedData = await gzip(data);
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "Content-Encoding": "gzip",
-            "Accept-Encoding": "gzip"
-        },
-        decompress: true,
-        body: method === "GET" ? undefined : zippedData,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-    let response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        if (response.statusCode >= 500 && retry > 0) {
-            await new Promise(done => setTimeout(done, 1000));
-            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
-        } else {
-            //   throw new Error("Invalid response :" + response.statusCode);
-            throw new ApiError(response.statusCode, response.body);
-        }
-    }
-    return response;
-}
-
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
-    if (!token) {
-        token = await common.verify();
-    }
-    return await execInternal(uri, method, contentType, data, token, gzip);
-}
 
 program
     .command("list")
@@ -732,13 +618,6 @@ async function getBoundingBoxFromUser() {
     return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
 }
 
-export async function getSpaceMetaData(id: string, token: string | null = null) {
-    const uri = "/hub/spaces/" + id + "?clientId=cli";
-    const cType = "application/json";
-    const response = await execute(uri, "GET", cType, "", token);
-    return response.body;
-}
-
 function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
 }
@@ -749,10 +628,10 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
     const centreLatitude = (bbox[1] + bbox[3]) / 2;
     return centreLatitude;
 }
-
-async function getStatisticsData(spaceId: string, token: string | null = null) {
-    return xyzComm.getStatisticsData(spaceId, token)
-}
+//
+// async function getStatisticsData(spaceId: string, token: string | null = null) {
+//     return xyzComm.getStatisticsData(spaceId, token)
+// }
 
 function replaceOpearators(expr: string) {
     return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
@@ -1266,14 +1145,6 @@ program
         });
     });
 
-function collate(result: Array<any>) {
-    return xyzComm.collate(result);
-}
-
-function streamingQueue() {
-    return xyzComm.streamingQueue();
-}
-
 function taskQueue(size: number = 8, totalTaskSize: number) {
     let queue = cq(size, function (task: any, done: Function) {
         iterateChunk(task.chunk, task.url)
@@ -1309,79 +1180,8 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
     return queue;
 }
 
-
 export async function uploadToXyzSpace(id: string, options: any) {
     return await xyzComm.uploadToXyzSpace(id, options);
-}
-
-function createQuestionsList(object: any) {
-    for (let i = 0; i < 3 && i < object.features.length; i++) {
-        let j = 0;
-        for (let key in object.features[0].properties) {
-            if (i === 0) {
-                const desc =
-                    "" +
-                    (1 + j++) +
-                    " : " +
-                    key +
-                    " : " +
-                    object.features[i].properties[key];
-                choiceList.push({ name: desc, value: key });
-            } else {
-                choiceList[j].name =
-                    choiceList[j].name + " , " + object.features[i].properties[key];
-                j++;
-            }
-        }
-    }
-    return questions;
-}
-
-async function uploadData (
-    id: string,
-    options: any,
-    tags: any,
-    object: any,
-    isFile: boolean,
-    tagProperties: any,
-    fileName: string | null,
-    uid: string,
-    printFailed: boolean = false
-) {
-    return await xyzComm.uploadData(id,
-        options,
-        tags,
-        object,
-        isFile,
-        tagProperties,
-        fileName,
-        uid,
-        printFailed)
-}
-
-async function uploadDataToSpaceWithTags(
-    id: string,
-    options: any,
-    tags: any,
-    object: any,
-    isFile: boolean,
-    tagProperties: any,
-    fileName: string | null,
-    uid: string,
-    upresult: any,
-    printFailed: boolean
-) {
-    return await xyzComm. uploadDataToSpaceWithTags(
-        id,
-        options,
-        tags,
-        object,
-        isFile,
-        tagProperties,
-        fileName,
-        uid,
-        upresult,
-        printFailed)
 }
 
 function extractOption(callBack: any) {
@@ -1405,42 +1205,6 @@ function extractOption(callBack: any) {
         });
 }
 
-async function mergeAllTags(
-    features: any,
-    tags: string,
-    tagProperties: any,
-    fileName: string | null,
-    idStr: string,
-    options: any,
-) {
-    return xyzComm.mergeAllTags(features,
-        tags,
-        tagProperties,
-        fileName,
-        idStr,
-        options)
-}
-
-function addTagsToList(value: string, tp: string, finalTags: string[]) {
-    return xyzComm.addTagsToList(value, tp, finalTags)
-}
-
-function createUniqueId(idStr: string, item: any) {
-    return xyzComm.createUniqueId(idStr, item)
-}
-
-function uniqArray<T>(a: Array<T>) {
-    return xyzComm.uniqArray(a)
-}
-
-function getFileName(fileName: string) {
-   return xyzComm.getFileName(fileName)
-}
-
-async function iterateChunks(chunks: any, url: string, index: number, chunkSize: number, token: string, upresult: any, printFailed: boolean): Promise<any> {
-    return await xyzComm.iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed)
-}
-
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
     const response = await execute(
@@ -1454,9 +1218,6 @@ async function iterateChunk(chunk: any, url: string) {
     return response.body;
 }
 
-function chunkify(data: any[], chunksize: number) {
-    return xyzComm.chunkify(data, chunksize)
-}
 
 async function launchHereGeoJson(uri: string, token: string) {
     if(!token){
@@ -2112,10 +1873,6 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
             }
         }
     }
-}
-
-function getSchemaProcessorProfile(schema: string) {
-    return xyzComm.getSchemaProcessorProfile(schema)
 }
 
 function getEmptyRuleTaggerProfile() {

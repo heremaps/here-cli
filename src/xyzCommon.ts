@@ -206,7 +206,7 @@ export async function execInternalGzip(
     return response;
 }
 
-function gzip(data: zlib.InputType): Promise<Buffer> {
+export function gzip(data: zlib.InputType): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) =>
         zlib.gzip(data, (error, result) => {
             if (error)
@@ -333,6 +333,13 @@ export function getSpaceDataFromXyz(id: string, options: any) {
             }
         })();
     });
+}
+
+export async function getSpaceMetaData(id: string, token: string | null = null) {
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 export async function getStatisticsData(spaceId: string, token: string | null = null) {

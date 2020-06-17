@@ -5,7 +5,7 @@
   "version": "1.4.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/heremaps/cli"
+    "url": "https://github.com/heremaps/here-cli"
   },
   "scripts": {
     "prepare": "npx tsc",

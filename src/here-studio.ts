@@ -30,9 +30,16 @@ import * as fs from "fs";
 
 import * as program from 'commander';
 
-import {getSpaceDataFromXyz, uploadToXyzSpace, handleError, execute, createSpace, getStatisticsData} from "./xyzCommon";
+import {
+    getSpaceDataFromXyz,
+    uploadToXyzSpace,
+    handleError,
+    execute,
+    createSpace,
+    getStatisticsData,
+    getSpaceMetaData
+} from "./xyzCommon";
 
-const prompter = require('prompt');
 const commands = ["list", "clone", "open", "show", "delete"];
 
 const studioBaseURL = "https://studio.here.com";
@@ -104,12 +111,7 @@ async function cloneProject  (id : any, options: any) {
     }
 
     //- Get the token from ProjectAPI and have a reference of currentUser’s token from below ProjectAPI GET URL // GET - https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7  / // GET - https://studio.here.com/viewer/?project_id=3a02af56-aa75-400c-b886-36aa8d046c08 //id = "3a02af56-aa75-400c-b886-36aa8d046c08"/ b4d1126a-fc12-4406-b506-692ace752d52
-    let uri = "/project-api/projects/"+id;
-    console.log("Cloning project : "+id);
-    let cType = "";
-
-    let response = await execute(uri, "GET", cType, "", options.token, false, false);
-
+    let response = await getProject(id, options);
     response.body = JSON.parse(response.body);
 
     //Fetch the token from user's published project
@@ -145,13 +147,12 @@ async function cloneProject  (id : any, options: any) {
             console.log(`\nCopying layer [${i+1}] : ${geoSpaceIDToCopy} from published project`)
 
             //Get the space title and description from the base space
-            const url = `/hub/spaces/${geoSpaceIDToCopy}?clientId=cli`
-            const response = await execute(url,"GET", "application/json", "", publishersToken);
+            const response = await getSpaceMetaData(geoSpaceIDToCopy, publishersToken);
 
             //Copy the contents of the space config title and description for currentUser's XYZ spaces
             let spaceConfigOptions = {
-                title : response.body.title,
-                message : response.body.description
+                title : response.title,
+                message : response.description
             }
 
             //Get the original count of features to download from statistics API - getStatisticsData
@@ -159,10 +160,16 @@ async function cloneProject  (id : any, options: any) {
 
             //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file using /iterate features API
             let geoSpaceDownloadOptions = {
-                token : publishersToken,
-                limit : spaceStatsData.count.value // Fetch all features from base spaceID
+                token : publishersToken
             }
             let geoSpaceData = await getSpaceDataFromXyz(geoSpaceIDToCopy, geoSpaceDownloadOptions);
+
+            //Create a new space for currentUser
+            let newSpaceData = await createSpace (spaceConfigOptions)
+            let currentGeoSpaceID = newSpaceData.id;
+
+            //Update the geospace id for current layer
+            currentLayer.geospace.id = currentGeoSpaceID;
 
             //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
             if ( spaceStatsData.count.value === 0) {
@@ -174,16 +181,7 @@ async function cloneProject  (id : any, options: any) {
                 await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
                 console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
 
-                //Create a new space for currentUser
-                let newSpaceData = await createSpace (spaceConfigOptions)
-                let currentGeoSpaceID = newSpaceData.id;
-
-                //Update the geospace id for current layer
-                currentLayer.geospace.id = currentGeoSpaceID;
-
                 let uploadOptions = {
-                    title: geoSpaceFileName,
-                    description: "GeoSpace created from HERE CLI",
                     file: geoSpaceFileName,
                     stream: true
                 }
@@ -194,9 +192,9 @@ async function cloneProject  (id : any, options: any) {
                 //Clear cache and delete the file from temp repo
                 await fs.unlinkSync(geoSpaceFileName)
 
-                //Update the modified layer data.
-                updatedLayersData.push(currentLayer)
             }
+            //Update the modified layer data.
+            updatedLayersData.push(currentLayer)
         }
     }
 
@@ -279,7 +277,7 @@ async function deleteProject  (id : any, options: any) {
  * Will fetch all projects
  * @param options
  */
-async function findAllProjects (options:any) {
+async function getAllProjects (options:any) {
     try {
         const uri = "/project-api/projects";
         const cType = "";
@@ -292,6 +290,24 @@ async function findAllProjects (options:any) {
 }
 
 /**
+ * Will get the project based on given id
+ * @param id - Input project id
+ * @param options
+ */
+async function getProject (id:string,options:any) {
+    try {
+        let uri = "/project-api/projects/"+id;
+        let cType = "";
+        let response = await execute(uri, "GET", cType, "", options.token, false, false);
+        return response
+    } catch (error) {
+        console.log("Unable to get project data")
+        return null;
+    }
+}
+
+
+/**
  * Will list all the projects for the given user in below format
  *
  * @param options
@@ -299,7 +315,7 @@ async function findAllProjects (options:any) {
 export async function listProjects (options: any) {
     console.log("Please wait; Fetching your list of projects...")
 
-    let response = await findAllProjects(options)
+    let response = await getAllProjects(options)
     let body = JSON.parse(response.body);
     if (response.body.length == 0) {
         console.log("No xyz projects found");
@@ -325,7 +341,7 @@ export async function listProjects (options: any) {
                     status: currentProject.status,
                     viewerURL
                 }
-                extractProjectInfo.push(new Object(currentProjectDetails))
+                extractProjectInfo.push(currentProjectDetails)
             }
         })
 
@@ -335,7 +351,6 @@ export async function listProjects (options: any) {
 }
 
 common.validate(commands, [process.argv[2]], program);
-prompter.stop();
 program.parse(process.argv);
 if (!program.args.length) {
     common.verify();
