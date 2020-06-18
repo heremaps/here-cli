@@ -25,10 +25,8 @@
 */
 
 import * as common from './common';
-
+import {handleError, execute} from "./common";
 import * as program from 'commander';
-
-import {handleError, execute, questionConfirm} from "./xyzCommon";
 import * as inquirer from "inquirer";
 const commands = ["list", "clone", "open", "show", "delete"];
 
@@ -80,7 +78,13 @@ async function deleteProject  (id : any, options: any) {
 
     if (!options.force) {
         console.log("Are you sure you want to delete this project?")
-        let answer: any = await inquirer.prompt(questionConfirm);
+        let answer: any = await inquirer.prompt([
+            {
+                type: 'input',
+                name: 'confirmed',
+                message: 'Enter (Y)es to continue or (N)o to cancel'
+            }
+        ]);
         if (answer.confirmed
             && answer.confirmed.toUpperCase() !== 'Y'
             && answer.confirmed.toUpperCase() !== 'YES') {

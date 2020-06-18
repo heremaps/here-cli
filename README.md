@@ -38,7 +38,7 @@ The CLI currently support the following sub-commands:
 ```
 - configure|c [set|verify|account]  setup configuration for authentication
 - xyz|xs [list|create|upload]       work with xyz spaces
-- studio [list|delete|clone|show]   work with xyz studio projects
+- studio [list|delete|show]         work with xyz studio projects
 - transform|tf [csv2geo|shp2geo]    convert from csv/shapefile to geojson
 - help [cmd]                        display help for [cmd]
 ```

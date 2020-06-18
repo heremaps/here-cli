@@ -37,26 +37,18 @@ import * as tmp from "tmp";
 import * as summary from "./summary";
 let cq = require("block-queue");
 import { isBoolean } from "util";
+import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
 const path = require('path');
 const open = require("open");
 import * as moment from 'moment';
+import * as glob from 'glob';
 
-import * as xyzComm from './xyzCommon'
-import {
-    getSpaceMetaData,
-    handleError,
-    getSchemaProcessorProfile,
-    execute,
-    chunkify,
-    updateCommandMetadata,
-    commandHistoryCount,
-    questionConfirm
-} from './xyzCommon'
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 let choiceList: { name: string, value: string }[] = [];
-
+const bboxDirections = ["west", "south", "east", "north"];
+const commandHistoryCount = 3;
 const questions = [
     {
         type: "checkbox",
@@ -104,11 +96,28 @@ const titlePrompt = [
     }
 ];
 
+const questionConfirm = [
+    {
+        type: 'input',
+        name: 'confirmed',
+        message: 'Enter (Y)es to continue or (N)o to cancel'
+    }
+];
+
 const questionAnalyze = [
     {
         type: "checkbox",
         name: "properties",
         message: "Select the properties to analyze",
+        choices: choiceList
+    }
+];
+
+const filesToUpload = [
+    {
+        type: "checkbox",
+        name: "selectedFiles",
+        message: "Select the files to be uploaded",
         choices: choiceList
     }
 ];
@@ -174,6 +183,51 @@ const tagruleDeletePrompt = [
 
 program.version("0.1.0");
 
+function getGeoSpaceProfiles(title: string, description: string, client: any) {
+    return {
+        title,
+        description,
+        client,
+        "enableUUID": true
+    };
+}
+
+/**
+ *
+ * @param apiError error object
+ * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
+ */
+function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
+    if (apiError.statusCode) {
+        if (apiError.statusCode == 401) {
+            console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
+        } else if (apiError.statusCode == 403) {
+            console.log("Operation FAILED : Insufficient rights to perform action");
+        } else if (apiError.statusCode == 404) {
+            if (isIdSpaceId) {
+                console.log("Operation FAILED: Space does not exist");
+            } else {
+                console.log("Operation FAILED : Resource not found.");
+            }
+        } else {
+            console.log("OPERATION FAILED : " + apiError.message);
+        }
+    } else {
+        if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
+            console.log("Operation FAILED - Insufficient rights to perform action");
+        } else {
+            console.log("OPERATION FAILED - " + apiError.message);
+        }
+    }
+}
+
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
+    if (!token) {
+        token = await common.verify();
+    }
+    return await common.execInternal(uri, method, contentType, data, token, gzip, true);
+}
+
 program
     .command("list")
     .alias("ls")
@@ -188,10 +242,10 @@ program
         []
     )
     .action(async function (options) {
-            listSpaces(options)
-                .catch((error) => {
-                    handleError(error);
-                })
+        listSpaces(options)
+            .catch((error) => {
+                handleError(error);
+            })
     });
 
 async function listSpaces(options: any) {
@@ -224,14 +278,106 @@ async function listSpaces(options: any) {
     }
 }
 
-
 function collect(val: string, memo: string[]) {
     memo.push(val);
     return memo;
 }
 
 export function getSpaceDataFromXyz(id: string, options: any) {
-    return xyzComm.getSpaceDataFromXyz(id,options);
+    return new Promise<any>(function (resolve, reject) {
+        let cType = "application/json";
+        if (!options.limit) {
+            options.limit = 5000;
+        }
+        const getUrI = function (offset: string) {
+            let uri = "/hub/spaces/" + id;
+            let spFunction;
+            if (options.bbox) {
+                spFunction = "bbox";
+                options.limit = 100000;//Max limit of records space api supports
+            } else {
+                spFunction = "iterate";
+            }
+            if (options.limit) {
+                uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
+                if (options.bbox) {
+                    var bboxarray = options.bbox.split(",");
+                    if (bboxarray.length !== 4) {
+                        console.error(`\nboundingbox input size is not proper - "${options.bbox}"`);
+                        process.exit(1);
+                    }
+                    bboxarray.forEach(function (item: string, i: number) {
+                        if (item && item != "") {
+                            let number = parseFloat(item.toLowerCase());
+                            if (isNaN(number)) {
+                                console.error(`\nLoading space data using bounding box failed - "${item}" is not a valid number`);
+                                process.exit(1);
+                            }
+                            uri = uri + "&" + bboxDirections[i] + "=" + number;
+                        }
+                    });
+                }
+                if (offset) {
+                    uri = uri + "&handle=" + offset;
+                }
+                if (options.tags) {
+                    uri = uri + "&tags=" + options.tags;
+                }
+            }
+            return uri;
+        };
+        if (!options.totalRecords) {
+            options.totalRecords = 500000;
+        }
+        let recordLength = 0;
+        let features = new Array();
+        let jsonOut;
+        (async () => {
+
+            try {
+                let cHandle = options.handle ? options.handle : 0;
+                if (cHandle === 0 && !options.ignoreLogs) {
+                    process.stdout.write("Operation may take a while. Please wait...");
+                }
+                do {
+                    if(!options.ignoreLogs){
+                        process.stdout.write(".");
+                    }
+                    let response = await execute(
+                        getUrI(String(cHandle)),
+                        "GET",
+                        cType,
+                        "",
+                        options.token,
+                        true
+                    );
+                    jsonOut = response.body;
+                    if (jsonOut.constructor !== {}.constructor) {
+                        jsonOut = JSON.parse(jsonOut);
+                    }
+                    cHandle = jsonOut.handle;
+                    if (jsonOut.features) {
+                        recordLength += jsonOut.features.length;
+                        features = features.concat(jsonOut.features);
+                    } else {
+                        cHandle = -1;
+                    }
+                    if (options.currentHandleOnly) {
+                        cHandle = -1;
+                        break;
+                    }
+                } while (cHandle >= 0 && recordLength < options.totalRecords);
+                if (!options.currentHandleOnly) {
+                    process.stdout.write("\n");
+                }
+                jsonOut.features = features;
+                resolve(jsonOut);
+            } catch (error) {
+                console.error(`\ngetting data from Data Hub space failed: ${JSON.stringify(error)}`);
+                reject(error);
+            }
+        })();
+    });
 }
 
 program
@@ -593,6 +739,13 @@ async function getBoundingBoxFromUser() {
     return answer.minx + "," + answer.miny + "," + answer.maxx + "," + answer.maxy;
 }
 
+export async function getSpaceMetaData(id: string, token: string | null = null) {
+    const uri = "/hub/spaces/" + id + "?clientId=cli&skipCache=true";
+    const cType = "application/json";
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
+}
+
 function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
 }
@@ -603,10 +756,6 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
     const centreLatitude = (bbox[1] + bbox[3]) / 2;
     return centreLatitude;
 }
-//
-// async function getStatisticsData(spaceId: string, token: string | null = null) {
-//     return xyzComm.getStatisticsData(spaceId, token)
-// }
 
 function replaceOpearators(expr: string) {
     return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
@@ -614,7 +763,7 @@ function replaceOpearators(expr: string) {
 
 program
     .command("show <id>")
-    .description("shows the content of the given space [id]")
+    .description("shows the content of the given [id]")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -633,12 +782,11 @@ program
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
     .option("--geometry <geometry>", "geometry file to upload for spatial query (single feature in geojson file)")
     .action(function (id, options) {
-            showSpace(id, options)
-                .catch((error) => {
-                    handleError(error, true);
-                });
+        showSpace(id, options)
+            .catch((error) => {
+                handleError(error, true);
+            });
     });
-
 
 async function showSpace(id: string, options: any) {
     let uri = "/hub/spaces";
@@ -848,12 +996,14 @@ program
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-            deleteSpace(geospaceId, options)
-                .catch((error) => {
-                    handleError(error, true);
-                })
-    });
 
+
+        deleteSpace(geospaceId, options)
+            .catch((error) => {
+                handleError(error, true);
+            })
+
+    });
 
 async function deleteSpace(geospaceId: string, options:any) {
 
@@ -895,8 +1045,43 @@ program
         }));
 
 async function createSpace(options: any) {
-    let body = await xyzComm.createSpace(options);
-    return body;
+    if (options) {
+        if (!options.title) {
+            options.title = "a new Data Hub space created from commandline";
+        }
+        if (!options.message) {
+            options.message = "a new Data Hub space created from commandline";
+        }
+    }
+    let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
+
+    if (options.schema) {
+
+        await common.verifyProLicense();
+
+        if (options.schema == true) {
+            console.log("Please add local filepath / http link for your schema definition")
+            process.exit(1);
+        } else {
+            let schemaDef: string = "";
+            if (options.schema.indexOf("http") == 0) {
+                schemaDef = options.schema;
+            } else {
+                schemaDef = await transform.read(options.schema, false);
+            }
+
+            schemaDef = schemaDef.replace(/\r?\n|\r/g, " ");
+
+            let processors = getSchemaProcessorProfile(schemaDef);
+
+            gp['processors'] = processors;
+        }
+    }
+
+
+    const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
+    console.log("Data Hub space '" + response.body.id + "' created successfully");
+    return response.body;
 }
 
 program
@@ -1063,7 +1248,7 @@ program
     .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, best for limited quantitative values")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
     .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
-//     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
+    //     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
     .option("-o, --override", "override default property hash feature ID generation and use existing GeoJSON feature IDs")
     .option("-s, --stream", "streaming support for upload  and/or large csv and geojson uploads using concurrent writes, tune chunk size with -c")
     .option('-d, --delimiter [,]', 'alternate delimiter used in CSV', ',')
@@ -1264,11 +1449,11 @@ function streamingQueue() {
                 queue.chunksize--;
                 done();
             }).catch((err: any) => {
-                queue.failedCount += task.fc.features.length;
-                process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
-                queue.chunksize--;
-                done();
-            });
+            queue.failedCount += task.fc.features.length;
+            process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
+            queue.chunksize--;
+            done();
+        });
     });
     queue.uploadCount = 0;
     queue.chunksize = 0;
@@ -1299,11 +1484,11 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
                 process.stdout.write("\ruploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(1) + "%");
                 done();
             }).catch((err) => {
-                queue.failedCount += 1;
-                queue.chunksize--;
-                console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(1) + "%");
-                done();
-            });
+            queue.failedCount += 1;
+            queue.chunksize--;
+            console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(1) + "%");
+            done();
+        });
     });
     queue.uploadCount = 0;
     queue.chunksize = 0;
@@ -1325,8 +1510,304 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
     return queue;
 }
 
+
 export async function uploadToXyzSpace(id: string, options: any) {
-    return await xyzComm.uploadToXyzSpace(id, options);
+    //(async () => {
+    let tags = "";
+    if (options.tags) {
+        tags = options.tags;
+    }
+
+    let printErrors = false;
+    if (options.errors) {
+        printErrors = true;
+    }
+
+    //Default chunk size set as 200
+    if (!options.chunk) {
+        options.chunk = 200;
+    }
+
+    if (options.unique && options.override) {
+        console.log(
+            "conflicting options -- you must use either unique or override. Refer to 'here xyz upload -h' for help"
+        );
+        process.exit(1);
+    } else if (!options.override) {
+        options.unique = true;
+    }
+
+    if (options.assign && options.stream) {
+        console.log(
+            "conflicting options - you cannot choose assign mode while selecting streaming option"
+        );
+        process.exit(1);
+    }
+
+    let files: string[] = [''];//Initialising as blank string, so that if options.file is not given loop will execute atleast once and else condition will be executed
+    if(options.batch){
+        files = [];
+        if(options.batch != true && options.batch.toLowerCase().indexOf(".") == -1){
+            options.batch = "*."+options.batch;
+        }
+        let directories = options.file.split(',');
+        for(let directory of directories) {
+            if(!(fs.existsSync(directory) && fs.lstatSync(directory).isDirectory())){
+                console.log("--batch option requires directory path in --file option");
+                process.exit(1);
+            }
+            if(options.batch == true){
+                const allFiles = fs.readdirSync(directory, { withFileTypes: true })
+                    .filter(dirent => dirent.isFile())
+                    .map(dirent => dirent.name);
+                allFiles.forEach(function (item: any) {
+                    choiceList.push({'name': item, 'value': path.join(directory,item)});
+                });
+            } else {
+                files = files.concat(glob.sync(path.join(directory,options.batch)));
+                if(options.batch == 'shp' || options.batch == '*.shp'){
+                    const allDirectories = fs.readdirSync(directory, { withFileTypes: true })
+                        .filter(dirent => dirent.isDirectory())
+                        .map(dirent => dirent.name);
+                    for(let subDirectory of allDirectories) {
+                        files = files.concat(glob.sync(path.join(directory,subDirectory,options.batch)));
+                    }
+                }
+            }
+        }
+        if(options.batch == true){
+            let answers: any = await inquirer.prompt(filesToUpload);
+            files = answers.selectedFiles;
+        }
+        if(files.length == 0){
+            console.log("No files found of the specified format in the directory");
+            process.exit(1);
+        }
+    } else if(options.file){
+        files = options.file.split(',');
+    }
+
+    for(let file of files) {
+        options.file = file;
+        console.log("uploading file - " + file);
+        let startTime = new Date();
+        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+            console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
+        }
+
+        if (options.file) {
+            const fs = require("fs");
+            if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
+                if (!options.stream) {
+                    const result: any = await transform.readLineFromFile(options.file, 100);
+                    await uploadData(id, options, tags, { type: "FeatureCollection", features: collate(result) }, true, options.ptag, options.file, options.id, printErrors);
+                } else {
+                    let queue = streamingQueue();
+                    await transform.readLineAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
+                        return new Promise((res, rej) => {
+                            (async () => {
+                                if (result.length > 0) {
+                                    await queue.send({ id: id, options: options, tags: tags, fc: { type: "FeatureCollection", features: collate(result) }, retryCount: 3 });
+                                }
+                                res(queue);
+                            })();
+                        });
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
+                }
+            } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
+                let result = await transform.readShapeFile(
+                    options.file,
+                );
+                await uploadData(
+                    id,
+                    options,
+                    tags,
+                    result,
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
+                );
+            } else if (options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1) {
+                if (!options.stream) {
+                    let result = await transform.read(
+                        options.file,
+                        true,
+                        { headers: true, delimiter: options.delimiter, quote: options.quote }
+                    );
+                    const object = {
+                        features: await transform.transform(
+                            result,
+                            options
+                        ),
+                        type: "FeatureCollection"
+                    };
+                    await uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                } else {
+                    let queue = streamingQueue();
+                    await transform.readCSVAsChunks(options.file, options.chunk ? options.chunk : 1000, options, function (result: any) {
+                        return new Promise((res, rej) => {
+                            (async () => {
+                                if (result.length > 0) {
+                                    const fc = {
+                                        features: await transform.transform(
+                                            result,
+                                            options
+                                        ),
+                                        type: "FeatureCollection"
+                                    };
+                                    await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
+                                }
+                                res(queue);
+                            })();
+                        });
+
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
+                }
+            } else if (options.file.indexOf(".gpx") != -1) {
+                let result = await transform.read(
+                    options.file,
+                    false,
+                    {}
+                );
+                const object = {
+                    features: await transform.transformGpx(
+                        result,
+                        options
+                    ),
+                    type: "FeatureCollection"
+                };
+                await uploadData(
+                    id,
+                    options,
+                    tags,
+                    object,
+                    true,
+                    options.ptag,
+                    options.file,
+                    options.id
+                );
+
+            } else {
+                if (!options.stream) {
+                    let result = await transform.read(
+                        options.file,
+                        false
+                    );
+                    let object = JSON.parse(result);
+                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
+                        object = {
+                            features: await transform.transform(
+                                object,
+                                options
+                            ),
+                            type: "FeatureCollection"
+                        };
+                    }
+                    await uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                } else {
+                    let queue = streamingQueue();
+                    let c = 0;
+                    await transform.readGeoJsonAsChunks(options.file, options.chunk ? options.chunk : 1000, options, async function (result: any) {
+                        if (result.length > 0) {
+                            const fc = {
+                                features: result,
+                                type: "FeatureCollection"
+                            };
+                            await queue.send({ id: id, options: options, tags: tags, fc: fc, retryCount: 3 });
+                        }
+                        return queue;
+                    });
+                    while (queue.chunksize != 0) {
+                        await new Promise(done => setTimeout(done, 1000));
+                    }
+                }
+            }
+        } else {
+            const getStdin = require("get-stdin");
+            await getStdin().then((str: string) => {
+                try {
+                    const obj = JSON.parse(str);
+                    uploadData(
+                        id,
+                        options,
+                        tags,
+                        obj,
+                        false,
+                        options.ptag,
+                        null,
+                        options.id
+                    );
+                } catch (e) {
+                    console.log(
+                        "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
+                    );
+                    process.exit(1);
+                }
+            });
+        }
+
+        let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
+        console.log(options.totalCount + " features uploaded to Data Hub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
+    }
+    await updateCommandMetadata(id, options, false, null);
+    console.log("upload completed successfully");
+    //})();
+}
+
+async function updateCommandMetadata(id: string, options: any, isClear: boolean = false, favCommand: string | null = null){
+    let history: Array<any> = [];
+    let data: any = {};
+    if(favCommand){
+        data = {
+            client: {
+                'favouriteCommand': favCommand
+            }
+        }
+    } else {
+        let spaceData = await getSpaceMetaData(id, options.token);
+        if(spaceData.client && spaceData.client.history){
+            history = spaceData.client.history;
+        }
+        let command = {
+            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.includes(' ') ? "'" + x.trim() + "'": x.trim()).join(" "),
+            "timestamp": moment().toISOString(true)
+        }
+        history = [command].concat(history);
+        data = {
+            client: {
+                'history' : isClear ? [] : history.slice(0, commandHistoryCount)
+            }
+        }
+    }
+    const uri = "/hub/spaces/" + id + "?clientId=cli";
+    const cType = "application/json";
+    const response = await execute(uri, "PATCH", cType, data);
+    return response.body;
 }
 
 function createQuestionsList(object: any) {
@@ -1797,7 +2278,6 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     }
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
-
 async function iterateChunk(chunk: any, url: string) {
     const fc = { type: "FeatureCollection", features: chunk };
     const response = await execute(
@@ -1811,6 +2291,16 @@ async function iterateChunk(chunk: any, url: string) {
     return response.body;
 }
 
+function chunkify(data: any[], chunksize: number) {
+    let chunks: any[] = [];
+    for (const k in data) {
+        const item = data[k];
+        if (!chunks.length || chunks[chunks.length - 1].length == chunksize)
+            chunks.push([]);
+        chunks[chunks.length - 1].push(item);
+    }
+    return chunks;
+}
 
 async function launchHereGeoJson(uri: string, token: string) {
     if(!token){
@@ -2083,7 +2573,6 @@ async function configXyzSpace(id: string, options: any) {
 async function activityLogConfig(id:string, options:any) {
     let enableMode = options.enable;
     await common.verifyProLicense();
-
     let patchRequest:any = {};
 
     let tabledata:any = {};
@@ -2150,17 +2639,17 @@ async function activityLogConfig(id:string, options:any) {
         console.log("please select only one option");
         process.exit(1);
     }
-   //console.log(JSON.stringify(patchRequest));
+    //console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
-    const url = `/hub/spaces/${id}?clientId=cli`
+        const url = `/hub/spaces/${id}?clientId=cli`
         const response = await execute(
-                url,
-                "PATCH",
-                "application/json",
-                patchRequest,
-                null,
-                false
-            );
+            url,
+            "PATCH",
+            "application/json",
+            patchRequest,
+            null,
+            false
+        );
 
         if(response.statusCode >= 200 && response.statusCode < 210) {
             console.log("activity log configuration updated successfully, it may take a few seconds to take effect and reflect.");
@@ -2172,12 +2661,12 @@ async function activityLogConfig(id:string, options:any) {
 
 function getEmptyAcitivityLogListenerProfile() {
     return {
-            "id": "activity-log",
-            "params": null,
-            "eventTypes": [
-                "ModifySpaceEvent.request"
-            ]
-        }
+        "id": "activity-log",
+        "params": null,
+        "eventTypes": [
+            "ModifySpaceEvent.request"
+        ]
+    }
 }
 
 
@@ -2329,7 +2818,7 @@ program
         });
     })
 
-export async function createJoinSpace(id:string, options:any){
+async function createJoinSpace(id:string, options:any){
     await common.verifyProLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
@@ -2339,10 +2828,10 @@ export async function createJoinSpace(id:string, options:any){
     options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
     options.message = 'space data to be joined with ' + id + ' in new virtual space ';
     const response:any = await createSpace(options).catch(err =>
-        {
-            handleError(err);
-            process.exit(1);
-        });
+    {
+        handleError(err);
+        process.exit(1);
+    });
     const secondSpaceid = response.id;
     options.id = options.keyField;
     options.noCoords = true;
@@ -2439,6 +2928,18 @@ function getVirtualSpaceProfiles(title: string, description: string, spaceids: A
                 virtualspace
             }
         }
+    }
+}
+
+function getSchemaProcessorProfile(schema: string) {
+    return {
+        "schema-validator" : [{
+            "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
+            "params": {
+                "schema": schema
+            },
+            "order": 0
+        }]
     }
 }
 
@@ -2937,6 +3438,7 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
     return newspaceData;
 }
 
+
 // program
 //     .command("activitylog <id>")
 //     .description("enable, disable or view the activity log for your Data Hub space. activity log lets to see thru the history of feature modification")
@@ -2967,9 +3469,7 @@ common.validate(
         "vs",
         "virtualize",
         "gis",
-        "join",
-        "clone",
-        "studio"
+        "join"
     ],
     [process.argv[2]],
     program
