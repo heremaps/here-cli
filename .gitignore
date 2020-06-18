@@ -3,3 +3,4 @@ node_modules/*
 bin/*.js
 .idea
 .vscode/launch.json
+bin/*.map

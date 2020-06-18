@@ -52,6 +52,15 @@ const filesToUpload = [
         choices: choiceList
     }
 ];
+
+export const questionConfirm = [
+    {
+        type: 'input',
+        name: 'confirmed',
+        message: 'Enter (Y)es to continue or (N)o to cancel'
+    }
+];
+
 export async function createSpace(options: any) {
 
     if (options) {

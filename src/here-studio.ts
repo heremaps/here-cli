@@ -26,20 +26,10 @@
 
 import * as common from './common';
 
-import * as fs from "fs";
-
 import * as program from 'commander';
 
-import {
-    getSpaceDataFromXyz,
-    uploadToXyzSpace,
-    handleError,
-    execute,
-    createSpace,
-    getStatisticsData,
-    getSpaceMetaData
-} from "./xyzCommon";
-
+import {handleError, execute, questionConfirm} from "./xyzCommon";
+import * as inquirer from "inquirer";
 const commands = ["list", "clone", "open", "show", "delete"];
 
 const studioBaseURL = "https://studio.here.com";
@@ -47,7 +37,6 @@ const projectsUrl = "/project-api/projects";
 
 program
     .version('0.1.0');
-
 
 program
     .command("list")
@@ -62,6 +51,7 @@ program
 program
     .command("delete <project-id>")
     .description("delete the project with the given id")
+    .option("--force", "skip the confirmation prompt")
     .action(async (geospaceId, options) => {
         deleteProject(geospaceId, options)
             .catch((error) => {
@@ -79,176 +69,6 @@ program
             })
     });
 
-program
-    .command("clone <project-id>")
-    .description("clone a project with the given id or viewer-url")
-    .action(async (geospaceId, options) => {
-        cloneProject (geospaceId, options)
-            .catch((error) => {
-                handleError(error);
-            })
-    });
-
-
-// cloneProject - cloning projects for studio
-// Steps :
-//- Get the token from ProjectAPI and have a reference of currentUser’s token
-// https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7
-//
-//     - Take the spaceIDs from ProjectAPI
-// - Download / save response all features from /iterate features API from the shared space from viewer url
-//
-//     - Repeat downloading if multiple GeospaceIDs exists
-//
-// - Upload the file to new existing current user’s workspace
-// - Create the project for existing user
-// - Optionally - Copy layer styles that exists from older project
-async function cloneProject  (id : any, options: any) {
-
-    //Extract the ID if user has passed in the Viewer URL otherwise the input will be treated as id
-    if (id.startsWith("http")) {
-        id = getParameterByName("project_id", id)
-    }
-
-    //- Get the token from ProjectAPI and have a reference of currentUser’s token from below ProjectAPI GET URL // GET - https://xyz.api.here.com/project-api/projects/82764d11-e84a-40f6-b477-12d8041ccdb7  / // GET - https://studio.here.com/viewer/?project_id=3a02af56-aa75-400c-b886-36aa8d046c08 //id = "3a02af56-aa75-400c-b886-36aa8d046c08"/ b4d1126a-fc12-4406-b506-692ace752d52
-    let response = await getProject(id, options);
-    response.body = JSON.parse(response.body);
-
-    //Fetch the token from user's published project
-    let publishersToken = response.body.rot;
-
-    //Fetch current user's read only token
-    let currentUsersToken = await common.verify(true);
-
-    //Remove id attribute before post call, the new project which will be created for current user with this data
-    delete response.body.id;
-
-    let clonedProjectData = response.body;
-
-    //Get the GeoSpace-ID(s) of all the layers from published projects
-    let updatedLayersData = [];
-    for (let i=0; i < clonedProjectData.layers.length; i++) {
-
-        //Get the current layer
-        let currentLayer = clonedProjectData.layers[i];
-
-        //Check if the layer has tags eg. Building Footprints tags -> In Such cases copy the whole currentLayer as is -> Otherwise copy the space from the user
-        if (currentLayer.meta
-            && currentLayer.meta.tags
-            && currentLayer.meta.tags.length > 0) {
-
-            //Update the project layer as is without any modifications
-            updatedLayersData.push(currentLayer)
-        }
-        else {
-
-            //Download the space locally and reference the space for current user
-            let geoSpaceIDToCopy = currentLayer.geospace.id;
-            console.log(`\nCopying layer [${i+1}] : ${geoSpaceIDToCopy} from published project`)
-
-            //Get the space title and description from the base space
-            const response = await getSpaceMetaData(geoSpaceIDToCopy, publishersToken);
-
-            //Copy the contents of the space config title and description for currentUser's XYZ spaces
-            let spaceConfigOptions = {
-                title : response.title,
-                message : response.description
-            }
-
-            //Get the original count of features to download from statistics API - getStatisticsData
-            let spaceStatsData = await getStatisticsData(geoSpaceIDToCopy, publishersToken);
-
-            //Download the GeospaceID from published project with the publisher's token -  Download the space from GET Search and save it in local temp file using /iterate features API
-            let geoSpaceDownloadOptions = {
-                token : publishersToken
-            }
-            let geoSpaceData = await getSpaceDataFromXyz(geoSpaceIDToCopy, geoSpaceDownloadOptions);
-
-            //Create a new space for currentUser
-            let newSpaceData = await createSpace (spaceConfigOptions)
-            let currentGeoSpaceID = newSpaceData.id;
-
-            //Update the geospace id for current layer
-            currentLayer.geospace.id = currentGeoSpaceID;
-
-            //Check if GeoSpaceData is blank -> if yes move on to next one else create the file with that name
-            if ( spaceStatsData.count.value === 0) {
-                console.log("\nNo features are available to download");
-                //process.exit();
-            }
-            else {
-                let geoSpaceFileName = geoSpaceIDToCopy+".geojson";
-                await fs.writeFileSync(geoSpaceFileName, JSON.stringify(geoSpaceData));
-                console.log("Space '"+geoSpaceIDToCopy+"' downloaded locally")
-
-                let uploadOptions = {
-                    file: geoSpaceFileName,
-                    stream: true
-                }
-
-                //Upload it to current user's space
-                await uploadToXyzSpace (currentGeoSpaceID, uploadOptions);
-
-                //Clear cache and delete the file from temp repo
-                await fs.unlinkSync(geoSpaceFileName)
-
-            }
-            //Update the modified layer data.
-            updatedLayersData.push(currentLayer)
-        }
-    }
-
-    //Update the layer data to cloned project - updatedLayersData
-    clonedProjectData.layers = updatedLayersData;
-
-    //Update the token for current project
-    clonedProjectData.rot = currentUsersToken;
-
-    //Create a new project under current user with the settings of published projects
-    let newProjectResponse = await createProject(clonedProjectData, options);
-    let newProjectBody = newProjectResponse.body;
-    let clonedProjectURL = studioBaseURL+"/studio/project/"+newProjectBody.id;
-
-    //Viewer URL - /https://studio.here.com/viewer/?project_id=b1e3a9d4-116b-407b-b99f-17fbdf48d405
-    let viewerURL = studioBaseURL+"/viewer/?project_id="+newProjectBody.id
-    if (newProjectResponse.statusCode == 201) {
-        console.log("\n**** Successfully cloned ******")
-        console.log("Project cloned in your studio account : "+clonedProjectURL)
-        console.log("Viewer URL : "+viewerURL)
-    }
-}
-
-/**
- * Will create an XYZ Studio project
- * @param projectData
- * @param options
- */
-async function createProject (projectData:any, options:any) {
-    let cType = "application/json"
-    let newProjectResponse = await execute(projectsUrl, "POST", cType, projectData, options.token);
-
-    let newProjectBody = newProjectResponse.body;
-    if (newProjectResponse.statusCode == 201) {
-        console.log("\nProject Created successfully")
-    }
-    else {
-        console.log("\nProject creation failed")
-        return null;
-    }
-    return newProjectResponse
-}
-
-//Will capture URL Query string parameters from URL
-function getParameterByName (name: any, url: any) {
-    if (!url) return null;
-    name = name.replace(/[\[\]]/g, '\\$&');
-    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-        results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return '';
-    return decodeURIComponent(results[2].replace(/\+/g, ' '));
-}
-
 async function showProject (id : any) {
     const open = require("open");
     open(
@@ -257,10 +77,20 @@ async function showProject (id : any) {
 }
 
 async function deleteProject  (id : any, options: any) {
+
+    if (!options.force) {
+        console.log("Are you sure you want to delete this project?")
+        let answer: any = await inquirer.prompt(questionConfirm);
+        if (answer.confirmed
+            && answer.confirmed.toUpperCase() !== 'Y'
+            && answer.confirmed.toUpperCase() !== 'YES') {
+            process.exit(1);
+        }
+    }
     console.log("Deleting project : "+id)
 
     //If project exists send a DELETE request for that projectID
-    const uri = "/project-api/projects/"+id;
+    const uri = projectsUrl+id;
     const cType = "";
     let response = await execute (uri, "DELETE", cType, "", options.token);
 

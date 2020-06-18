@@ -49,7 +49,9 @@ import {
     getSchemaProcessorProfile,
     execute,
     chunkify,
-    updateCommandMetadata, commandHistoryCount
+    updateCommandMetadata,
+    commandHistoryCount,
+    questionConfirm
 } from './xyzCommon'
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -99,14 +101,6 @@ const titlePrompt = [
         type: 'input',
         name: 'title',
         message: 'Enter a title for the new space: '
-    }
-];
-
-const questionConfirm = [
-    {
-        type: 'input',
-        name: 'confirmed',
-        message: 'Enter (Y)es to continue or (N)o to cancel'
     }
 ];
 
