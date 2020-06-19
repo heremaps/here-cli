@@ -1889,8 +1889,18 @@ async function updateCommandMetadata(id: string, options: any, isClear: boolean 
         if(spaceData.client && spaceData.client.history){
             history = spaceData.client.history;
         }
+        let commandArray: Array<string> = [];
+        for(let i:number=4; i < process.argv.length; i++){
+            let element = process.argv[i];
+            if(element === '--token'){
+                i++;//removing token explicitely so that its not visible in space history
+            } else {
+                element = element.includes(' ') ? "'" + element.trim() + "'": element.trim();
+                commandArray.push(element);
+            }
+        }
         let command = {
-            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.includes(' ') ? "'" + x.trim() + "'": x.trim()).join(" "),
+            "command" : `here xyz upload ${id} ` + commandArray.join(" "),
             "timestamp": moment().toISOString(true)
         }
         history = [command].concat(history);
@@ -2185,8 +2195,8 @@ async function mergeAllTags(
                             dateValue = moment(new Date(value));
                         }
                         if(dateValue && dateValue.isValid()){
-                            item.properties['datahub_timestamp_'+element] = dateValue.valueOf();
-                            item.properties['datahub_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
+                            item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
+                            item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
                             if(options.datetag){
                                 addDatetimeTag(dateValue, element, options, finalTags);
                             }
