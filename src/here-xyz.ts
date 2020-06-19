@@ -2738,7 +2738,7 @@ async function activityLogConfig(id:string, options:any) {
         
         let listenerDef:any = getEmptyAcitivityLogListenerProfile();
         listenerDef['params'] = {};
-        listenerDef['params'].states = state
+        listenerDef['params'].states = parseInt(state);
         listenerDef['params'].storageMode = storageMode        
         patchRequest['listeners'] = {"activity-log": [listenerDef]};
     } else {
