@@ -1806,7 +1806,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                         false
                     );
                     let object = JSON.parse(result);
-                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
+                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature') && !(object.type && object.type == 'Feature')){
                         object = {
                             features: await transform.transform(
                                 object,
@@ -2021,67 +2021,68 @@ async function uploadDataToSpaceWithTags(
     printFailed: boolean
 ) {
     return new Promise(async (resolve, reject) => {
-        let trace = gsv.valid(object, true);
-        if (trace.length != 0) {
-            console.log(trace);
-            reject(trace);
-            return;
-        }
-        const featureOut = await mergeAllTags(
-            object.features,
-            tags,
-            tagProperties,
-            fileName,
-            uid,
-            options
-        );
-
-        try {
-            if (options.stream) {
-                upresult = await iterateChunks([featureOut], "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, 1, options.token, upresult, printFailed);
-            } else {
-                const chunks = options.chunk
-                    ? chunkify(featureOut, parseInt(options.chunk))
-                    : [featureOut];
-                upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
-                process.stdout.write("\n");
-                // let tq =  taskQueue(8,chunks.length);
-                // chunks.forEach(chunk=>{
-                //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
-                // });
-                // await tq.shutdown();
+        gsv.valid(object, async function (valid: boolean, errs: any) {
+            if (!valid) {
+                console.log(errs);
+                reject(errs);
+                return;
             }
-        } catch (e) {
-            reject(e);
-            return;
-        }
+            const featureOut = await mergeAllTags(
+                object.features,
+                tags,
+                tagProperties,
+                fileName,
+                uid,
+                options
+            );
 
-        if (!options.stream) {
-            if (isFile)
-                console.log(
-                    "'" +
-                    options.file +
-                    "' uploaded to Data Hub space '" +
-                    id +
-                    "'"
-                );
-            else
-                console.log(
-                    "data upload to Data Hub space '" + id + "' completed"
-                );
-
-            if (upresult.failed > 0) {
-                console.log("all the features could not be uploaded successfully, to print rejected features, run command with -e")
-                console.log("=============== Upload Summary ============= ");
-                upresult.total = featureOut.length;
-                console.table(upresult);
-            } else {
-                summary.summarize(featureOut, id, true);
+            try {
+                if (options.stream) {
+                    upresult = await iterateChunks([featureOut], "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, 1, options.token, upresult, printFailed);
+                } else {
+                    const chunks = options.chunk
+                        ? chunkify(featureOut, parseInt(options.chunk))
+                        : [featureOut];
+                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                    process.stdout.write("\n");
+                    // let tq =  taskQueue(8,chunks.length);
+                    // chunks.forEach(chunk=>{
+                    //     tq.send({chunk:chunk,url:"/hub/spaces/" + id + "/features"});
+                    // });
+                    // await tq.shutdown();
+                }
+            } catch (e) {
+                reject(e);
+                return;
             }
-            options.totalCount = featureOut.length;
 
-        }
-        resolve(upresult);
+            if (!options.stream) {
+                if (isFile)
+                    console.log(
+                        "'" +
+                        options.file +
+                        "' uploaded to Data Hub space '" +
+                        id +
+                        "'"
+                    );
+                else
+                    console.log(
+                        "data upload to Data Hub space '" + id + "' completed"
+                    );
+
+                if (upresult.failed > 0) {
+                    console.log("all the features could not be uploaded successfully, to print rejected features, run command with -e")
+                    console.log("=============== Upload Summary ============= ");
+                    upresult.total = featureOut.length;
+                    console.table(upresult);
+                } else {
+                    summary.summarize(featureOut, id, true);
+                }
+                options.totalCount = featureOut.length;
+
+            }
+            resolve(upresult);
+        });
     });
 }
 
