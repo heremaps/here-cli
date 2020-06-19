@@ -130,9 +130,9 @@ function performTurfOperationOnFeature(feature: any, options: any){
             if(!feature.properties){
                 feature.properties = {};
             }
-            feature.properties['datahub_length_m'] = length;
-            feature.properties['datahub_length_km'] = parseFloat((length / 1000).toFixed(2));
-            feature.properties['datahub_length_miles'] = parseFloat((length * 0.000621371).toFixed(2));
+            feature.properties['xyz_length_m'] = length;
+            feature.properties['xyz_length_km'] = parseFloat((length / 1000).toFixed(2));
+            feature.properties['xyz_length_miles'] = parseFloat((length * 0.000621371).toFixed(2));
             gisFeature = feature; 
         }
     } else if(options.area){
@@ -151,9 +151,9 @@ function populateArea(feature: any){
     if(!feature.properties){
         feature.properties = {};
     }
-    feature.properties['datahub_area_sqm'] = area;
-    feature.properties['datahub_area_sqkm'] = parseFloat((area / 1000000).toFixed(2));
-    feature.properties['datahub_area_sqmiles'] = parseFloat((area * 0.00000038610215855).toFixed(2));
+    feature.properties['xyz_area_sqm'] = area;
+    feature.properties['xyz_area_sqkm'] = parseFloat((area / 1000000).toFixed(2));
+    feature.properties['xyz_area_sqmiles'] = parseFloat((area * 0.00000038610215855).toFixed(2));
     return feature; 
 }
 
