@@ -2021,8 +2021,10 @@ async function uploadDataToSpaceWithTags(
     printFailed: boolean
 ) {
     return new Promise(async (resolve, reject) => {
-        if (!gsv.valid(object)) {
-            reject("input is not a valid Geojson object");
+        let trace = gsv.valid(object, true);
+        if (trace.length != 0) {
+            console.log(trace);
+            reject(trace);
             return;
         }
         const featureOut = await mergeAllTags(
