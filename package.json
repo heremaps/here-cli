@@ -25,7 +25,7 @@
     "fast-csv": "4.3.0",
     "geojson-validation": "^0.2.1",
     "get-stdin": "8.0.0",
-    "getmac": "5.7.0",
+    "getmac": "5.10.0",
     "glob": "7.1.6",
     "got": "11.3.0",
     "inquirer": "7.2.0",
