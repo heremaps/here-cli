@@ -8,7 +8,7 @@ HERE CLI is a Node.js command-line interface to work with HERE APIs starting wit
 HERE CLI is built on Node.js, a cross-platform efficient language to write even complex, local applications.
 
 To use the  HERE CLI, you should have npm installed. The best way is to go to nodejs.org and install the appropriate package for your system (both 8.x LTS and 10.x Current should work). If you need
-help with this have a look at our [CLI Introduction Guide](https://www.here.Data/cli/).
+help with this have a look at our [CLI Introduction Guide](https://www.here.xyz/cli/).
 
 ### Installing the CLI
 
@@ -86,7 +86,7 @@ If the command is interacting with a HERE service, please include a links to the
 
 ## License
 
-Copyright (C) 2018 - 2019 HERE Europe B.V.
+Copyright (C) 2018 - 2020 HERE Europe B.V.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
