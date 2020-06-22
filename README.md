@@ -36,10 +36,11 @@ For detailed information on getting a Developer account have a look at our [Gett
 The CLI currently support the following sub-commands:
 
 ```
-- configure|c [set|verify|account]  setup configuration for authentication
-- xyz|xs [list|create|upload]       work with xyz spaces
-- transform|tf [csv2geo|shp2geo]    convert from csv/shapefile to geojson
-- help [cmd]                        display help for [cmd]
+- configure|c [verify|refresh]            setup configuration for authentication
+- xyz|xs [list|create|upload]             work with Data Hub spaces
+- transform|tf [csv2geo|shp2geo|gpx2geo]  convert from csv/shapefile/gpx to geojson
+- geocode|gc                              geocode feature
+- help [command]                          display help for command
 ```
 
 ## Development
