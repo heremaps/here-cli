@@ -1,14 +1,14 @@
 # HERE CLI
 [![Build Status](https://travis-ci.com/heremaps/here-cli.svg?branch=master)](https://travis-ci.com/heremaps/here-cli)
 
-HERE CLI is a Node.js command-line interface to work with HERE APIs starting with [HERE XYZ Hub](https://www.here.xyz) APIs. Right now, it allows you to interact with HERE XYZ Hub to create and manage your Spaces, and easily upload and manage your datasets.
+HERE CLI is a Node.js command-line interface to work with HERE APIs starting with [HERE Data Hub](https://www.here.Data) APIs. Right now, it allows you to interact with HERE Data Hub to create and manage your Spaces, and easily upload and manage your datasets.
 
 ### Prerequisites
 
 HERE CLI is built on Node.js, a cross-platform efficient language to write even complex, local applications.
 
 To use the  HERE CLI, you should have npm installed. The best way is to go to nodejs.org and install the appropriate package for your system (both 8.x LTS and 10.x Current should work). If you need
-help with this have a look at our [CLI Introduction Guide](https://www.here.xyz/cli/).
+help with this have a look at our [CLI Introduction Guide](https://www.here.Data/cli/).
 
 ### Installing the CLI
 
