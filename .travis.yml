@@ -6,9 +6,20 @@ os:
 node_js:
 - '12.15.0'
 - '10'
-script:
-# build
-- npm install
-- npm link
-# test
-- npm test
+jobs:
+  include:
+    - name: "Build"
+      script: | 
+        npm install
+    - name: "Test"
+      script: |
+        npm test
+    - name: "Deploy"
+      deploy:
+        - provider: script
+          script: ./scripts/publish-npm.sh
+          skip_cleanup: true
+          on:
+            branch: master
+            tags: true
+            condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
