@@ -8,13 +8,16 @@ node_js:
 - '10'
 jobs:
   include:
-    - name: "Build"
+    - stage: "Build"
       script: | 
-        npm install
-    - name: "Test"
+      - npm install
+      - npm link 
+    - stage: "Test"
       script: |
         npm test
-    - name: "Deploy"
+    - stage: "Deploy"
+      os: linux
+      node_js: '12.15.0'
       deploy:
         - provider: script
           script: ./scripts/publish-npm.sh
@@ -23,3 +26,4 @@ jobs:
             branch: master
             tags: true
             condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
+
