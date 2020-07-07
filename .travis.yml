@@ -15,7 +15,15 @@ jobs:
     - stage: "Test"
       script: |
         npm test
-    - stage: "Deploy"
+    - stage: "Publish dry run"
+      branches:
+        only: 
+          - master
+      os: linux
+      node_js: '12.15.0'
+      script: |
+        npm publish --dryrun
+    - stage: "Publish to NPM"
       os: linux
       node_js: '12.15.0'
       deploy:
