@@ -28,6 +28,8 @@ import * as shapefile from "shapefile";
 import * as fs from "fs";
 import * as tmp from "tmp";
 const got = require('got');
+const pathLib = require('path');
+import * as extract from "extract-zip";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
 import * as common from "./common";
@@ -50,7 +52,7 @@ export type FeatureCollection = {
 export function readShapeFile(path: string) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
         return new Promise<FeatureCollection>((resolve, reject) =>
-            tmp.file({ mode: 0o644, prefix: '', postfix: '.shp' }, function _tempFileCreated(err, tempFilePath, fd) {
+            tmp.file({ mode: 0o644, prefix: '', postfix: path.indexOf('.zip') !== -1 ? '.zip':'.shp' }, function _tempFileCreated(err, tempFilePath, fd) {
                 if (err)
                     reject(err);
 
@@ -72,28 +74,47 @@ export function readShapeFile(path: string) {
 }
 
 async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
-    const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
-    let isPrjFilePresent : boolean = false;
-    let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
-    let prjFile: any = '';
-    if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
-        //console.log(prjFilePath + " file exists, using this file for crs transformation");
-        prjFile = await readDataFromFile(prjFilePath, false);
-    }
-    const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
-
-    while (true) {
-        const result = await source.read();
-
-        if (result.done){
-            return fc;
+    const tmpDir = tmp.dirSync({"unsafeCleanup": true});;
+    try {
+        if(path.lastIndexOf('.zip') !== -1){
+            await extract(path, {'dir':tmpDir.name});
+            const shpFiles = fs.readdirSync(tmpDir.name, { withFileTypes: true })
+                                   .filter(dirent => dirent.isFile() && dirent.name.indexOf(".shp") !== -1)
+                                   .map(dirent => dirent.name);
+            if(shpFiles.length > 1){
+                console.log("Error - more than one shapefiles detected in zip file");
+                process.exit(0);
+            } else if(shpFiles.length == 0){
+                console.log("Error - No shapefile detected in zip file");
+                process.exit(0);
+            }
+            path = pathLib.join(tmpDir.name, shpFiles[0]);
         }
-        let feature = result.value;
-        if(isPrjFilePresent && prjFile.toString().trim() != wgs84prjString.toString().trim()){
-            feature = convertFeatureToPrjCrs(prjFile, feature);
+        const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
+        let isPrjFilePresent : boolean = false;
+        let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
+        let prjFile: any = '';
+        if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
+            //console.log(prjFilePath + " file exists, using this file for crs transformation");
+            prjFile = await readDataFromFile(prjFilePath, false);
         }
-
-        fc.features.push(feature);
+        const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
+    
+        while (true) {
+            const result = await source.read();
+    
+            if (result.done){
+                return fc;
+            }
+            let feature = result.value;
+            if(isPrjFilePresent && prjFile.toString().trim() != wgs84prjString.toString().trim()){
+                feature = convertFeatureToPrjCrs(prjFile, feature);
+            }
+    
+            fc.features.push(feature);
+        }
+    } finally {
+        tmpDir.removeCallback();
     }
 }
 

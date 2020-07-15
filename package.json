@@ -41,7 +41,8 @@
     "table": "^5.4.6",
     "tmp": "0.2.1",
     "user-settings": "0.2.0",
-    "xmldom": "0.3.0"
+    "xmldom": "0.3.0",
+    "extract-zip": "2.0.1"
   },
   "devDependencies": {
     "@types/glob": "^7.1.2",

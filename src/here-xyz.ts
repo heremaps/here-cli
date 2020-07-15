@@ -1687,7 +1687,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         options.file = file;
         console.log("uploading file - " + file);
         let startTime = new Date();
-        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
             console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
         }
 
@@ -1713,7 +1713,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                         await new Promise(done => setTimeout(done, 1000));
                     }
                 }
-            } else if (options.file.toLowerCase().indexOf(".shp") != -1) {
+            } else if (options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1) {
                 let result = await transform.readShapeFile(
                     options.file,
                 );
