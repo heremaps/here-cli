@@ -43,6 +43,7 @@ const path = require('path');
 const open = require("open");
 import * as moment from 'moment';
 import * as glob from 'glob';
+import {execute, handleError} from "./common";
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -190,138 +191,6 @@ function getGeoSpaceProfiles(title: string, description: string, client: any) {
         client,
         "enableUUID": true
     };
-}
-
-/**
- *
- * @param apiError error object
- * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
- */
-function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
-    if (apiError.statusCode) {
-        if (apiError.statusCode == 401) {
-            console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
-        } else if (apiError.statusCode == 403) {
-            console.log("Operation FAILED : Insufficient rights to perform action");
-        } else if (apiError.statusCode == 404) {
-            if (isIdSpaceId) {
-                console.log("Operation FAILED: Space does not exist");
-            } else {
-                console.log("Operation FAILED : Resource not found.");
-            }
-        } else {
-            console.log("OPERATION FAILED : " + apiError.message);
-        }
-    } else {
-        if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
-            console.log("Operation FAILED - Insufficient rights to perform action");
-        } else {
-            console.log("OPERATION FAILED - " + apiError.message);
-        }
-    }
-}
-
-async function execInternal(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    gzip: boolean
-) {
-    if (gzip) {
-        return await execInternalGzip(
-            uri,
-            method,
-            contentType,
-            data,
-            token
-        );
-    }
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
-        json: method === "GET" ? undefined : data,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-
-    const response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
-        //throw new Error("Invalid response - " + message);
-        throw new ApiError(response.statusCode, message);
-    }
-    return response;
-}
-
-function gzip(data: zlib.InputType): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) =>
-        zlib.gzip(data, (error, result) => {
-            if (error)
-                reject(error)
-            else
-                resolve(result);
-        })
-    );
-}
-
-async function execInternalGzip(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    retry: number = 3
-) {
-    const zippedData = await gzip(data);
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "Content-Encoding": "gzip",
-            "Accept-Encoding": "gzip"
-        },
-        decompress: true,
-        body: method === "GET" ? undefined : zippedData,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-    let response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        if (response.statusCode >= 500 && retry > 0) {
-            await new Promise(done => setTimeout(done, 1000));
-            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
-        } else {
-            //   throw new Error("Invalid response :" + response.statusCode);
-            throw new ApiError(response.statusCode, response.body);
-        }
-    }
-    return response;
-}
-
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
-    if (!token) {
-        token = await common.verify();
-    }
-    return await execInternal(uri, method, contentType, data, token, gzip);
 }
 
 program
