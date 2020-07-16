@@ -586,7 +586,7 @@ export async function execute(uri: string, method: string, contentType: string, 
     return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
 }
 
-export async function execInternal(
+async function execInternal(
     uri: string,
     method: string,
     contentType: string,
@@ -636,7 +636,7 @@ export async function execInternal(
 }
 
 
-export async function execInternalGzip(
+async function execInternalGzip(
     uri: string,
     method: string,
     contentType: string,
@@ -677,7 +677,7 @@ export async function execInternalGzip(
     return response;
 }
 
-export function gzip(data: zlib.InputType): Promise<Buffer> {
+function gzip(data: zlib.InputType): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) =>
         zlib.gzip(data, (error, result) => {
             if (error)
