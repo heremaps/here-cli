@@ -6,32 +6,31 @@ os:
 node_js:
 - '12.15.0'
 - '10'
+
 jobs:
   include:
     - stage: "Build"
-      script: | 
+      script: 
       - npm install
-      - npm link 
+      - npm link
     - stage: "Test"
-      script: |
-        npm test
+      script: npm test
     - stage: "Publish dry run"
       branches:
         only: 
           - master
       os: linux
       node_js: '12.15.0'
-      script: |
-        npm publish --dryrun
+      script: npm publish --dryrun
     - stage: "Publish to NPM"
       os: linux
       node_js: '12.15.0'
       deploy:
-        - provider: script
-          script: ./scripts/publish-npm.sh
-          skip_cleanup: true
-          on:
-            branch: master
-            tags: true
-            condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
+        provider: script
+        script: ./scripts/publish-npm.sh
+        skip_cleanup: true
+        on:
+          branch: master
+          tags: true
+          condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
 
