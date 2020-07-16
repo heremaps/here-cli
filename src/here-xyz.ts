@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /*
-  Copyright (C) 2018 - 2019 HERE Europe B.V.
+  Copyright (C) 2018 - 2020 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -221,11 +221,107 @@ function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
     }
 }
 
+async function execInternal(
+    uri: string,
+    method: string,
+    contentType: string,
+    data: any,
+    token: string,
+    gzip: boolean
+) {
+    if (gzip) {
+        return await execInternalGzip(
+            uri,
+            method,
+            contentType,
+            data,
+            token
+        );
+    }
+    if (!uri.startsWith("http")) {
+        uri = common.xyzRoot() + uri;
+    }
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
+    const reqJson = {
+        url: uri,
+        method: method,
+        headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": contentType,
+            "App-Name": "HereCLI"
+        },
+        json: method === "GET" ? undefined : data,
+        allowGetBody: true,
+        responseType: responseType
+    };
+
+
+    const response = await requestAsync(reqJson);
+    if (response.statusCode < 200 || response.statusCode > 210) {
+        let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
+        //throw new Error("Invalid response - " + message);
+        throw new ApiError(response.statusCode, message);
+    }
+    return response;
+}
+
+function gzip(data: zlib.InputType): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) =>
+        zlib.gzip(data, (error, result) => {
+            if (error)
+                reject(error)
+            else
+                resolve(result);
+        })
+    );
+}
+
+async function execInternalGzip(
+    uri: string,
+    method: string,
+    contentType: string,
+    data: any,
+    token: string,
+    retry: number = 3
+) {
+    const zippedData = await gzip(data);
+    if (!uri.startsWith("http")) {
+        uri = common.xyzRoot() + uri;
+    }
+    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
+    const reqJson = {
+        url: uri,
+        method: method,
+        headers: {
+            Authorization: "Bearer " + token,
+            "Content-Type": contentType,
+            "Content-Encoding": "gzip",
+            "Accept-Encoding": "gzip"
+        },
+        decompress: true,
+        body: method === "GET" ? undefined : zippedData,
+        allowGetBody: true,
+        responseType: responseType
+    };
+
+    let response = await requestAsync(reqJson);
+    if (response.statusCode < 200 || response.statusCode > 210) {
+        if (response.statusCode >= 500 && retry > 0) {
+            await new Promise(done => setTimeout(done, 1000));
+            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
+        } else {
+            //   throw new Error("Invalid response :" + response.statusCode);
+            throw new ApiError(response.statusCode, response.body);
+        }
+    }
+    return response;
+}
+
 async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
     if (!token) {
         token = await common.verify();
     }
-    return await common.execInternal(uri, method, contentType, data, token, gzip, true);
+    return await execInternal(uri, method, contentType, data, token, gzip);
 }
 
 program
@@ -1710,7 +1806,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                         false
                     );
                     let object = JSON.parse(result);
-                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature')){
+                    if(!(object.features && object.features.length > 0 && object.features[0].type == 'Feature') && !(object.type && object.type == 'Feature')){
                         object = {
                             features: await transform.transform(
                                 object,
@@ -1793,8 +1889,18 @@ async function updateCommandMetadata(id: string, options: any, isClear: boolean 
         if(spaceData.client && spaceData.client.history){
             history = spaceData.client.history;
         }
+        let commandArray: Array<string> = [];
+        for(let i:number=4; i < process.argv.length; i++){
+            let element = process.argv[i];
+            if(element === '--token'){
+                i++;//removing token explicitely so that its not visible in space history
+            } else {
+                element = element.includes(' ') ? "'" + element.trim() + "'": element.trim();
+                commandArray.push(element);
+            }
+        }
         let command = {
-            "command" : `here xyz upload ${id} ` + process.argv.slice(4).map(x => x.includes(' ') ? "'" + x.trim() + "'": x.trim()).join(" "),
+            "command" : `here xyz upload ${id} ` + commandArray.join(" "),
             "timestamp": moment().toISOString(true)
         }
         history = [command].concat(history);
@@ -1914,7 +2020,7 @@ async function uploadDataToSpaceWithTags(
     upresult: any,
     printFailed: boolean
 ) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         gsv.valid(object, async function (valid: boolean, errs: any) {
             if (!valid) {
                 console.log(errs);
@@ -2089,8 +2195,8 @@ async function mergeAllTags(
                             dateValue = moment(new Date(value));
                         }
                         if(dateValue && dateValue.isValid()){
-                            item.properties['datahub_timestamp_'+element] = dateValue.valueOf();
-                            item.properties['datahub_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
+                            item.properties['xyz_timestamp_'+element] = dateValue.valueOf();
+                            item.properties['xyz_iso8601_'+element] = dateValue.toISOString(true).substring(0,dateValue.toISOString(true).length-6);
                             if(options.datetag){
                                 addDatetimeTag(dateValue, element, options, finalTags);
                             }
@@ -2632,7 +2738,7 @@ async function activityLogConfig(id:string, options:any) {
 
         let listenerDef:any = getEmptyAcitivityLogListenerProfile();
         listenerDef['params'] = {};
-        listenerDef['params'].states = state
+        listenerDef['params'].states = parseInt(state);
         listenerDef['params'].storageMode = storageMode
         patchRequest['listeners'] = {"activity-log": [listenerDef]};
     } else {

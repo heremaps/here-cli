@@ -28,7 +28,7 @@ import * as common from './common';
 import {handleError, execute} from "./common";
 import * as program from 'commander';
 import * as inquirer from "inquirer";
-const commands = ["list", "clone", "open", "show", "delete"];
+const commands = ["list", "open", "show", "delete"];
 
 const studioBaseURL = "https://studio.here.com";
 const projectsUrl = "/project-api/projects";
@@ -53,7 +53,7 @@ program
     .action(async (geospaceId, options) => {
         deleteProject(geospaceId, options)
             .catch((error) => {
-                handleError(error, true);
+                handleError(error, false);
             })
     });
 
@@ -94,7 +94,7 @@ async function deleteProject  (id : any, options: any) {
     console.log("Deleting project : "+id)
 
     //If project exists send a DELETE request for that projectID
-    const uri = projectsUrl+id;
+    const uri = projectsUrl+"/"+id;
     const cType = "";
     let response = await execute (uri, "DELETE", cType, "", options.token);
 
