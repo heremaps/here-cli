@@ -43,7 +43,7 @@ const path = require('path');
 const open = require("open");
 import * as moment from 'moment';
 import * as glob from 'glob';
-import {execute, handleError} from "./common";
+import {execInternal, handleError} from "./common";
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -212,6 +212,13 @@ program
                 handleError(error);
             })
     });
+
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
+    if (!token) {
+        token = await common.verify();
+    }
+    return await execInternal(uri, method, contentType, data, token, gzip, true);
+}
 
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";

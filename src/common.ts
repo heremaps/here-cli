@@ -586,7 +586,7 @@ export async function execute(uri: string, method: string, contentType: string, 
     return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
 }
 
-async function execInternal(
+export async function execInternal(
     uri: string,
     method: string,
     contentType: string,
