@@ -15,10 +15,6 @@ script:
 - npm link
 - npm test
   
-stages:
-- publish dry run
-- publish
-
 jobs:
   include:
     - stage: publish dry run
