@@ -18,7 +18,7 @@ script:
 jobs:
   include:
     - stage: publish dry run
-      if: branch == master
+      if: branch == master AND type != pull_request
       os: linux
       node_js: '12.15.0'
       script: npm publish --dryrun
