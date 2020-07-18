@@ -79,7 +79,7 @@ async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
         if(path.lastIndexOf('.zip') !== -1){
             await extract(path, {'dir':tmpDir.name});
             const shpFiles = fs.readdirSync(tmpDir.name, { withFileTypes: true })
-                                   .filter(dirent => dirent.isFile() && dirent.name.indexOf(".shp") !== -1)
+                                   .filter(dirent => dirent.isFile() && dirent.name.slice(-4).indexOf(".shp") !== -1)
                                    .map(dirent => dirent.name);
             if(shpFiles.length > 1){
                 console.log("Error - more than one shapefiles detected in zip file");
