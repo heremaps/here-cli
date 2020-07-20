@@ -413,7 +413,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                         }
                     });
                 }
-                if (offset) {
+                if (offset && offset !== '0') {
                     uri = uri + "&handle=" + offset;
                 }
                 if (options.tags) {
