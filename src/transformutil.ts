@@ -354,13 +354,21 @@ export async function transform(result: any[], options: any) {
                         value.properties['id'] = properties['id'];
                     }
                     value.properties["@ns:com:here:xyz"] = properties["@ns:com:here:xyz"];
-                    value.properties[options.groupby] = {};
+                    if(!options.flatten){
+                        value.properties[options.groupby] = {};
+                    }
                     objects.set(key,value);
                 }
                 delete properties[options.groupby];
                 delete properties[options.id];
                 delete properties["@ns:com:here:xyz"];
-                value.properties[options.groupby][result[i][options.groupby]] = properties;
+                if(options.flatten){
+                    Object.keys(properties).forEach(key => {
+                        value.properties[options.groupby + ":" + result[i][options.groupby] + ":" + key] = properties[key];
+                    });
+                } else {
+                    value.properties[options.groupby][result[i][options.groupby]] = properties;
+                }
             } else {
                 objects.set(i,ggson);
             }
