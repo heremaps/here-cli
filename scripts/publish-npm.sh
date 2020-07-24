@@ -27,7 +27,7 @@ echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 # Check that tag and package.json versions match
 package_version=`node -p "require('./package.json').version"`
 if [[ $package_version != $TRAVIS_TAG ]]; then
-    echo "Tag version does not match package.json version ."
+    echo "Tag version does not match package.json version."
     exit 1
 fi
 
@@ -43,4 +43,4 @@ popd
 # Publish
 npm publish
 
-echo "Published Here CLI version $package_version to npm successfully!"
+echo "Published Here CLI version $package_version to https://www.npmjs.com/ successfully!"
