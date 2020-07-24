@@ -21,7 +21,7 @@ jobs:
       if: branch == master AND type != pull_request
       os: linux
       node_js: '12.15.0'
-      script: npm publish --dryrun
+      script: npm publish --dry-run
     - stage: publish
       if: branch == master AND (NOT (type IN (push, pull_request))) AND (tag =~ /^[0-9]+.[0-9]+.[0-9]+$/)
       os: linux
