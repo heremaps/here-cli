@@ -43,6 +43,7 @@ const path = require('path');
 const open = require("open");
 import * as moment from 'moment';
 import * as glob from 'glob';
+import { option } from "commander";
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -180,6 +181,8 @@ const tagruleDeletePrompt = [
         choices: choiceList
     }
 ]
+
+let joinValueToFeatureIdMap: Map<string, string> = new Map();
 
 program.version("0.1.0");
 
@@ -391,6 +394,8 @@ export function getSpaceDataFromXyz(id: string, options: any) {
             if (options.bbox) {
                 spFunction = "bbox";
                 options.limit = 100000;//Max limit of records space api supports 
+            } else if(options.search) {
+                spFunction = "search"
             } else {
                 spFunction = "iterate";
             }
@@ -412,6 +417,9 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                             uri = uri + "&" + bboxDirections[i] + "=" + number;
                         }
                     });
+                }
+                if(options.search){
+                    uri = uri + "&search=" + options.search;
                 }
                 if (offset && offset !== '0') {
                     uri = uri + "&handle=" + offset;
@@ -2128,7 +2136,7 @@ async function mergeAllTags(
     let checkId = false;
     const featureMap: Array<string> = [];
     const duplicates = new Array();
-    features.forEach(function (item: any) {
+    for (let item of features) {
         let finalTags = inputTags.slice();
         let origId = null;
         //Generate id only if doesnt exist
@@ -2136,6 +2144,20 @@ async function mergeAllTags(
             const fId = common.createUniqueId(idStr, item);
             if (fId && fId != "") {
                 item.id = fId;
+            }
+        } else if(options.keys){
+            const propertyValue = item.properties[options.csvProperty];
+            if(joinValueToFeatureIdMap.get(propertyValue)){
+                item.id = joinValueToFeatureIdMap.get(propertyValue);
+            } else {
+                options.search = "p." + options.spaceProperty + "=" + propertyValue;
+                let jsonOut = await getSpaceDataFromXyz(options.primarySpace, options);
+                if (jsonOut.features && jsonOut.features.length === 0) {
+                    console.log("\nNo feature available for the required value - " + propertyValue);
+                    process.exit(1);
+                }
+                item.id = jsonOut.features[0].id;
+                joinValueToFeatureIdMap.set(propertyValue, jsonOut.features[0].id);
             }
         } else {
             if (options.unique) {
@@ -2225,7 +2247,7 @@ async function mergeAllTags(
         }
         metaProps.tags = uniqArray(finalTags);
         item.properties["@ns:com:here:xyz"] = metaProps;
-    });
+    };
 
     if (options.unique && duplicates.length > 0) {
         const featuresOut = new Array();
@@ -2913,6 +2935,7 @@ program
     .description("{Data Hub Add-on} create a new virtual Data Hub space with a CSV and a space with geometries, associating by feature ID")    
     .option("-f, --file <file>", "csv to be uploaded and associated")
     .option("-i, --keyField <keyField>", "field in csv file to become feature id")
+    .option("--keys <keys>", "comma separated property names of csvProperty and space property")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
@@ -2934,6 +2957,21 @@ async function createJoinSpace(id:string, options:any){
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
         return;
+    }
+    if(options.keyField && options.keys){
+        console.log("only one option allowed, please give either 'keyField' or 'keys' and not both");
+        process.exit(1);
+    }
+    if(options.keys){
+        options.primarySpace = id;
+        const keysArray = options.keys.split(",");
+        if(keysArray.length !== 2){
+            console.log("please give proper propInCSV,propInSpace in --keys option");
+            process.exit(1);
+        }
+        options.csvProperty = keysArray[0];
+        options.spaceProperty = keysArray[1];
+        options.ignoreLogs = true;
     }
     //setting title and message for new space creation
     options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
