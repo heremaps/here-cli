@@ -428,6 +428,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
+            console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
@@ -2150,11 +2151,11 @@ async function mergeAllTags(
             if(joinValueToFeatureIdMap.get(propertyValue)){
                 item.id = joinValueToFeatureIdMap.get(propertyValue);
             } else {
-                options.search = "p." + options.spaceProperty + "=" + propertyValue;
+                options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
                 let jsonOut = await getSpaceDataFromXyz(options.primarySpace, options);
                 if (jsonOut.features && jsonOut.features.length === 0) {
                     console.log("\nNo feature available for the required value - " + propertyValue);
-                    process.exit(1);
+                    finalTags.push("no_match");
                 }
                 item.id = jsonOut.features[0].id;
                 joinValueToFeatureIdMap.set(propertyValue, jsonOut.features[0].id);
