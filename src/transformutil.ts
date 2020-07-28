@@ -29,6 +29,7 @@ import * as fs from "fs";
 import * as tmp from "tmp";
 const got = require('got');
 const pathLib = require('path');
+const XLSX = require('xlsx');
 import * as extract from "extract-zip";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
@@ -71,6 +72,35 @@ export function readShapeFile(path: string) {
     } else {
         return readShapeFileInternal(path);
     }
+}
+
+export function readExcelFile(path: string) {
+    if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
+        return new Promise<FeatureCollection>((resolve, reject) =>
+            tmp.file({ mode: 0o644, prefix: '', postfix: path.indexOf('.xlsx') !== -1 ? '.xlsx':'.xls' }, function _tempFileCreated(err, tempFilePath, fd) {
+                if (err)
+                    reject(err);
+
+                const dest = fs.createWriteStream(tempFilePath);
+                dest.on('finish', function (err: any) {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(readExcelFileInternal(tempFilePath));
+                });
+                got.stream(path)
+                    .on('error', (err: any) => reject(err))
+                    .pipe(dest);
+            })
+        );
+    } else {
+        return readExcelFileInternal(path);
+    }
+}
+
+function readExcelFileInternal(path: string): any{
+    const workbook = XLSX.readFile(path, {sheetStubs: true});
+    return workbook;
 }
 
 async function readShapeFileInternal(path: string): Promise<FeatureCollection> {

@@ -41,6 +41,7 @@ import { ApiError } from "./api-error";
 const gsv = require("geojson-validation");
 const path = require('path');
 const open = require("open");
+const XLSX = require('xlsx');
 import * as moment from 'moment';
 import * as glob from 'glob';
 import { option } from "commander";
@@ -1700,8 +1701,12 @@ export async function uploadToXyzSpace(id: string, options: any) {
         options.file = file;
         console.log("uploading file - " + file);
         let startTime = new Date();
-        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1)){
+        if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1 || options.file.toLowerCase().indexOf(".xls") != -1 || options.file.toLowerCase().indexOf(".xlsx") != -1)){
             console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
+        }
+        if(options.stream && options.file && (options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1 || options.file.toLowerCase().indexOf(".xls") != -1 || options.file.toLowerCase().indexOf(".xlsx") != -1)){
+            console.log("Stream option is not supported for this file type, please execute the command without -s / --stream option.");
+            process.exit(1);
         }
 
         if (options.file) {
@@ -1811,7 +1816,32 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     options.file,
                     options.id
                 );
-
+            } else if (options.file.toLowerCase().indexOf(".xls") != -1 || options.file.toLowerCase().indexOf(".xlsx") != -1) {
+                const workbook = await transform.readExcelFile(
+                    options.file
+                );
+                var sheetNameList = workbook.SheetNames;
+                for(let sheetName of sheetNameList) {
+                    console.log("uploading sheet - " + sheetName);
+                    let result = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defVal : ""});
+                    const object = {
+                        features: await transform.transform(
+                            result,
+                            options
+                        ),
+                        type: "FeatureCollection"
+                    };
+                    await uploadData(
+                        id,
+                        options,
+                        tags,
+                        object,
+                        true,
+                        options.ptag,
+                        options.file,
+                        options.id
+                    );
+                }
             } else {
                 if (!options.stream) {
                     let result = await transform.read(
