@@ -472,7 +472,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
                 lon = object[options.lon];
             }
         }
-        if(options.askUserForId && !options.id && !object['id']){
+        if(options.askUserForId && !options.id && !object['id'] && !options.keys){
             let choiceList = createQuestionsList(object);
             const questions = [
                 {

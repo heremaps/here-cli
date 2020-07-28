@@ -419,7 +419,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                     });
                 }
                 if(options.search){
-                    uri = uri + "&search=" + options.search;
+                    uri = uri + "&" + replaceOpearators(options.search);
                 }
                 if (offset && offset !== '0') {
                     uri = uri + "&handle=" + offset;
@@ -471,7 +471,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                         break;
                     }
                 } while (cHandle >= 0 && recordLength < options.totalRecords);
-                if (!options.currentHandleOnly) {
+                if (!options.currentHandleOnly && !options.ignoreLogs) {
                     process.stdout.write("\n");
                 }
                 jsonOut.features = features;
@@ -2159,6 +2159,7 @@ async function mergeAllTags(
                 item.id = jsonOut.features[0].id;
                 joinValueToFeatureIdMap.set(propertyValue, jsonOut.features[0].id);
             }
+            console.log("featureId for property " + propertyValue + " is - " + item.id);
         } else {
             if (options.unique) {
                 checkId = true;
