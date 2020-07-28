@@ -2181,6 +2181,9 @@ async function mergeAllTags(
                 item.id = joinValueToFeatureIdMap.get(propertyValue);
             } else {
                 options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
+                if(options.filter){
+                    options.search = '&p.' + options.filter;
+                }
                 let jsonOut = await getSpaceDataFromXyz(options.primarySpace, options);
                 if (jsonOut.features && jsonOut.features.length === 0) {
                     console.log("\nNo feature available for the required value - " + propertyValue);
@@ -2968,6 +2971,7 @@ program
     .option("-f, --file <file>", "csv to be uploaded and associated")
     .option("-i, --keyField <keyField>", "field in csv file to become feature id")
     .option("--keys <keys>", "comma separated property names of csvProperty and space property")
+    .option("--filter <filter>", "additional filter search to be used with --keys option")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
@@ -3004,6 +3008,10 @@ async function createJoinSpace(id:string, options:any){
         options.csvProperty = keysArray[0];
         options.spaceProperty = keysArray[1];
         options.ignoreLogs = true;
+    }
+    if(!options.keys && options.filter){
+        console.log("--filter option is only allowed with --keys option");
+        process.exit(1);
     }
     //setting title and message for new space creation
     options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
