@@ -429,6 +429,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
+            console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
@@ -2182,7 +2183,7 @@ async function mergeAllTags(
             } else {
                 options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
                 if(options.filter){
-                    options.search = '&p.' + options.filter;
+                    options.search = options.search + '&p.' + options.filter;
                 }
                 let jsonOut = await getSpaceDataFromXyz(options.primarySpace, options);
                 if (jsonOut.features && jsonOut.features.length === 0) {
