@@ -1700,7 +1700,6 @@ export async function uploadToXyzSpace(id: string, options: any) {
 
     for(let file of files) {
         options.file = file;
-        console.log("uploading file - " + file);
         let startTime = new Date();
         if(!options.stream && options.file && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".zip") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1 || options.file.toLowerCase().indexOf(".xls") != -1 || options.file.toLowerCase().indexOf(".xlsx") != -1)){
             console.log("you can stream your uploads of CSV, GeoJSON and GeoJSONL files using the -s option. This will allow you to upload very large files, and will dramatically reduce the upload time for files of any size.");
@@ -1711,6 +1710,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         }
 
         if (options.file) {
+            console.log("uploading file - " + file);
             const fs = require("fs");
             if (options.file.toLowerCase().indexOf(".geojsonl") != -1) {
                 if (!options.stream) {
@@ -3664,4 +3664,4 @@ common.validate(
     [process.argv[2]],
     program
 );
-program.parse(process.argv);
+program.name('here xyz').parse(process.argv);
