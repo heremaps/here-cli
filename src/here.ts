@@ -1,7 +1,7 @@
 #!/usr/bin/env NODE_OPTIONS=--no-warnings node
 
 /*
-  Copyright (C) 2018 - 2019 HERE Europe B.V.
+  Copyright (C) 2018 - 2020 HERE Europe B.V.
   SPDX-License-Identifier: MIT
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -31,7 +31,7 @@ const program = require('commander');
 const settings = require('user-settings').file('.herecli');
 const latestVersion = require('latest-version');
 
-const commands = ["xyz", "xs","c","configure", "transform","tf", "help", "geocode","gc"];
+const commands = ["xyz", "studio", "xs","c","configure", "transform","tf", "help", "geocode","gc"];
 const fs = require('fs');
 const path = require('path');
 
@@ -53,8 +53,9 @@ async function start() {
 
     program
         .version(getVersion())
-        .command('configure [set|verify]', 'setup configuration for authentication').alias('c')
+        .command('configure [verify|refresh]', 'setup configuration for authentication').alias('c')
         .command('xyz [list|create|upload]', 'work with Data Hub spaces').alias('xs')
+        .command('studio [list|delete|show]', 'work with HERE Studio projects')
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);

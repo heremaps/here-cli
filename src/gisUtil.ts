@@ -1,3 +1,27 @@
+/*
+  Copyright (C) 2018 - 2020 HERE Europe B.V.
+  SPDX-License-Identifier: MIT
+
+  Permission is hereby granted, free of charge, to any person obtaining
+  a copy of this software and associated documentation files (the
+  'Software'), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
 import * as common from "./common";
 import * as xyz from "./here-xyz";
 import * as tmp from "tmp";
@@ -93,7 +117,7 @@ export async function performGisOperation(id:string, options:any){
         }
         id = newSpaceData.id;
     }
-    
+
     if (gisFeatures.length > 0 || isValidGisFeatures) {
         if(options.centroid){
             options.tags = 'centroid';
@@ -130,14 +154,14 @@ function performTurfOperationOnFeature(feature: any, options: any){
             if(!feature.properties){
                 feature.properties = {};
             }
-            feature.properties['datahub_length_m'] = length;
-            feature.properties['datahub_length_km'] = parseFloat((length / 1000).toFixed(2));
-            feature.properties['datahub_length_miles'] = parseFloat((length * 0.000621371).toFixed(2));
-            gisFeature = feature; 
+            feature.properties['xyz_length_m'] = length;
+            feature.properties['xyz_length_km'] = parseFloat((length / 1000).toFixed(2));
+            feature.properties['xyz_length_miles'] = parseFloat((length * 0.000621371).toFixed(2));
+            gisFeature = feature;
         }
     } else if(options.area){
         if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
-            gisFeature = populateArea(feature); 
+            gisFeature = populateArea(feature);
         }
     } else {
         console.log("Please specify GIS operation option");
@@ -151,10 +175,10 @@ function populateArea(feature: any){
     if(!feature.properties){
         feature.properties = {};
     }
-    feature.properties['datahub_area_sqm'] = area;
-    feature.properties['datahub_area_sqkm'] = parseFloat((area / 1000000).toFixed(2));
-    feature.properties['datahub_area_sqmiles'] = parseFloat((area * 0.00000038610215855).toFixed(2));
-    return feature; 
+    feature.properties['xyz_area_sqm'] = area;
+    feature.properties['xyz_area_sqkm'] = parseFloat((area / 1000000).toFixed(2));
+    feature.properties['xyz_area_sqmiles'] = parseFloat((area * 0.00000038610215855).toFixed(2));
+    return feature;
 }
 
 async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){

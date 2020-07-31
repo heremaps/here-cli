@@ -1,7 +1,7 @@
 # HERE CLI
 [![Build Status](https://travis-ci.com/heremaps/here-cli.svg?branch=master)](https://travis-ci.com/heremaps/here-cli)
 
-HERE CLI is a Node.js command-line interface to work with HERE APIs starting with [HERE XYZ Hub](https://www.here.xyz) APIs. Right now, it allows you to interact with HERE XYZ Hub to create and manage your Spaces, and easily upload and manage your datasets.
+HERE CLI is a Node.js command-line interface to work with HERE APIs starting with [HERE Data Hub](https://www.here.xyz) APIs. Right now, it allows you to interact with HERE Data Hub to create and manage your Spaces, and easily upload and manage your datasets.
 
 ### Prerequisites
 
@@ -36,10 +36,12 @@ For detailed information on getting a Developer account have a look at our [Gett
 The CLI currently support the following sub-commands:
 
 ```
-- configure|c [set|verify|account]  setup configuration for authentication
-- xyz|xs [list|create|upload]       work with xyz spaces
-- transform|tf [csv2geo|shp2geo]    convert from csv/shapefile to geojson
-- help [cmd]                        display help for [cmd]
+- configure|c [verify|refresh]            setup configuration for authentication
+- xyz|xs [list|create|upload]             work with Data Hub spaces
+- studio [list|delete|show]               work with HERE Studio projects
+- transform|tf [csv2geo|shp2geo|gpx2geo]  convert from csv/shapefile/gpx to geojson
+- geocode|gc                              geocode feature
+- help [command]                          display help for command
 ```
 
 ## Development
@@ -86,7 +88,7 @@ If the command is interacting with a HERE service, please include a links to the
 
 ## License
 
-Copyright (C) 2018 - 2019 HERE Europe B.V.
+Copyright (C) 2018 - 2020 HERE Europe B.V.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
