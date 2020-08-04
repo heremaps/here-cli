@@ -15,14 +15,15 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-# License-Filename: LICENSE
+# License-Filename: LICENSE 
 #
 # simple script for npm publishing
 # to be run from travis
 
 set -ex
 
-echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
+# echo 'registry=https://registry.npmjs.org/' > ~/.npmrc
+echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' >> ~/.npmrc
 
 cat ~/.npmrc
 
