@@ -33,4 +33,5 @@ jobs:
         on:
           branch: master
           tags: true
-          condition: tag =~ ^[0-9]+.[0-9]+.[0-9]+$
+          condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
+
