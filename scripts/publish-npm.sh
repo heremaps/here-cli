@@ -22,8 +22,6 @@
 
 set -ex
 
-git rev-parse --abbrev-ref HEAD --
-
 echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 
 # Check that tag and package.json versions match
@@ -33,14 +31,8 @@ if [[ $package_version != $TRAVIS_TAG ]]; then
     exit 1
 fi
 
-# Pack and test install
-rm -f ./here-cli-*tgz
-npm pack
-installer_package=`ls here-cli-*tgz`
-mv $installer_package /tmp/
-pushd /tmp/
-npm install $installer_package
-popd
+# Install
+npm install
 
 # Publish
 npm publish
