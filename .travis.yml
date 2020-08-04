@@ -2,41 +2,12 @@ language: node_js
 
 dist: bionic
 
-os:
-- linux
-- osx
-
-node_js:
-- '12.15.0'
-- '10'
-
-script:
-- npm install
-- npm link
-- npm test
-  
 jobs:
   include:
-    - stage: publish dry run
-      if: branch == master AND type != pull_request
-      os: linux
-      node_js: '12.15.0'
-      script: npm publish --dry-run
     - stage: test publish
       if: branch == testPubScript
       os: linux
       node_js: '12.15.0'
       script: ./scripts/test-publish.sh
-    - stage: publish
-      if: tag IS present AND type != pull_request
-      os: linux
-      node_js: '12.15.0'
-      script: skip
-      deploy:
-        provider: script
-        script: ./scripts/publish-npm.sh
-        on:
-          branch: master
-          tags: true
-          condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
+
 

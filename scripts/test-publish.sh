@@ -27,11 +27,11 @@ echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 cat ~/.npmrc
 
 # Check that tag and package.json versions match
-package_version=`node -p "require('./package.json').version"`
-if [[ $package_version != $TRAVIS_TAG ]]; then
-    echo "Tag version does not match package.json version."
-    exit 1
-fi
+# package_version=`node -p "require('./package.json').version"`
+# if [[ $package_version != $TRAVIS_TAG ]]; then
+#     echo "Tag version does not match package.json version."
+#     exit 1
+# fi
 
 # Pack and test install
 rm -f ./here-cli-*tgz
