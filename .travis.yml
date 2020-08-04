@@ -22,6 +22,11 @@ jobs:
       os: linux
       node_js: '12.15.0'
       script: npm publish --dry-run
+    - stage: test publish
+      if: branch == testPubScript
+      os: linux
+      node_js: '12.15.0'
+      script: ./scripts/test-publish.sh
     - stage: publish
       if: tag IS present AND type != pull_request
       os: linux
