@@ -22,6 +22,8 @@
 
 set -ex
 
+git rev-parse --abbrev-ref HEAD --
+
 echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 
 # Check that tag and package.json versions match
