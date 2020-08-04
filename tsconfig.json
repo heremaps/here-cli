@@ -4,11 +4,10 @@
     "module": "commonjs",
     "strict": true,
     "outDir": "bin",
-    "baseUrl": "./", // This must be specified if "paths" is.
+    "baseUrl": "./",
     "paths": {
-      "@turf/voronoi": ["./declarations/@turf/voronoi.d.ts"],//voronoi typescript issue - https://github.com/Turfjs/turf/issues/1422
+      "@turf/voronoi": ["./declarations/@turf/voronoi.d.ts"],
       "@turf/helpers": ["./declarations/@turf/helpers.d.ts"]
     }
-    //"traceResolution": true
   }
 }
