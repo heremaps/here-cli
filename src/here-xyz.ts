@@ -2508,6 +2508,7 @@ program
     .command("config [id]")
     .description("configure/view advanced Data Hub features for space")
     .option("--shared <flag>", "set your space as shared / public (default is false)")
+    .option("--readonly <flag>", "set your space as readOnly (default is false)")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
     .option("-d,--message [message]", "set description for the space")
@@ -2556,8 +2557,8 @@ async function configXyzSpace(id: string, options: any) {
     }
 
     if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
-        (options.shared || options.title || options.message || options.copyright || options.stats)) {
-        console.log("conflicting options, searchable/schema/tagrules options can be used only with add/update/view/delete options")
+        (options.shared || options.readonly || options.title || options.message || options.copyright || options.stats)) {
+        console.log("conflicting options, searchable/schema/tagrules/activitylog options can be used only with add/update/view/delete options")
         process.exit(1);
     }
 
@@ -2628,6 +2629,25 @@ async function configXyzSpace(id: string, options: any) {
         } else {
             console.log("setting the space NOT SHARED");
             patchRequest['shared'] = false;
+        }
+    }
+
+    if (options.readonly) {
+        if (options.readonly == 'true') {
+            console.log("Note that if you set a space to readOnly=true, you will not be able to write to the space");
+            console.log("Are you sure you want to mark the space as readOnly?");
+            const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
+            const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
+            if (termsResp !== "y" && termsResp !== "yes") {
+                console.log("CANCELLED !");
+                process.exit(1);
+            } else {
+                console.log("setting the space readOnly");
+                patchRequest['readOnly'] = true;
+            }
+        } else {
+            console.log("setting the space NOT readOnly");
+            patchRequest['readOnly'] = false;
         }
     }
 
