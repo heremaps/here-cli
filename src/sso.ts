@@ -110,12 +110,15 @@ export async function fetchMaxRights(cookies: string){
     return response.body;
 }
 
-export async function fetchToken(cookies: string, requestBody: any, appId : string) {
-    const bodyStr = JSON.stringify({ "urm": JSON.parse(requestBody), cid: appId });
+export async function fetchToken(cookies: string, requestBody: any, appId : string, expirationTime: number = 0) {
+    let body : any = { "urm": JSON.parse(requestBody), cid: appId };
+    if(expirationTime){
+        body['exp'] = expirationTime;
+    }
     const options = {
         url: tokenURL,
         method: "POST",
-        body: bodyStr,
+        body: JSON.stringify(body),
         headers: {
             "Cookie":cookies,
             "Content-Type":"application/json"

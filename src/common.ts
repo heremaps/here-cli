@@ -171,8 +171,11 @@ export async function loginFlow(email: string, password: string) {
 export async function refreshAccount(fullRefresh = false) {
     const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.");
     const appDataStored: string = await decryptAndGet("appDetails");
-    const appDetails = appDataStored.split("%%");
-    const credentials = accountInfo.split("%%");
+    const appDetails = getSplittedKeys(appDataStored);
+    const credentials = getSplittedKeys(accountInfo);
+    if(!appDetails || !credentials){
+        throw new Error("Error while refreshing Account, please use 'here configre'");
+    }
 
     try {
         if(fullRefresh) {
@@ -226,6 +229,19 @@ function rightsRequest(appId: string) {
     };
 }
 
+export async function createReadOnlyToken(spaceIds: string[], isPermanent: boolean){
+    const appDataStored: string = await decryptAndGet("appDetails");
+    const keys = getSplittedKeys(appDataStored);
+    const appId = keys ? keys[0] : '';
+    const cookie = await getCookieFromStoredCredentials();
+    let expirationTime : number = 0;
+    if(!isPermanent){
+        expirationTime = Math.round((new Date().getTime())/1000) + (48*60*60); 
+    }
+    const token = await sso.fetchToken(cookie, JSON.stringify(await readOnlySpaceRightsRequest(spaceIds)), appId, expirationTime);
+    return token.tid;
+}
+
 function getMacAddress() {
     return getMAC();
 }
@@ -259,24 +275,21 @@ export async function generateToken(mainCookie:string, appId : string) {
     const maxRights = await sso.fetchMaxRights(mainCookie);
     const token = await sso.fetchToken(mainCookie, maxRights, appId);
     encryptAndStore('keyInfo', token.tid);
-    await generateROToken(mainCookie, JSON.parse(maxRights), appId);
+    encryptAndStore("accountId",token.aid);
     return token;
 }
 
-function readOnlyRightsRequest(maxRights:any) {
+async function readOnlySpaceRightsRequest(spaceIds:string[]) {
+    const aid = await getAccountId();
     return {
           "xyz-hub": {
-            "readFeatures": maxRights['xyz-hub'].readFeatures,
+            "readFeatures": spaceIds.map(id => { return {space: id, owner: aid}}), 
             "useCapabilities": [{
             }],
             "accessConnectors": [{
             }]
           }
     };
-}
-export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
-    const token = await sso.fetchToken(mainCookie, JSON.stringify(readOnlyRightsRequest(maxRights)), appId);
-    encryptAndStore('roKeyInfo', token.tid);
 }
 
 export async function getAppIds(cookies: string) {
@@ -358,6 +371,37 @@ async function getTokenInformation(tokenId: string){
         throw new Error("Fetching token information failed for Token - " + tokenId);
     }
     return response.body;
+}
+
+export async function getTokenList(){
+    const cookie = await getCookieFromStoredCredentials();
+    const options = {
+        url: xyzRoot() + "/token-api/token",
+        method: "GET",
+        headers: {
+            Cookie: cookie
+        }
+    };
+
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299) {
+        throw new Error("Error while fetching tokens :" + response.body);
+    }
+    const tokenInfo = JSON.parse(response.body);
+    return tokenInfo;
+}
+
+export async function getCookieFromStoredCredentials(){
+    const dataStr = await decryptAndGet(
+        "accountInfo",
+        "No here account configure found. Try running 'here configure account'"
+    );
+    const appInfo = getSplittedKeys(dataStr);
+    if (!appInfo) {
+        throw new Error("Account information out of date. Please re-run 'here configure'");
+    }
+    const cookie = await sso.executeWithCookie(appInfo[0], appInfo[1]);
+    return cookie;
 }
 
 export async function encryptAndStore(key: string, toEncrypt: string) {

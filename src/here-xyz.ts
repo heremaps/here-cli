@@ -881,6 +881,7 @@ program
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-w, --web", "display Data Hub space on http://geojson.tools")
     .option("-v, --vector", "inspect and analyze using Data Hub Space Invader and tangram.js")
+    .option("--permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
@@ -905,6 +906,11 @@ async function showSpace(id: string, options: any) {
 
     if(options.vector && options.spatial) {
         console.log("options 'vector' and 'spatial' can not be used together");
+        process.exit(1);
+    }
+
+    if(options.permanent && !(options.web || options.vector)) {
+        console.log("option 'permanent' can only be used with either option 'web or 'vector");
         process.exit(1);
     }
 
@@ -1042,11 +1048,11 @@ async function showSpace(id: string, options: any) {
         cType = "application/geo+json";
     }
     if (options.vector) {
-        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token);
+        await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token, options.permanent);
     }
     else if (options.web) {
         //console.log(uri);
-        await launchHereGeoJson(uri, options.token);
+        await launchHereGeoJson(uri, id, options.token, options.permanent);
     } else {
         const response = await execute(
             uri,
@@ -1303,31 +1309,7 @@ program
     });
 
 async function listTokens() {
-    const dataStr = await common.decryptAndGet(
-        "accountInfo",
-        "No here account configure found. Try running 'here configure account'"
-    );
-    const appInfo = common.getSplittedKeys(dataStr);
-    if (!appInfo) {
-        throw new Error("Account information out of date. Please re-run 'here configure'");
-    }
-
-    const cookie = await sso.executeWithCookie(appInfo[0], appInfo[1]);
-    const options = {
-        url: common.xyzRoot() + "/token-api/token",
-        method: "GET",
-        headers: {
-            Cookie: cookie
-        }
-    };
-
-    const response = await requestAsync(options);
-    if (response.statusCode != 200) {
-        console.log("Error while fetching maxrights :" + response.body);
-        return;
-    }
-
-    const tokenInfo = JSON.parse(response.body);
+    const tokenInfo = await common.getTokenList();
     const currentToken = await common.decryptAndGet("keyInfo", "No token found");
     console.log(
         "===================================================="
@@ -2471,9 +2453,9 @@ function chunkify(data: any[], chunksize: number) {
     return chunks;
 }
 
-async function launchHereGeoJson(uri: string, token: string) {
+async function launchHereGeoJson(uri: string,spaceId: string,  token: string, isPermanent: boolean) {
     if(!token){
-        token = await common.verify(true);
+        token = await getReadOnlyToken(spaceId, isPermanent);
     }
     const accessAppend =
         uri.indexOf("?") == -1
@@ -2487,9 +2469,24 @@ async function launchHereGeoJson(uri: string, token: string) {
         , { wait: false });
 }
 
-async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string) {
+async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
+    console.log("generating " + (isPermanent ? "permanent":"temporary") + " token for this space");
+    const spaceConfig = await getSpaceMetaData(spaceId);
+    let spaceIds = [spaceId];
+    if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
+        const storageparams = spaceConfig.storage.params.virtualspace;
+        spaceIds = spaceIds.concat(storageparams['group'] ? storageparams['group'] : []);
+        spaceIds = spaceIds.concat(storageparams['merge'] ? storageparams['merge'] : []);
+        spaceIds = spaceIds.concat(storageparams['override'] ? storageparams['override'] : []);
+        spaceIds = spaceIds.concat(storageparams['custom'] ? storageparams['custom'] : []);
+    }
+    const token = await common.createReadOnlyToken(spaceIds, isPermanent);
+    return token;
+}
+
+async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string, isPermanent: boolean) {
     if(!token){
-        token = await common.verify(true);
+        token = await getReadOnlyToken(spaceId, isPermanent);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     open(
@@ -2921,6 +2918,7 @@ function showSpaceConfig(spacedef: any) {
     spaceconfigs.push({ property: 'enableUUID', value: spacedef.enableUUID || false });
     spaceconfigs.push({ property: 'client', value: JSON.stringify(spacedef.client) });
     spaceconfigs.push({ property: 'shared', value: spacedef.shared || false });
+    spaceconfigs.push({ property: 'readOnly', value: spacedef.readOnly || false });
 
     if (spacedef.copyright) {
         let copr = [];
