@@ -1344,6 +1344,7 @@ program
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
+    .option('--promote <promote>', 'comma separated colunm names which should not be nested')
     .option('--flatten', 'stores the groupby operation output in flatten format seprated by colon (:)')
     .option('--date <date>', 'date-related property name(s) of a feature to be normalized as a ISO 8601 datestring (datahub_iso8601_[propertyname]), and unix timestamp (datahub_timestamp_[propertyname] ')
     .option('--datetag [datetagString]', 'comma separated list of granular date tags to be added via --date. possible options - year, month, week, weekday, year_month, year_week, hour')
@@ -1387,8 +1388,8 @@ program
             console.log("'groupby' option is only allowed with csv files");
             process.exit(1);
         }
-        if(!options.groupby && options.flatten){
-            console.log("'flatten' option is only allowed with 'groupby' option");
+        if(!options.groupby && (options.flatten || options.promote)){
+            console.log(options.promote ? "'promote'": "'flatten'" + " option is only allowed with 'groupby' option");
             process.exit(1);
         }
         if (!id && options.file) {
@@ -3001,6 +3002,8 @@ program
     .option("-s, --stream", "streaming data for faster uploads and large csv support")
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
+    .option('--promote <promote>', 'comma separated colunm names which should not be nested')
+    .option('--flatten', 'stores the groupby operation output in flatten format seprated by colon (:)')
     .action(function (id, options) {
         createJoinSpace(id, options).catch((error) => {
             handleError(error, true);

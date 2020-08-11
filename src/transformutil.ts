@@ -392,6 +392,12 @@ export async function transform(result: any[], options: any) {
                 delete properties[options.groupby];
                 delete properties[options.id];
                 delete properties["@ns:com:here:xyz"];
+                if(options.promote){
+                    options.promote.split(',').forEach((key: string) => {
+                        value.properties[key] = properties[key];
+                        delete properties[key];
+                    });
+                }
                 if(options.flatten){
                     Object.keys(properties).forEach(key => {
                         value.properties[options.groupby + ":" + result[i][options.groupby] + ":" + key] = properties[key];
