@@ -292,6 +292,7 @@ async function execInternalGzip(
     if (!uri.startsWith("http")) {
         uri = common.xyzRoot() + uri;
     }
+    //const size: number = (zippedData.length) / Math.pow(1024,2);
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
@@ -313,6 +314,35 @@ async function execInternalGzip(
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
             response = await execInternalGzip(uri, method, contentType, data, token, --retry);
+        } else if (response.statusCode == 413){
+            if(typeof data === "string"){
+                let jsonData = JSON.parse(data);
+                if(jsonData.type && jsonData.type === "FeatureCollection" && jsonData.features.length > 1){
+                    const half = Math.ceil(jsonData.features.length / 2);    
+                    const firstHalf = jsonData.features.splice(0, half)
+                    const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
+                            if (typeof value === 'string') {
+                                return value.replace(/\0/g, '');
+                            }
+                            return value;
+                    });
+                    const response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
+                    const secondHalf = jsonData.features.splice(-half);
+                    const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
+                        if (typeof value === 'string') {
+                            return value.replace(/\0/g, '');
+                        }
+                        return value;
+                    });
+                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
+                    if(secondResponse.body.features) {
+                        response.body.features = response.body.features ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
+                    }
+                    if(secondResponse.body.failed) {
+                        response.body.failed = response.body.failed ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
+                    }
+                }
+            }
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
