@@ -317,6 +317,7 @@ async function execInternalGzip(
         } else if (response.statusCode == 413 && typeof data === "string"){
             let jsonData = JSON.parse(data);
             if(jsonData.type && jsonData.type === "FeatureCollection" && jsonData.features.length > 1){
+                console.log("uploading chunk failed with 413 Request Entitiy too large error, trying upload again with smaller chunk\n");
                 const half = Math.ceil(jsonData.features.length / 2);    
                 const firstHalf = jsonData.features.splice(0, half)
                 const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
@@ -341,7 +342,7 @@ async function execInternalGzip(
                     response.body.failed = response.body.failed ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
                 }
             } else {
-                throw new ApiError(response.statusCode, "Single feature size is too large, please simply the geometry and reduce the size");
+                console.log("feature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry and reduce the size\n");
             }
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
