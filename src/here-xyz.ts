@@ -336,13 +336,19 @@ async function execInternalGzip(
                 });
                 const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
                 if(secondResponse.body.features) {
-                    response.body.features = response.body.features ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
+                    response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
                 }
                 if(secondResponse.body.failed) {
-                    response.body.failed = response.body.failed ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
+                    response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
                 }
             } else {
                 console.log("feature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry and reduce the size\n");
+                response = {
+                    statusCode:200,
+                    body:{
+                        failed:jsonData.features
+                    }
+                }
             }
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
