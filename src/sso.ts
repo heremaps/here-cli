@@ -30,20 +30,7 @@ const url = "https://account.here.com/sign-in?client-id=es1HEn2LGqFocvfD1eEt&ver
 const signInURL ="https://account.here.com/api/account/sign-in-with-password";
 const xyzRoot = "https://xyz.api.here.com";
 
-
-const maxRightsURL = xyzRoot+"/token-api/maxRights";
-const tokenURL = xyzRoot+"/token-api/token?tokenType=PERMANENT"
-
-export async function getToken(userName: string, password: string) {
-    const mainCookie = await executeWithCookie(userName,password);
-    const maxRights = await fetchMaxRights(mainCookie);
-    //const data = await fetchToken(mainCookie, maxRights);
-    const response = {
-   //     data:data,
-        mainCookie:mainCookie
-    }
-    return response;
-}
+const tokenURL = xyzRoot+"/token-api/tokens?tokenType=PERMANENT"
 
 export async function executeWithCookie(userName: string, password: string) {
 
@@ -92,22 +79,6 @@ function extractCookies(cookies: string[] | undefined, expectedKeys: string[]) {
         });
     });
     return returnCookie;
-}
-
-export async function fetchMaxRights(cookies: string){
-    const options = {
-        url: maxRightsURL,
-        method: 'GET',
-        headers: {
-            "Cookie": cookies
-        }
-    };
-
-    const response = await requestAsync(options);
-    if (response.statusCode < 200 || response.statusCode >= 300)
-        throw new Error("Error while fetching maxrights: " + JSON.stringify(response.body));
-
-    return response.body;
 }
 
 export async function fetchToken(cookies: string, requestBody: any, appId : string, expirationTime: number = 0) {

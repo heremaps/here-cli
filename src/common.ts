@@ -248,7 +248,7 @@ function getMacAddress() {
 
 export async function login(authId: string, authSecret: string) {
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/token?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
+        url: xyzRoot() + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
         json: rightsRequest(authId),
         responseType: "json"
@@ -272,8 +272,9 @@ export async function hereAccountLogin(email: string, password: string) {
 }
 
 export async function generateToken(mainCookie:string, appId : string) {
-    const maxRights = await sso.fetchMaxRights(mainCookie);
-    const token = await sso.fetchToken(mainCookie, maxRights, appId);
+    const accountMeStr = await getAppIds(mainCookie);
+    const accountMe = JSON.parse(accountMeStr);
+    const token = await sso.fetchToken(mainCookie, accountMe.urm, appId);
     encryptAndStore('keyInfo', token.tid);
     encryptAndStore("accountId",token.aid);
     return token;
@@ -376,7 +377,7 @@ async function getTokenInformation(tokenId: string){
 export async function getTokenList(){
     const cookie = await getCookieFromStoredCredentials();
     const options = {
-        url: xyzRoot() + "/token-api/token",
+        url: xyzRoot() + "/token-api/tokens",
         method: "GET",
         headers: {
             Cookie: cookie
