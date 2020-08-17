@@ -156,7 +156,7 @@ export async function loginFlow(email: string, password: string) {
             let appCode = appIdAppCodeMap[appId];
             await updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
             await updatePlanDetails(appsData);
-            await generateToken(cookieData, appId).catch(err => {throw err});
+            await generateToken(cookieData, appId, appsData.urm).catch(err => {throw err});
             await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
             await encryptAndStore('apiKeys', appId).catch(err => {throw err});
             console.log('Default App Selected - ' + appId);
@@ -184,7 +184,7 @@ export async function refreshAccount(fullRefresh = false) {
             const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
             const accountMeStr = await getAppIds(mainCoookie);
             const accountMe = JSON.parse(accountMeStr);
-            const newtoken = await generateToken(mainCoookie, appDetails[0]);
+            const newtoken = await generateToken(mainCoookie, appDetails[0], accountMe.urm);
             if (newtoken) {
                 await updatePlanDetails(accountMe);
                 console.log("Successfully refreshed account!");
@@ -271,10 +271,13 @@ export async function hereAccountLogin(email: string, password: string) {
     return mainCookie;
 }
 
-export async function generateToken(mainCookie:string, appId : string) {
-    const accountMeStr = await getAppIds(mainCookie);
-    const accountMe = JSON.parse(accountMeStr);
-    const token = await sso.fetchToken(mainCookie, accountMe.urm, appId);
+export async function generateToken(mainCookie:string, appId : string, urm: any = null) {
+    if(!urm){
+        const accountMeStr = await getAppIds(mainCookie);
+        const accountMe = JSON.parse(accountMeStr);
+        urm = accountMe.urm;
+    }
+    const token = await sso.fetchToken(mainCookie, urm, appId);
     encryptAndStore('keyInfo', token.tid);
     encryptAndStore("accountId",token.aid);
     return token;
