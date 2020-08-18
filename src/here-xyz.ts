@@ -1355,7 +1355,14 @@ async function listTokens() {
     console.log(
         "===================================================="
     );
-    common.drawNewTable(tokenInfo.tokens, ["id", "type", "iat", "description"], [25, 10, 10, 70]);
+    for(let token of tokenInfo){
+        if(token.exp){
+            token.type = "TEMPORARY";
+        } else {
+            token.type = "PERMANENT";
+        }
+    }
+    common.drawNewTable(tokenInfo, ["tid", "type", "iat", "description"], [25, 10, 10, 70]);
 }
 
 const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
