@@ -45,11 +45,11 @@
     "extract-zip": "2.0.1"
   },
   "devDependencies": {
-    "@types/glob": "^7.1.2",
     "@turf/nearest-point-to-line": "6.0.0",
     "@turf/point-to-line-distance": "6.0.0",
     "@types/crypto-js": "^3.1.47",
     "@types/d3-delaunay": "4.1.0",
+    "@types/glob": "^7.1.2",
     "@types/inquirer": "6.5.0",
     "@types/node": "^14.0.13",
     "@types/proj4": "2.5.0",
@@ -60,7 +60,7 @@
     "capture-console": "^1.0.1",
     "chai": "^4.2.0",
     "express": "^4.17.1",
-    "mocha": "^8.0.1",
+    "mocha": "^8.1.1",
     "mock-require": "^3.0.3",
     "rewire": "^5.0.0",
     "ts-node": "^8.10.2",
