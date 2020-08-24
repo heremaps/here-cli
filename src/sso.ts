@@ -82,7 +82,7 @@ function extractCookies(cookies: string[] | undefined, expectedKeys: string[]) {
 }
 
 export async function fetchToken(cookies: string, requestBody: any, appId : string, expirationTime: number = 0) {
-    let body : any = { "urm": JSON.parse(requestBody), cid: appId };
+    let body : any = { "urm": requestBody, cid: appId };
     if(expirationTime){
         body['exp'] = expirationTime;
     }
@@ -95,7 +95,6 @@ export async function fetchToken(cookies: string, requestBody: any, appId : stri
             "Content-Type":"application/json"
         }
     }
-
     const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode >= 300)
         throw new Error("Error while fetching token: " + response.body);
