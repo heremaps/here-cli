@@ -2936,12 +2936,13 @@ async function geocoderConfig(id:string, options:any) {
     let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
     let apiKeys = await common.decryptAndGet("apiKeys");
     const apiKeyArr = common.getSplittedKeys(apiKeys);
+    console.log(apiKeyArr);
     if(!apiKeyArr){
         console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
                     "If already generated/enabled, please try again in a few minutes.");
         process.exit(1);
     }
-    const apiKey = apiKeyArr[0];
+    const apiKey = apiKeyArr[1];
 
     let tabledata:any = {};
     let spacedef = await getSpaceMetaData(id);
@@ -2949,15 +2950,16 @@ async function geocoderConfig(id:string, options:any) {
     if(spacedef.processors) {
         const processors:any = spacedef.processors;
         let processor = processors['geocoder-preprocessor'];
-        if(processor){
-            tabledata = processor.params;
+        if(processor && processor[0]){
+            tabledata = processor[0].params;
         }
         if(Object.keys(tabledata).length > 0) {
             enabled = true;
             console.log("geocoder is enabled for this space with below configurations.");
+            delete tabledata.apiKey;
             console.table(tabledata);
         } else {
-        console.log("geocoder for this space is not enabled.")
+            console.log("geocoder for this space is not enabled.")
         }
     } else {
         console.log("geocoder for this space is not enabled.")
@@ -2990,10 +2992,10 @@ async function geocoderConfig(id:string, options:any) {
             params['forwardPropertyList'] = [];
             const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string }>(forwardgeocoderConfiguration);
             if(forwardGeocoderInput.propertyNames) {
-                params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',');
+                params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
             }
             if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
-                const suffixArray: string[] = forwardGeocoderInput.suffix.split(',');
+                const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
                 params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
             }
         }
@@ -3005,7 +3007,7 @@ async function geocoderConfig(id:string, options:any) {
         console.log("please select only one option");
         process.exit(1);
     }
-   //console.log(JSON.stringify(patchRequest));
+    console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
     const url = `/hub/spaces/${id}?clientId=cli`
         const response = await execute(
