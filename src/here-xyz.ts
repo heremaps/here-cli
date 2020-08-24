@@ -26,6 +26,7 @@
 
 import * as zlib from "zlib";
 import { requestAsync } from "./requestAsync";
+import { geoCodeString } from "./geocodeUtil";
 import * as program from "commander";
 import * as common from "./common";
 import * as sso from "./sso";
@@ -142,6 +143,15 @@ const activityLogAction = [
     }
 ]
 
+const geocoderAction = [
+    {
+        type: "list",
+        name: "actionChoice",
+        message: "Select action for geocoder",
+        choices: choiceList
+    }
+];
+
 const activityLogConfiguration = [
     {
         type: "list",
@@ -155,8 +165,35 @@ const activityLogConfiguration = [
         message: "Select state (number of change history to be kept) for activity log",
         choices: [{name: '1', value: '1'},{name: '2', value: '2'},{name: '3', value: '3'},{name: '4', value: '4'},{name: '5', value: '5'}]
     }
-]
+];
 
+const geocoderConfiguration = [
+    {
+        type: 'confirm',
+        name: 'reverseGeocoderConfirmation',
+        message: 'Do you want to enable reverse geocoding?',
+        default: false
+    },
+    {
+        type: 'confirm',
+        name: 'forwardGeocoderConfirmation',
+        message: 'Do you want to enable forward geocoding?',
+        default: false
+    }
+];
+
+const forwardgeocoderConfiguration = [
+    {
+        type: 'input',
+        name: 'propertyNames',
+        message: 'Enter comma separated property names: '
+    },
+    {
+        type: 'input',
+        name: 'suffix',
+        message: 'Enter fixed suffix string to be used in geocoding, leave blank if not required: '
+    }
+];
 
 const searchablePropertiesDisable = [
     {
@@ -2567,6 +2604,7 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
+    .option("--geocoder","configure forward or reverse geocoding for your space interactively")
     .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
         if(options.console){
@@ -2584,23 +2622,23 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    if(options.schema || options.searchable || options.tagrules || options.activitylog){
+    if(options.schema || options.searchable || options.tagrules || options.activitylog || options.geocoder){
         await common.verifyProLicense();
     }
 
     let patchRequest: any = {};
     let spacedef: any = null;
 
-    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
+    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 ) + ( options.geocoder ? 1 : 0 )
 
     if (counter > 1) {
-        console.log("conflicting options, searchable/schema/tagrules/activitylog options can not be used together.")
+        console.log("conflicting options, searchable/schema/tagrules/activitylog/geocoder options can not be used together.")
         process.exit(1);
     }
 
-    if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
+    if ((options.schema || options.searchable || options.tagrules || options.activitylog || options.geocoder) &&
         (options.shared || options.readonly || options.title || options.message || options.copyright || options.stats)) {
-        console.log("conflicting options, searchable/schema/tagrules/activitylog options can be used only with add/update/view/delete options")
+        console.log("conflicting options, searchable/schema/tagrules/activitylog/geocoder options can be used only with add/update/view/delete options")
         process.exit(1);
     }
 
@@ -2625,6 +2663,9 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.activitylog) {
         await activityLogConfig(id, options);
+        process.exit(1);
+    } else if (options.geocoder) {
+        await geocoderConfig(id, options);
         process.exit(1);
     } else if (options.schema) {
         spacedef = await getSpaceMetaData(id);
@@ -2802,7 +2843,6 @@ async function configXyzSpace(id: string, options: any) {
 
 
 async function activityLogConfig(id:string, options:any) {
-    let enableMode = options.enable;
     await common.verifyProLicense();
     let patchRequest:any = {};
 
@@ -2890,9 +2930,114 @@ async function activityLogConfig(id:string, options:any) {
 
 }
 
+async function geocoderConfig(id:string, options:any) {
+    await common.verifyProLicense();
+    let patchRequest:any = {};
+    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
+    let apiKeys = await common.decryptAndGet("apiKeys");
+    const apiKeyArr = common.getSplittedKeys(apiKeys);
+    if(!apiKeyArr){
+        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
+                    "If already generated/enabled, please try again in a few minutes.");
+        process.exit(1);
+    }
+    const apiKey = apiKeyArr[0];
+
+    let tabledata:any = {};
+    let spacedef = await getSpaceMetaData(id);
+    let enabled = false;
+    if(spacedef.processors) {
+        const processors:any = spacedef.processors;
+        let processor = processors['geocoder-preprocessor'];
+        if(processor){
+            tabledata = processor.params;
+        }
+        if(Object.keys(tabledata).length > 0) {
+            enabled = true;
+            console.log("geocoder is enabled for this space with below configurations.");
+            console.table(tabledata);
+        } else {
+        console.log("geocoder for this space is not enabled.")
+        }
+    } else {
+        console.log("geocoder for this space is not enabled.")
+    }
+    
+    if(enabled) {
+        choiceList.push({'name': 'disable geocoder for this space', 'value': 'disable'});
+        choiceList.push({'name': 'reconfigure geocoder for the space', 'value' : 'configure'});
+    } else {
+        choiceList.push({'name': 'enable geocoder for this space', 'value': 'configure'});
+    }
+    choiceList.push({'name': 'cancel operation', 'value': 'abort'});
+
+    const answer: any = await inquirer.prompt(geocoderAction);
+    const actionChoice = answer.actionChoice;
+    
+    if(actionChoice == 'abort') {
+        process.exit(1);
+    } else if (actionChoice == 'disable') {
+        patchRequest['processors'] = {"geocoder-preprocessor": null};
+    } else if(actionChoice == 'configure') {
+        let params : any = {};
+        params['apiKey'] = apiKey;
+        const geocoderInput = await inquirer.prompt<{ reverseGeocoderConfirmation?: boolean, forwardGeocoderConfirmation?: boolean }>(geocoderConfiguration);
+        if(geocoderInput.reverseGeocoderConfirmation){
+            params['doReverseGeocode'] = true;
+        }
+        if(geocoderInput.forwardGeocoderConfirmation){
+            params['doForwardGeocode'] = true;
+            params['forwardPropertyList'] = [];
+            const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string }>(forwardgeocoderConfiguration);
+            if(forwardGeocoderInput.propertyNames) {
+                params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',');
+            }
+            if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
+                const suffixArray: string[] = forwardGeocoderInput.suffix.split(',');
+                params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+            }
+        }
+        
+        let processorDef:any = getEmptyGeocoderProcessorProfile();
+        processorDef['params'] = params;       
+        patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
+    } else {
+        console.log("please select only one option");
+        process.exit(1);
+    }
+   //console.log(JSON.stringify(patchRequest));
+    if(Object.keys(patchRequest).length > 0) {
+    const url = `/hub/spaces/${id}?clientId=cli`
+        const response = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+
+        if(response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("geocoder configuration updated successfully, it may take a few seconds to take effect and reflect.");
+        }
+    } 
+    //console.log(options);
+
+}
+
 function getEmptyAcitivityLogListenerProfile() {
     return {
             "id": "activity-log",
+            "params": null,
+            "eventTypes": [
+                "ModifySpaceEvent.request"
+            ]
+        }
+}
+
+function getEmptyGeocoderProcessorProfile() {
+    return {
+            "id": "geocoder-preprocessor",
             "params": null,
             "eventTypes": [
                 "ModifySpaceEvent.request"

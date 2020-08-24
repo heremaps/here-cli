@@ -24,7 +24,7 @@
 
 import * as program from "commander";
 import * as common from "./common";
-import { requestAsync } from "./requestAsync";
+import { geoCodeString } from "./geocodeUtil";
 
 program
     .version('0.1.0')
@@ -61,71 +61,14 @@ async function geoCode(locationString: string) {
         hasAppCode = false;
     }
 
-    let response = await execGeoCode(locationString, hasAppCode, appInfo);
-    if (response.statusCode !== 200) {
-        if(response.statusCode === 401 && !hasAppCode) {
-            await common.encryptAndStore("apiKeys", appId);
-            response = await execGeoCode(locationString, hasAppCode, appInfo);
-            if(response.statusCode !== 200) {
-                if(response.statusCode === 401) {
-                    console.log("API Keys for AppId "+ appId +" is disabled or not generated. \n" +
-                        "Please generate/enable your API Keys at https://developer.here.com." +
-                        "If already generated/enabled, please try again in a few minutes.");
-                    process.exit(1);
-                } else {
-                    throw new Error(response.body);
-                }
-            }
-        } else if(response.statusCode === 403) {
-            console.log("Invalid credentials for AppId "+appId+". Please re-run 'here configure'.");
-            process.exit(1);
-        } else {
-            throw new Error(response.body);
-        }
-    }
+    let response = await geoCodeString(locationString, hasAppCode, appInfo);
+
     let geocodeJson = JSON.parse(response.body);
     if (geocodeJson.Response.View.length == 0) {
         console.log("Could not geocode the place '" + locationString + "'");
     } else {
         console.log(JSON.stringify(toGeoJson(geocodeJson), null, 2));
     }
-}
-
-async function execGeoCode(locationString: string, hasAppCode: any, appInfo: any) {
-
-    const appId = appInfo[0];
-    if(hasAppCode === false) {
-
-        let apiKeys = await common.decryptAndGet("apiKeys");
-        appInfo = common.getSplittedKeys(apiKeys);
-
-        if(!appInfo) {
-            const accountInfo:string = await common.decryptAndGet("accountInfo","Please run `here configure` command.");
-            const credentials = accountInfo.split("%%");
-            const cookieData = await common.hereAccountLogin(credentials[0], credentials[1]);
-            apiKeys = await common.getApiKeys(cookieData, appId).catch(err => {throw err});
-            await common.encryptAndStore('apiKeys', apiKeys).catch(err => {throw err});
-            appInfo = common.getSplittedKeys(apiKeys);
-        }
-    }
-
-    if (!appInfo) {
-        console.log("API Keys for AppId "+ appId +" is disabled or not generated. \n" +
-                        "Please generate/enable your API Keys at https://developer.here.com.");
-        process.exit(1);
-    }
-    let geocodeURL;
-    if(hasAppCode) {
-        geocodeURL = 'https://geocoder.api.here.com/6.2/geocode.json' +
-        '?app_id=' + encodeURIComponent(appInfo[0]) +
-        '&app_code=' + encodeURIComponent(appInfo[1]) +
-        '&searchtext=' + encodeURIComponent(locationString);
-    } else {
-        geocodeURL = 'https://geocoder.ls.hereapi.com/6.2/geocode.json' +
-        '?apiKey=' + encodeURIComponent(appInfo[1]) +
-        '&searchtext=' + encodeURIComponent(locationString);
-    }
-    return await requestAsync({ url: geocodeURL });
 }
 
 function toGeoJson(responseJson: any) {
