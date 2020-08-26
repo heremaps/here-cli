@@ -365,7 +365,7 @@ export async function transform(result: any[], options: any) {
                 } else {
                     key = result[i]['id'];
                 }
-                if(!key){
+                if(!key && !options.keys){
                     console.log("'groupby' option requires 'id' field and id is not present in record  - " + JSON.stringify(ggson));
                     process.exit(1);
                 }
