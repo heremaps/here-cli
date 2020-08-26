@@ -470,7 +470,6 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
-            console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
