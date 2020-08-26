@@ -38,6 +38,7 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
+import { option } from "commander";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -522,7 +523,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             console.log("new featureID field selected - " + idAnswer.idChoice);
             options.id = idAnswer.idChoice;
         }
-        if(options.groupby && !options.id && !object['id']){
+        if(options.groupby && !options.id && !object['id'] && !options.keys){
             console.log("'groupby' option requires 'id' field to be defined in csv");
             process.exit(1);
         }
