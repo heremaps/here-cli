@@ -727,15 +727,15 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
             },function end () {
                 if(dataArray.length >0){
                     isGeoJson = true;
-                    (async()=>{
-                        const queue = await streamFuntion(dataArray);
-                        await queue.shutdown();
-                        options.totalCount = queue.uploadCount;
-                        console.log("");
-                        dataArray=new Array<any>();
-                        resolve();
-                    })();
                 }
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
+                    console.log("");
+                    dataArray=new Array<any>();
+                    resolve();
+                })();
 
                 if(!isGeoJson){
                     fileStream = fs.createReadStream(path, {encoding: 'utf8'});
@@ -761,17 +761,17 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                         }
                         return data;
                     },function end () {
-                        if(dataArray.length >0){
-                            (async()=>{
+                        (async()=>{
+                            if(dataArray.length >0){
                                 dataArray = await transform(dataArray, options);
-                                const queue = await streamFuntion(dataArray);
-                                await queue.shutdown();
-                                options.totalCount = queue.uploadCount;
-                                console.log("");
-                                dataArray=new Array<any>();
-                                resolve();
-                            })();
-                        }
+                            }
+                            const queue = await streamFuntion(dataArray);
+                            await queue.shutdown();
+                            options.totalCount = queue.uploadCount;
+                            console.log("");
+                            dataArray=new Array<any>();
+                            resolve();
+                        })();
                     }));
                 }
             }));

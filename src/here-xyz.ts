@@ -316,39 +316,43 @@ async function execInternalGzip(
             response = await execInternalGzip(uri, method, contentType, data, token, --retry);
         } else if (response.statusCode == 413 && typeof data === "string"){
             let jsonData = JSON.parse(data);
-            if(jsonData.type && jsonData.type === "FeatureCollection" && jsonData.features.length > 1){
-                console.log("\nuploading chunk failed with 413 Request Entitiy too large error, trying upload again with smaller chunk");
-                const half = Math.ceil(jsonData.features.length / 2);    
-                const firstHalf = jsonData.features.splice(0, half)
-                const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
-                    if (typeof value === 'string') {
-                        return value.replace(/\0/g, '');
+            if(jsonData.type && jsonData.type === "FeatureCollection") {
+                if(jsonData.features.length > 1){
+                    console.log("\nuploading chunk failed with 413 Request Entitiy too large error, trying upload again with smaller chunk");
+                    const half = Math.ceil(jsonData.features.length / 2);    
+                    const firstHalf = jsonData.features.splice(0, half)
+                    const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
+                        if (typeof value === 'string') {
+                            return value.replace(/\0/g, '');
+                        }
+                        return value;
+                    });
+                    response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
+                    const secondHalf = jsonData.features.splice(-half);
+                    const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
+                        if (typeof value === 'string') {
+                            return value.replace(/\0/g, '');
+                        }
+                        return value;
+                    });
+                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
+                    if(secondResponse.body.features) {
+                        response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
                     }
-                    return value;
-                });
-                response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
-                const secondHalf = jsonData.features.splice(-half);
-                const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
-                    if (typeof value === 'string') {
-                        return value.replace(/\0/g, '');
+                    if(secondResponse.body.failed) {
+                        response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
                     }
-                    return value;
-                });
-                const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
-                if(secondResponse.body.features) {
-                    response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
-                }
-                if(secondResponse.body.failed) {
-                    response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
+                } else {
+                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry and reduce the size");
+                    response = {
+                        statusCode:200,
+                        body:{
+                            failed:jsonData.features
+                        }
+                    }
                 }
             } else {
-                console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry and reduce the size");
-                response = {
-                    statusCode:200,
-                    body:{
-                        failed:jsonData.features
-                    }
-                }
+                throw new ApiError(response.statusCode, response.body);
             }
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
@@ -1587,6 +1591,9 @@ function streamingQueue() {
                 queue.chunksize--;
                 done();
             }).catch((err: any) => {
+                if(task.options.errors){
+                    console.log("\nFailed to upload : " + err.message);
+                }
                 queue.failedCount += task.fc.features.length;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
                 queue.chunksize--;
