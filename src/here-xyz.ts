@@ -3040,10 +3040,7 @@ function getEmptyAcitivityLogListenerProfile() {
 function getEmptyGeocoderProcessorProfile() {
     return {
             "id": "geocoder-preprocessor",
-            "params": null,
-            "eventTypes": [
-                "ModifySpaceEvent.request"
-            ]
+            "params": null
         }
 }
 
