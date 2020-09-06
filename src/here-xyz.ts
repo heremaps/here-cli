@@ -171,14 +171,14 @@ const geocoderConfiguration = [
     {
         type: 'confirm',
         name: 'reverseGeocoderConfirmation',
-        message: 'Do you want to enable reverse geocoding?',
+        message: 'Do you want to enable reverse geocoding (coordinates to address)?',
         default: false
     },
     {
         type: 'confirm',
         name: 'forwardGeocoderConfirmation',
-        message: 'Do you want to enable forward geocoding?',
-        default: false
+        message: 'Do you want to enable forward geocoding? (address to coordinates)',
+        default: true
     }
 ];
 
@@ -191,7 +191,7 @@ const forwardgeocoderConfiguration = [
     {
         type: 'input',
         name: 'suffix',
-        message: 'Enter fixed suffix string to be used in geocoding, leave blank if not required: '
+        message: 'Enter fixed suffix string to be appended to location fields for more precise geocoding (e.g. add city, state, country if only street address is in the csv), leave blank if not required: '
     }
 ];
 
@@ -1405,7 +1405,7 @@ async function listTokens() {
 const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
 program
     .command("upload [id]")
-    .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
+    .description("upload GeoJSON, CSV, GPX,or a Shapefile to the given id -- if no spaceID is given, a new space will be created. GeoJSON can be piped to upload via stdin")
     .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
     .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
     .option("-t, --tags [tags]", "fixed tags for the Data Hub space")
