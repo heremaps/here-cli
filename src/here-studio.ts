@@ -50,8 +50,8 @@ program
     .command("delete <project-id>")
     .description("delete the project with the given id")
     .option("--force", "skip the confirmation prompt")
-    .action(async (geospaceId, options) => {
-        deleteProject(geospaceId, options)
+    .action(async (projectId, options) => {
+        deleteProject(projectId, options)
             .catch((error) => {
                 handleError(error, false);
             })
@@ -60,18 +60,29 @@ program
 program
     .command("show <project-id>")
     .description("open the project with the given id")
-    .action(async (geospaceId, options) => {
-        showProject (geospaceId)
+    .action(async (projectId, options) => {
+        showProject (projectId)
             .catch((error) => {
                 handleError(error);
             })
     });
 
 async function showProject (id : any) {
-    const open = require("open");
-    open(
-        studioBaseURL+"/viewer/?project_id="+id
-        , { wait: false });
+    const response = await getProject(id,{});
+    if(response && response.body){
+        const projectData = JSON.parse(response.body);
+        if(projectData.status.toUpperCase() === "PUBLISHED"){
+            const open = require("open");
+            open(
+                studioBaseURL+"/viewer/?project_id="+id
+                , { wait: false });
+        } else {
+            console.log("FAILED: Project is not published."); 
+            console.log("You can publish this project at: https://studio.here.com.");
+        }
+    } else {
+        console.log("FAILED: Project does not exist or project is not published.");
+    }
 }
 
 async function deleteProject  (id : any, options: any) {

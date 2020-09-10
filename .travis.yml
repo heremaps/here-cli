@@ -23,7 +23,15 @@ jobs:
       node_js: '12.15.0'
       script: npm publish --dry-run
     - stage: publish
-      if: branch == master AND (NOT (type IN (push, pull_request))) AND (tag =~ /^[0-9]+.[0-9]+.[0-9]+$/)
+      if: tag IS present AND type != pull_request
       os: linux
       node_js: '12.15.0'
-      script: ./scripts/publish-npm.sh
+      script: skip
+      deploy:
+        provider: script
+        script: ./scripts/publish-npm.sh
+        on:
+          branch: master
+          tags: true
+          condition: "$TRAVIS_TAG =~ ^[0-9]+.[0-9]+.[0-9]+$"
+
