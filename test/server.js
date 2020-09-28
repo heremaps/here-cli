@@ -28,10 +28,10 @@ const port = 3578;
 
 app.get('/', (req, res) => res.send('Hello World!'));
 
-app.post("/token-api/token", function(req, res) {
+app.post("/token-api/tokens", function(req, res) {
     res.send({});
 });
-app.get("/token-api/token", function(req, res) {
+app.get("/token-api/tokens", function(req, res) {
     res.send({tokens:[{id:"a",type:"b",iat:"c",description:"d"}]});
 });
 app.get("/hub/spaces", function(req, res) {
