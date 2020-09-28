@@ -801,7 +801,6 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        options.override = true;
                         await uploadToXyzSpace(id, options);
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
@@ -815,7 +814,6 @@ program
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
-                        options.override = true;
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {
@@ -921,7 +919,7 @@ program
     .option("-p, --prop <prop>", "selection of properties, use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt>")
     .option("-w, --web", "display Data Hub space on http://geojson.tools")
     .option("-v, --vector", "inspect and analyze using Data Hub Space Invader and tangram.js")
-    .option("--permanent", "Uses Permanent token for --web and --vector option")
+    .option("-x, --permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
@@ -1384,7 +1382,7 @@ program
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
     .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
 //     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
-    .option("-o, --override", "override default property hash feature ID generation and use existing GeoJSON feature IDs")
+    .option("-o, --override", "override default feature ID and use property hash feature ID generation")
     .option("-s, --stream", "streaming support for upload  and/or large csv and geojson uploads using concurrent writes, tune chunk size with -c")
     .option('-d, --delimiter [,]', 'alternate delimiter used in CSV', ',')
     .option('-q, --quote ["]', 'quote used in CSV', '"')
@@ -1672,6 +1670,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         options.chunk = 200;
     }
 
+    /*
     if (options.unique && options.override) {
         console.log(
             "conflicting options -- you must use either unique or override. Refer to 'here xyz upload -h' for help"
@@ -1680,6 +1679,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
     } else if (!options.override) {
         options.unique = true;
     }
+    */
 
     if (options.assign && options.stream) {
         console.log(
@@ -2204,12 +2204,12 @@ async function mergeAllTags(
         let finalTags = inputTags.slice();
         let origId = null;
         //Generate id only if doesnt exist
-        if (!item.id && idStr) {
+        if (idStr) {
             const fId = common.createUniqueId(idStr, item);
             if (fId && fId != "") {
                 item.id = fId;
             }
-        } else if(options.keys){
+        } else if(!item.id && options.keys){
             const propertyValue = item.properties[options.csvProperty];
             if(joinValueToFeatureIdMap.get(propertyValue)){
                 item.id = joinValueToFeatureIdMap.get(propertyValue);
@@ -2229,7 +2229,7 @@ async function mergeAllTags(
             }
             console.log("featureId for property " + propertyValue + " is - " + item.id);
         } else {
-            if (options.unique) {
+            if (options.override) {
                 checkId = true;
                 origId = item.id;
                 item.id = undefined;
@@ -2245,7 +2245,7 @@ async function mergeAllTags(
                 }
             }
         }
-        if (options.unique) {
+        if (options.override) {
             if (!featureMap[item.id]) {
                 featureMap[item.id] = item;
             }
@@ -2318,7 +2318,7 @@ async function mergeAllTags(
         item.properties["@ns:com:here:xyz"] = metaProps;
     };
 
-    if (options.unique && duplicates.length > 0) {
+    if (!options.override && duplicates.length > 0) {
         const featuresOut = new Array();
         for (const k in featureMap) {
             featuresOut.push(featureMap[k]);
@@ -2566,7 +2566,7 @@ program
     .option("--token <token>", "a external token to access another user's space config and stats information")
     .option("-r, --raw", "show raw json output")
     .option("-s,--schema [schemadef]", "view or set schema definition (local filepath / http link) for your space, applicable on future data, use with add/delete/update")
-    .option("--searchable", "view or configure searchable properties of an Data Hub space, use with add/delete/update")
+    .option("--searchable", "view or configure searchable properties of the Data Hub space, use with add/delete/update")
     .option("--tagrules", "add, remove, view the conditional rules to tag your features automatically, use with add/delete/update -- at present all tag rules will be applied synchronously before features are stored ( mode : sync )")
     .option("--delete", "use with schema/searchable/tagrules options to remove the respective configurations")
     .option("--add", "use with schema/searchable/tagrules options to add/set the respective configurations")
@@ -3050,7 +3050,7 @@ program
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option("--token <token>", "a external token to create another user's spaces")
     .option("-s, --stream", "streaming data for faster uploads and large csv support")
-    .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
+    .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or boolean (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
     .option('--promote <promote>', 'comma separated colunm names which should not be nested')
     .option('--flatten', 'stores the groupby operation output in flatten format seprated by colon (:)')

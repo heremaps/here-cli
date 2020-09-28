@@ -127,7 +127,6 @@ export async function performGisOperation(id:string, options:any){
             options.tags = 'tin';
         }
         options.file = tmpObj.name;
-        options.override = true;
         options.stream = true;
         await xyz.uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);

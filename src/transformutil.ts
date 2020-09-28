@@ -38,6 +38,7 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
+import * as xyz from "./here-xyz";
 import { option } from "commander";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
@@ -50,6 +51,8 @@ export type FeatureCollection = {
     "type": "FeatureCollection",
     "features": Array<any>
 };
+
+let joinValueToFeatureIdMap: Map<string, string> = new Map();
 
 export function readShapeFile(path: string) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
@@ -358,6 +361,43 @@ export async function transform(result: any[], options: any) {
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
+            if(options.keys){
+                const propertyValue = ggson.properties[options.csvProperty];
+                if(joinValueToFeatureIdMap.has(propertyValue)){
+                    ggson.properties['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    result[i]['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    if(!joinValueToFeatureIdMap.get(propertyValue)){
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    }
+                } else {
+                    options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
+                    if(options.filter){
+                        options.search = options.search + '&p.' + options.filter;
+                    }
+                    let jsonOut = await xyz.getSpaceDataFromXyz(options.primarySpace, options);
+                    if (jsonOut.features && jsonOut.features.length === 0) {
+                        console.log("\nNo feature available for the required value - " + propertyValue);
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    } else {
+                        ggson.properties['id'] = jsonOut.features[0].id;
+                        result[i]['id'] = jsonOut.features[0].id;
+                    }
+                    joinValueToFeatureIdMap.set(propertyValue, result[i]['id']);
+                }
+                console.log("featureId for property " + propertyValue + " is - " + result[i]['id']);
+            }
             if(options.groupby){
                 let key = null;
                 if(options.id){
