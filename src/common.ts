@@ -136,7 +136,7 @@ export async function loginFlow(email: string, password: string) {
             for (let key in apps) {
                 let app = apps[key];
                 appIdAppCodeMap[app.dsAppId] = app.dsAppCode;
-                if(app.status.toLowerCase() == 'active'){
+                if(app.status.toLowerCase() == 'active' || app.blocked === false){
                     if (key == defaultAppId) {
                         choiceList.push({ name: app.dsAppId + " (Name-" + app.dsAppName + ")" + ' (DEFAULT)', value: app.dsAppId  });
                     } else {

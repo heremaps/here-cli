@@ -318,7 +318,7 @@ async function execInternalGzip(
             let jsonData = JSON.parse(data);
             if(jsonData.type && jsonData.type === "FeatureCollection") {
                 if(jsonData.features.length > 1){
-                    console.log("\nuploading chunk size of " + jsonData.features.length + " failed with 413 Request Entity too large error, trying upload again with smaller chunk of " + (jsonData.features.length / 2));
+                    console.log("\nuploading chunk size of " + jsonData.features.length + " features failed with 413 Request Entity too large error, trying upload again with smaller chunk of " + Math.ceil(jsonData.features.length / 2));
                     const half = Math.ceil(jsonData.features.length / 2);    
                     const firstHalf = jsonData.features.splice(0, half)
                     const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
