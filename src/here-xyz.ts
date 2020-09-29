@@ -318,7 +318,7 @@ async function execInternalGzip(
             let jsonData = JSON.parse(data);
             if(jsonData.type && jsonData.type === "FeatureCollection") {
                 if(jsonData.features.length > 1){
-                    console.log("\nuploading chunk failed with 413 Request Entitiy too large error, trying upload again with smaller chunk");
+                    console.log("\nuploading chunk size of " + jsonData.features.length + " failed with 413 Request Entity too large error, trying upload again with smaller chunk of " + (jsonData.features.length / 2));
                     const half = Math.ceil(jsonData.features.length / 2);    
                     const firstHalf = jsonData.features.splice(0, half)
                     const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
@@ -2521,7 +2521,11 @@ async function launchHereGeoJson(uri: string,spaceId: string,  token: string, is
 }
 
 async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
-    console.log("generating " + (isPermanent ? "permanent":"temporary") + " token for this space");
+    if(isPermanent){
+        console.log("generating permanent token for this space");
+    } else {
+        console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this space that will not expire");
+    }
     const spaceConfig = await getSpaceMetaData(spaceId);
     let spaceIds = [spaceId];
     if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
