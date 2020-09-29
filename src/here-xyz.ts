@@ -1948,6 +1948,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
         console.log(options.totalCount + " features uploaded to Data Hub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     }
     await updateCommandMetadata(id, options, false, null);
+    console.log("");
     //console.log("upload completed successfully");
     //})();
 }
