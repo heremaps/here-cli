@@ -1590,6 +1590,8 @@ function streamingQueue() {
             }).catch((err: any) => {
                 if(task.options.errors){
                     console.log("\nFailed to upload : " + err.message);
+                } else if(err.message.indexOf('The longitude (1st) value in coordinates of the Point is out of bounds') !== -1){
+                    console.log("\nsome features have longitudes out of bounds (> 180 or -180) -- use -e to see the full error message");
                 }
                 queue.failedCount += task.fc.features.length;
                 process.stdout.write("\ruploaded feature count :" + queue.uploadCount + ", failed feature count :" + queue.failedCount);
