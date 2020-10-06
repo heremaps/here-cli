@@ -1378,7 +1378,7 @@ program
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
     .option("--lonlat", "parse a -—point/-z csv field as (lon,lat) instead of (lat,lon)")
-    .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, most useful for a small numbber of quantitative values")
+    .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, most useful for a small number of quantitative values")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
     .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
 //     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
