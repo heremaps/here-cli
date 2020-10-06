@@ -343,7 +343,7 @@ async function execInternalGzip(
                         response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
                     }
                 } else {
-                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry and reduce the size");
+                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry to reduce its size");
                     response = {
                         statusCode:200,
                         body:{
@@ -528,7 +528,7 @@ export function getSpaceDataFromXyz(id: string, options: any) {
 
 program
     .command("analyze <id>")
-    .description("property based analysis of the content of the given [id]")
+    .description("property-based analysis of the content of the given [id], 500,000 feature limit")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
@@ -922,10 +922,10 @@ program
     .option("-x, --permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
-    .option("--radius <radius>", "indicate to make radius spatial search or to thicken input geometry (in meters)")
-    .option("--center <center>", "comma separated lon,lat values to specify the center point for radius search")
+    .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
+    .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
-    .option("--geometry <geometry>", "geometry file to upload for spatial query (single feature in geojson file)")
+    .option("--geometry <geometry>", "geometry file to upload for --spatial query (single feature in geojson file)")
     .action(function (id, options) {
         showSpace(id, options)
             .catch((error) => {
@@ -943,12 +943,12 @@ async function showSpace(id: string, options: any) {
     uri = uri + "/" + id;
 
     if(options.vector && options.spatial) {
-        console.log("options 'vector' and 'spatial' can not be used together");
+        console.log("options 'vector' and 'spatial' can not be used together, try 'web'");
         process.exit(1);
     }
 
     if(options.permanent && !(options.web || options.vector)) {
-        console.log("option 'permanent' can only be used with either option 'web or 'vector");
+        console.log("option 'permanent' can only be used with either 'web' or 'vector' options");
         process.exit(1);
     }
 
@@ -958,17 +958,17 @@ async function showSpace(id: string, options: any) {
     }
 
     if(options.spatial && !(options.radius || options.center || options.feature || options.geometry)) {
-        console.log("spatial option needs one of the following options to search - center, radius, feature or geometry");
+        console.log("spatial option needs one of the following options to search - --center and --radius, a 'spaceID,featureID', or a geometry");
         process.exit(1);
     }
 
     if(options.center && !options.radius){
-        console.log("'radius' option is required for center spatial search to work");
+        console.log("'radius' option is required for a --center --spatial search");
         process.exit(1);
     }
 
     if(options.web && options.geometry) {
-        console.log("usage of options web and geometry together is not supported yet, please try option web with radius, feature/center options");
+        console.log("usage of options web and geometry together is not yet supported, please try option web with radius, feature/center options");
         process.exit(1);
     }
 
@@ -1071,7 +1071,7 @@ async function showSpace(id: string, options: any) {
             } else if(options.geometry) {
                 let geometryinput = JSON.parse(await transform.read(options.geometry, false));
                 if(geometryinput.type && geometryinput.type == 'FeatureCollection') {
-                    console.log("you have supplied FeatureCollection instead of GeoJson-Geometry. Kindly supply one Feature or GeoJson-Geometry.");
+                    console.log("you have supplied a FeatureCollection instead of a GeoJSON Geometry. Kindly supply one Feature or GeoJson-Geometry.");
                     process.exit(1);
                 } else if (geometryinput.type && geometryinput.type == 'Feature') {
                     geometryinput = geometryinput.geometry;
@@ -1238,7 +1238,7 @@ program
     .command("clear <id>")
     .description("clear data from Data Hub space")
     .option("-t, --tags <tags>", "tags for the Data Hub space")
-    .option("-i, --ids <ids>", "ids for the Data Hub space")
+    .option("-i, --ids <ids>", "IDs for the Data Hub space")
     .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
@@ -1369,16 +1369,16 @@ async function listTokens() {
 const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
 program
     .command("upload [id]")
-    .description("upload GeoJSON, CSV, or a Shapefile to the given id -- if no spaceID is given, a new space will be created")
-    .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, GPX, or CSV files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
-    .option("-c, --chunk [chunk]", "chunk size, default 200 -- use lower values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
-    .option("-t, --tags [tags]", "fixed tags for the Data Hub space")
+    .description("upload one or more GeoJSON, CSV, GPX, XLS, or a Shapefile to the given id -- if no spaceID is given, a new space will be created; GeoJSON feature IDs will be respected unless you override with -o or specify with -i; pipe GeoJSON via stdout using | here xyz upload spaceid")
+    .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, CSV, GPX, or XLS files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
+    .option("-c, --chunk [chunk]", "chunk size, default 200 -- use smaller values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
+    .option("-t, --tags [tags]", "fixed tags for features uploaded to the Data Hub space")
     .option("--token <token>", "a external token to upload data to another user's space")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
     .option("--lonlat", "parse a -—point/-z csv field as (lon,lat) instead of (lat,lon)")
-    .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, best for limited quantitative values")
+    .option("-p, --ptag [ptag]", "property name(s) to be used to add tags, property_name@value, most useful for a small numbber of quantitative values")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
     .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
 //     .option("-u, --unique","option to enforce uniqueness of the id by generating a unique ID based on feature hash") // is this redundant? might be from before we hashed property by default? or does this allow duplicates to be uploaded?
@@ -1389,14 +1389,14 @@ program
     .option('-e, --errors', 'print data upload errors')
     .option('--string-fields <stringFields>', 'property name(s) of CSV string fields *not* to be automatically converted into numbers or booleans (e.g. number-like census geoids, postal codes with leading zeros)')
     .option('--groupby <groupby>', 'consolidate multiple rows of a CSV into a single feature based on a unique ID designated with -i; values of each row within the selected column will become top level properties within the consolidated feature')
-    .option('--promote <promote>', 'comma separated colunm names which should not be nested')
-    .option('--flatten', 'stores the groupby operation output in flatten format seprated by colon (:)')
+    .option('--promote <promote>', 'comma separated column names which should not be nested within a top level property generated consolidated by --groupby')
+    .option('--flatten', 'stores the --groupby consolidated output in flattened string separated by colon (:) instead of a nested object')
     .option('--date <date>', 'date-related property name(s) of a feature to be normalized as a ISO 8601 datestring (datahub_iso8601_[propertyname]), and unix timestamp (datahub_timestamp_[propertyname] ')
     .option('--datetag [datetagString]', 'comma separated list of granular date tags to be added via --date. possible options - year, month, week, weekday, year_month, year_week, hour')
     .option('--dateprops [datepropsString]', 'comma separated list of granular date properties to be added via --date. possible options - year, month, week, weekday, year_month, year_week, hour')
-    .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry (best used with -i and virtual spaces)')
+    .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry and tagged with null_island (best used with -i and virtual spaces)')
     .option('--history [history]', 'repeat commands previously used to upload data to a space; save and recall a specific command using "--history save" and "--history fav" ')
-    .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx]" (will inspect shapefile subdirectories). select directory with -f')
+    .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
     .action(async function (id, options) {
         if(options.history){
             await executeHistoryCommand(id, options);
@@ -2151,7 +2151,7 @@ async function uploadDataToSpaceWithTags(
                     );
 
                 if (upresult.failed > 0) {
-                    console.log("all the features could not be uploaded successfully, to print rejected features, run command with -e")
+                    console.log("not all the features could be successfully uploaded -- to print rejected features, run command with -e")
                     console.log("=============== Upload Summary ============= ");
                     upresult.total = featureOut.length;
                     console.table(upresult);
@@ -2562,7 +2562,7 @@ async function getStatsAndBasicForSpace(spaceId: string) {
 program
     .command("config [id]")
     .description("configure/view advanced Data Hub features for space")
-    .option("--shared <flag>", "set your space as shared / public (default is false)")
+    .option("--shared <flag>", "set your space as shared (visible to other DataHub users -- default is false)")
     .option("--readonly <flag>", "set your space as readOnly (default is false)")
     //.option("-a,--autotag <tagrules>", "set conditional tagging rules")
     .option("-t,--title [title]", "set title for the space")
@@ -2670,7 +2670,7 @@ async function configXyzSpace(id: string, options: any) {
     
     if (options.shared) {
         if (options.shared == 'true') {
-            console.log("Note that if you set a space to shared=true, anyone with a Data Hub account will be able to view it. If you want to share a space but limit who can see it, consider generating and distributing a read token");
+            console.log("Note that if you set a space to shared=true, anyone with a Data Hub account will be able to view it. If you want to share a space but limit who can see it, consider generating a read token for that space using https://xyz.api.here.com/console or 'show -w/-v -x' and distributing that");
             console.log("Are you sure you want to mark the space as shared?");
             const answer = await inquirer.prompt<{ confirmed?: string }>(questionConfirm);
             const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -3660,9 +3660,9 @@ async function searchableConfig(id: string, options: any) {
 program
     .command("gis <id>")
     .description("{Data Hub Add-on} perform gis operations with space data")
-    .option("--centroid", "calculates centroids of Line and Polygon features and uploads in a different space")
-    .option("--length", "calculates length of LineString features")
-    .option("--area", "calculates area of Polygon features")
+    .option("--centroid", "calculates centroids of Line and Polygon features and uploads to a different space")
+    .option("--length", "calculates length of LineString features and adds it as new properties")
+    .option("--area", "calculates area of Polygon features and adds as new properties")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
     .option("--tin", "calculates Delaunay Polygons of point features and uploads in different space")
     .option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
