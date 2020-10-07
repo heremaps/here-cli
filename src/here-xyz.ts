@@ -912,7 +912,7 @@ program
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     .option("-t, --tags <tags>", "Tags to filter on")
     .option("-r, --raw", "show raw Data Hub space content")
-    .option("--all", "iterate over entire Data Hub space to get entire data of space, output will be shown on the console in geojson format")
+    .option("--all", "iterate over entire Data Hub space to get entire data of space, output will be shown on the console in GeoJSON format")
     .option("--geojsonl", "to print output of --all in geojsonl format")
     .option("-c, --chunk [chunk]", "chunk size to use in --all option, default 5000")
     .option("--token <token>", "a external token to access another user's space")
