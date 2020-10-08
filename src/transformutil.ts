@@ -365,6 +365,7 @@ export async function transform(result: any[], options: any) {
                 const propertyValue = ggson.properties[options.csvProperty];
                 if(joinValueToFeatureIdMap.has(propertyValue)){
                     ggson.properties['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    ggson['id'] = joinValueToFeatureIdMap.get(propertyValue);
                     result[i]['id'] = joinValueToFeatureIdMap.get(propertyValue);
                     if(!joinValueToFeatureIdMap.get(propertyValue)){
                         if(!ggson.properties["@ns:com:here:xyz"]) {
@@ -392,6 +393,7 @@ export async function transform(result: any[], options: any) {
                         ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
                     } else {
                         ggson.properties['id'] = jsonOut.features[0].id;
+                        ggson['id'] = jsonOut.features[0].id;
                         result[i]['id'] = jsonOut.features[0].id;
                     }
                     joinValueToFeatureIdMap.set(propertyValue, result[i]['id']);
@@ -578,7 +580,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             props["@ns:com:here:xyz"]["tags"] = ['invalid'];
         }
     }
-    return { type: "Feature", geometry: geometry, properties: props };
+    return { type: "Feature", geometry: geometry, properties: props, id: object['id']};
 }
 
 function createQuestionsList(object: any) {
