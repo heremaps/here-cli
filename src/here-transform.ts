@@ -74,7 +74,7 @@ program
 
 common.validate(commands, [process.argv[2]], program);
 prompter.stop();
-program.parse(process.argv);
+program.name('here transform').parse(process.argv);
 if (!program.args.length) {
     common.verify();
 }

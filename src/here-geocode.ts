@@ -27,6 +27,7 @@ import * as common from "./common";
 import { requestAsync } from "./requestAsync";
 
 program
+    .name('here geocode')
     .version('0.1.0')
     .parse(process.argv);
 geoCode(process.argv[2]).catch(err => console.error(err));

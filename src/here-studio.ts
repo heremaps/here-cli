@@ -34,6 +34,7 @@ const studioBaseURL = "https://studio.here.com";
 const projectsUrl = "/project-api/projects";
 
 program
+    .name('here studio')
     .version('0.1.0');
 
 program
