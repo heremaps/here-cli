@@ -45,6 +45,7 @@ const XLSX = require('xlsx');
 import * as moment from 'moment';
 import * as glob from 'glob';
 import { option } from "commander";
+import {execInternal, handleError} from "./common";
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
@@ -196,179 +197,6 @@ function getGeoSpaceProfiles(title: string, description: string, client: any) {
     };
 }
 
-/**
- * 
- * @param apiError error object
- * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
- */
-function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
-    if (apiError.statusCode) {
-        if (apiError.statusCode == 401) {
-            console.log("Operation FAILED : Unauthorized, if the problem persists, please reconfigure account with `here configure` command");
-        } else if (apiError.statusCode == 403) {
-            console.log("Operation FAILED : Insufficient rights to perform action");
-        } else if (apiError.statusCode == 404) {
-            if (isIdSpaceId) {
-                console.log("Operation FAILED: Space does not exist");
-            } else {
-                console.log("Operation FAILED : Resource not found.");
-            }
-        } else {
-            console.log("OPERATION FAILED : " + apiError.message);
-        }
-    } else {
-        if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
-            console.log("Operation FAILED - Insufficient rights to perform action");
-        } else {
-            console.log("OPERATION FAILED - " + apiError.message);
-        }
-    }
-}
-
-async function execInternal(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    gzip: boolean
-) {
-    if (gzip) {
-        return await execInternalGzip(
-            uri,
-            method,
-            contentType,
-            data,
-            token
-        );
-    }
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
-        json: method === "GET" ? undefined : data,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-
-    const response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        let message = (response.body && response.body.constructor != String) ? JSON.stringify(response.body) : response.body;
-        //throw new Error("Invalid response - " + message);
-        throw new ApiError(response.statusCode, message);
-    }
-    return response;
-}
-
-function gzip(data: zlib.InputType): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) =>
-        zlib.gzip(data, (error, result) => {
-            if (error)
-                reject(error)
-            else
-                resolve(result);
-        })
-    );
-}
-
-async function execInternalGzip(
-    uri: string,
-    method: string,
-    contentType: string,
-    data: any,
-    token: string,
-    retry: number = 3
-) {
-    const zippedData = await gzip(data);
-    if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
-    }
-    //const size: number = (zippedData.length) / Math.pow(1024,2);
-    const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
-    const reqJson = {
-        url: uri,
-        method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "Content-Encoding": "gzip",
-            "Accept-Encoding": "gzip"
-        },
-        decompress: true,
-        body: method === "GET" ? undefined : zippedData,
-        allowGetBody: true,
-        responseType: responseType
-    };
-
-    let response = await requestAsync(reqJson);
-    if (response.statusCode < 200 || response.statusCode > 210) {
-        if (response.statusCode >= 500 && retry > 0) {
-            await new Promise(done => setTimeout(done, 1000));
-            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
-        } else if (response.statusCode == 413 && typeof data === "string"){
-            let jsonData = JSON.parse(data);
-            if(jsonData.type && jsonData.type === "FeatureCollection") {
-                if(jsonData.features.length > 1){
-                    console.log("\nuploading chunk size of " + jsonData.features.length + " features failed with 413 Request Entity too large error, trying upload again with smaller chunk of " + Math.ceil(jsonData.features.length / 2));
-                    const half = Math.ceil(jsonData.features.length / 2);    
-                    const firstHalf = jsonData.features.splice(0, half)
-                    const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
-                        if (typeof value === 'string') {
-                            return value.replace(/\0/g, '');
-                        }
-                        return value;
-                    });
-                    response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
-                    const secondHalf = jsonData.features.splice(-half);
-                    const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
-                        if (typeof value === 'string') {
-                            return value.replace(/\0/g, '');
-                        }
-                        return value;
-                    });
-                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
-                    if(secondResponse.body.features) {
-                        response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
-                    }
-                    if(secondResponse.body.failed) {
-                        response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
-                    }
-                } else {
-                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry to reduce its size");
-                    response = {
-                        statusCode:200,
-                        body:{
-                            failed:jsonData.features
-                        }
-                    }
-                }
-            } else {
-                throw new ApiError(response.statusCode, response.body);
-            }
-        } else {
-            //   throw new Error("Invalid response :" + response.statusCode);
-            throw new ApiError(response.statusCode, response.body);
-        }
-    }
-    return response;
-}
-
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
-    if (!token) {
-        token = await common.verify();
-    }
-    return await execInternal(uri, method, contentType, data, token, gzip);
-}
-
 program
     .command("list")
     .alias("ls")
@@ -388,6 +216,13 @@ program
                 handleError(error);
             })
     });
+
+async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
+    if (!token) {
+        token = await common.verify();
+    }
+    return await execInternal(uri, method, contentType, data, token, gzip, true);
+}
 
 async function listSpaces(options: any) {
     const uri = "/hub/spaces?clientId=cli";
@@ -774,8 +609,8 @@ program
                     }
 
                     //hexFeatures = hexFeatures.concat(centroidFeatures);
-                    /*  
-                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {  
+                    /*
+                    fs.writeFile('out.json', JSON.stringify({type:"FeatureCollection",features:hexFeatures}), (err) => {
                         if (err) throw err;
                     });
                     */
@@ -1021,7 +856,7 @@ async function showSpace(id: string, options: any) {
                     data.features.forEach((element: any) => {
                         console.log(JSON.stringify(element));
                     });
-                } 
+                }
             } else {
                 console.log(JSON.stringify(data, null, 2));
             }
@@ -1146,7 +981,7 @@ program
     .option("--token <token>", "a external token to delete another user's space")
     .action(async (geospaceId, options) => {
         //console.log("geospaceId:"+"/geospace/"+geospaceId);
-        
+
 
         deleteSpace(geospaceId, options)
             .catch((error) => {
@@ -1242,7 +1077,7 @@ program
     .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
     .action(async (id, options) => {
-        
+
         clearSpace(id, options).catch((error) => {
             handleError(error, true);
         })
@@ -1628,11 +1463,11 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
                 process.stdout.write("\ruploaded " + ((queue.uploadCount / totalTaskSize) * 100).toFixed(1) + "%");
                 done();
             }).catch((err) => {
-                queue.failedCount += 1;
-                queue.chunksize--;
-                console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(1) + "%");
-                done();
-            });
+            queue.failedCount += 1;
+            queue.chunksize--;
+            console.log("failed features " + ((queue.failedCount / totalTaskSize) * 100).toFixed(1) + "%");
+            done();
+        });
     });
     queue.uploadCount = 0;
     queue.chunksize = 0;
@@ -1704,8 +1539,8 @@ export async function uploadToXyzSpace(id: string, options: any) {
             }
             if(options.batch == true){
                 const allFiles = fs.readdirSync(directory, { withFileTypes: true })
-                                   .filter(dirent => dirent.isFile())
-                                   .map(dirent => dirent.name);
+                    .filter(dirent => dirent.isFile())
+                    .map(dirent => dirent.name);
                 allFiles.forEach(function (item: any) {
                     choiceList.push({'name': item, 'value': path.join(directory,item)});
                 });
@@ -1713,8 +1548,8 @@ export async function uploadToXyzSpace(id: string, options: any) {
                 files = files.concat(glob.sync(path.join(directory,options.batch)));
                 if(options.batch == 'shp' || options.batch == '*.shp'){
                     const allDirectories = fs.readdirSync(directory, { withFileTypes: true })
-                                            .filter(dirent => dirent.isDirectory())
-                                            .map(dirent => dirent.name);
+                        .filter(dirent => dirent.isDirectory())
+                        .map(dirent => dirent.name);
                     for(let subDirectory of allDirectories) {
                         files = files.concat(glob.sync(path.join(directory,subDirectory,options.batch)));
                     }
@@ -2302,13 +2137,13 @@ async function mergeAllTags(
                             if(options.dateprops){
                                 addDatetimeProperty(dateValue, element, options, item);
                             }
-                        }           
+                        }
                     }
                 });
             } catch(e){
                 console.log("Invalid time format - " + e.message);
                 process.exit(1);
-            }    
+            }
         }
         const nameTag = fileName ? getFileName(fileName) : null;
         if (nameTag) {
@@ -2667,7 +2502,7 @@ async function configXyzSpace(id: string, options: any) {
         }
         patchRequest['cacheTTL'] = options.message;
     }
-    
+
     if (options.shared) {
         if (options.shared == 'true') {
             console.log("Note that if you set a space to shared=true, anyone with a Data Hub account will be able to view it. If you want to share a space but limit who can see it, consider generating a read token for that space using https://xyz.api.here.com/console or 'show -w/-v -x' and distributing that");
@@ -2851,7 +2686,7 @@ async function activityLogConfig(id:string, options:any) {
     } else {
         console.log("activity log for this space is not enabled.")
     }
-    
+
     if(enabled) {
         choiceList.push({'name': 'disable activity log for this space', 'value': 'disable'});
         choiceList.push({'name': 'reconfigure activity log for the space', 'value' : 'configure'});
@@ -2862,7 +2697,7 @@ async function activityLogConfig(id:string, options:any) {
 
     const answer: any = await inquirer.prompt(activityLogAction);
     const actionChoice = answer.actionChoice;
-    
+
     if(actionChoice == 'abort') {
         process.exit(1);
     } else if (actionChoice == 'disable') {
@@ -2873,44 +2708,44 @@ async function activityLogConfig(id:string, options:any) {
 
         const storageMode = Array.isArray(configAnswer.storageMode) ? configAnswer.storageMode[0] : configAnswer.storageMode;
         const state = Array.isArray(configAnswer.state) ? configAnswer.state[0] : configAnswer.state;
-        
+
         let listenerDef:any = getEmptyAcitivityLogListenerProfile();
         listenerDef['params'] = {};
         listenerDef['params'].states = parseInt(state);
-        listenerDef['params'].storageMode = storageMode        
+        listenerDef['params'].storageMode = storageMode
         patchRequest['listeners'] = {"activity-log": [listenerDef]};
     } else {
         console.log("please select only one option");
         process.exit(1);
     }
-   //console.log(JSON.stringify(patchRequest));
+    //console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
-    const url = `/hub/spaces/${id}?clientId=cli`
+        const url = `/hub/spaces/${id}?clientId=cli`
         const response = await execute(
-                url,
-                "PATCH",
-                "application/json",
-                patchRequest,
-                null,
-                false
-            );
+            url,
+            "PATCH",
+            "application/json",
+            patchRequest,
+            null,
+            false
+        );
 
         if(response.statusCode >= 200 && response.statusCode < 210) {
             console.log("activity log configuration updated successfully, it may take a few seconds to take effect and reflect.");
         }
-    } 
+    }
     //console.log(options);
 
 }
 
 function getEmptyAcitivityLogListenerProfile() {
     return {
-            "id": "activity-log",
-            "params": null,
-            "eventTypes": [
-                "ModifySpaceEvent.request"
-            ]
-        }
+        "id": "activity-log",
+        "params": null,
+        "eventTypes": [
+            "ModifySpaceEvent.request"
+        ]
+    }
 }
 
 
@@ -3044,7 +2879,7 @@ function showSpaceConfig(spacedef: any) {
 
 program
     .command("join <id>")
-    .description("{Data Hub Add-on} create a new virtual Data Hub space with a CSV and a space with geometries, associating by feature ID")    
+    .description("{Data Hub Add-on} create a new virtual Data Hub space with a CSV and a space with geometries, associating by feature ID")
     .option("-f, --file <file>", "csv to be uploaded and associated")
     .option("-i, --keyField <keyField>", "field in csv file to become feature id")
     .option("--keys <keys>", "comma separated property names of csvProperty and space property")
@@ -3095,11 +2930,11 @@ async function createJoinSpace(id:string, options:any){
     //setting title and message for new space creation
     options.title = path.parse(options.file).name + ' to be joined with ' +  id + ' in a virtual space';
     options.message = 'space data to be joined with ' + id + ' in new virtual space ';
-    const response:any = await createSpace(options).catch(err => 
-        {
-            handleError(err);
-            process.exit(1);                                           
-        });
+    const response:any = await createSpace(options).catch(err =>
+    {
+        handleError(err);
+        process.exit(1);
+    });
     const secondSpaceid = response.id;
     options.id = options.keyField;
     options.noCoords = true;

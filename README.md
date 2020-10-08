@@ -38,6 +38,7 @@ The CLI currently support the following sub-commands:
 ```
 - configure|c [verify|refresh]            setup configuration for authentication
 - xyz|xs [list|create|upload]             work with Data Hub spaces
+- studio [list|delete|show]               work with HERE Studio projects
 - transform|tf [csv2geo|shp2geo|gpx2geo]  convert from csv/shapefile/gpx to geojson
 - geocode|gc                              geocode feature
 - help [command]                          display help for command
