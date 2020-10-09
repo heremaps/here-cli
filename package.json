@@ -2,7 +2,7 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
@@ -42,7 +42,8 @@
     "tmp": "0.2.1",
     "user-settings": "0.2.0",
     "xmldom": "0.3.0",
-    "extract-zip": "2.0.1"
+    "extract-zip": "2.0.1",
+    "xlsx": "0.16.4"
   },
   "devDependencies": {
     "@turf/nearest-point-to-line": "6.0.0",
@@ -64,8 +65,7 @@
     "mock-require": "^3.0.3",
     "rewire": "^5.0.0",
     "ts-node": "^8.10.2",
-    "typescript": "^3.9.5",
-    "xlsx": "0.16.4"
+    "typescript": "^3.9.5"
   },
   "bin": {
     "here": "bin/here.js"
