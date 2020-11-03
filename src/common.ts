@@ -50,14 +50,18 @@ const tableConsole = require("console.table");
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
+/*
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
-
+*/
+export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
+const account_api_url = 'https://st.p.account.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
 export let validated = false;
 let rows = 100;
+let cookie: string;
 
 const tableConfig: any = {
     border: getBorderCharacters(`norc`),
@@ -328,6 +332,108 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             throw new Error("Error while fetching Apps: " + JSON.stringify(response.body));
 
         return response.body;
+}
+
+export async function createNewSharingRequest(spaceId: string){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharingRequest`,
+        method : 'PUT',
+        headers : {
+            "Cookie": cookie
+        },
+        json : {
+            spaceId: spaceId
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while creating sharing Request: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function getSharingRequests(){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharingRequest`,
+        method : 'GET',
+        headers : {
+            "Cookie": cookie
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while getting sharing Requests: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function getExistingSharing(){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharing`,
+        method : 'GET',
+        headers : {
+            "Cookie": cookie
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while getting sharing: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function getExistingApprovals(){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharingApproval`,
+        method : 'GET',
+        headers : {
+            "Cookie": cookie
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while getting sharing Approval: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function putSharingApproval(sharingId: string, verdict:string, urm: string[] = []){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharingApproval/${sharingId}`,
+        method : 'PUT',
+        headers : {
+            "Cookie": cookie
+        },
+        json : {
+            verdict: verdict,
+            urm: urm
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while putting sharing Approval: " + JSON.stringify(response.body));
+    }
+    return response.body;
 }
 
 async function validateToken(token: string) {
