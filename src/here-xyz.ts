@@ -125,6 +125,23 @@ const filesToUpload = [
     }
 ];
 
+const sharingQuestion = [
+    {
+        type: "list",
+        name: "sharingChoice",
+        message: "Please select the input",
+        choices: [{name: 'request a new sharing for a space', value: 'newSharing'}, {name: 'view existing sharing requests', value: 'request'}, {name: 'view existing sharing approvals', value: 'approval'}, {name: 'view your existing shared spaces', value: 'sharing'}]
+    }
+];
+
+const sharingSpaceQuestion = [
+    {
+        type: "input",
+        name: "sharingSpaceId",
+        message: "Enter the spaceId you want access"
+    }
+];
+
 const tagruleUpdatePrompt = [
     {
         type: "list",
@@ -2878,6 +2895,108 @@ function showSpaceConfig(spacedef: any) {
 }
 
 program
+    .command("sharing")
+    .description("configure/view sharing information for Data Hub spaces")
+    .option("--request", "view and configure existing data hub space sharing requests")
+    .option("--spaceId <spaceId>", "request for data hub space sharing, use this with --request option")
+    .option("--approval", "view and configure existing data hub space approval requests")
+    .action(async function (options) {
+        try{
+            await common.verifyProLicense();
+            if(options.request && options.approval){
+                console.log("ERROR : Only one of the --request or --approval option allowed");
+                return;
+            }
+            if(!options.request && options.spaceId){
+                console.log("ERROR : --spaceId option requires --request option as well");
+                return;
+            }
+            if(!options.request && !options.approval){
+                const answer: any = await inquirer.prompt(sharingQuestion);
+                const result = answer.sharingChoice;
+                if(result === 'newSharing'){
+                    const spaceIdAnswer: any = await inquirer.prompt(sharingSpaceQuestion);
+                    options.spaceId = spaceIdAnswer.sharingSpaceId;
+                    options.request = true;
+                } else if(result === 'request') {
+                    options.request = true;
+                } else if(result === 'approval'){
+                    options.approval = true;
+                } else if(result == 'sharing'){
+                    await showExistingSharings();
+                }
+            }
+            if(options.request){
+                if(options.spaceId){
+                    const newSharingRequest = await common.createNewSharingRequest(options.spaceId);
+                    console.log("New sharing request created with id - " + newSharingRequest.id);
+                } else {
+                    await showExistingSharingRequests();
+                }
+            } else if(options.approval){
+                await showExistingApprovals();
+            }
+        } catch(error) {
+            console.log(error.statusCode);
+            handleError(error, false);
+        }
+    });
+
+async function showExistingSharingRequests(){
+    let sharingRequests = await common.getSharingRequests();
+    //TODO - check how to give delete operation
+    common.drawNewTable(sharingRequests, ['id', 'spaceId', 'urm','status']);
+}
+
+async function showExistingSharings(){
+    let existingSharings = await common.getExistingSharing();
+    //TODO - check how to give delete and update operation
+    common.drawNewTable(existingSharings, ['id', 'spaceId', 'emailId', 'urm','status']);
+}
+
+async function showExistingApprovals(){
+    let existingApprovals = await common.getExistingApprovals();
+    let choiceList: { name: string, value: string }[] = [];
+    for(let sharingApproval of existingApprovals){
+        if(sharingApproval.status == 'PENDING'){
+            choiceList.push({name: sharingApproval.spaceId + ' ' + sharingApproval.emailId, value: sharingApproval.id});
+        }
+    }
+    const approvalSelectionPrompt = [
+        {
+            type: "list",
+            name: "sharingId",
+            message: "Select sharing request for approval",
+            choices: choiceList
+        },
+        {
+            type: "list",
+            name: "verdict",
+            message: "Please select your decision",
+            choices: [{name:'accept', value: 'accept'}, {name:'reject', value: 'reject'}]
+        }
+    ];
+    const answer: any = await inquirer.prompt(approvalSelectionPrompt);
+    const sharingId = answer.sharingId;
+    const verdict = answer.verdict;
+    let urm;
+    if(verdict === 'accept'){
+        const rightsSelectionPrompt = [
+            {
+                type: "checkbox",
+                name: "urm",
+                message: "Select the rights for the sharing",
+                choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
+            }
+        ];
+        const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
+        urm = rightsAnswer.urm;
+    }
+    await common.putSharingApproval(sharingId, verdict, urm);
+    console.log("sharing request " + sharingId + " " + verdict + "ed successfully");
+}
+
+program
     .command("join <id>")
     .description("{Data Hub Add-on} create a new virtual Data Hub space with a CSV and a space with geometries, associating by feature ID")
     .option("-f, --file <file>", "csv to be uploaded and associated")
@@ -3572,7 +3691,8 @@ common.validate(
         "vs",
         "virtualize",
         "gis",
-        "join"
+        "join",
+        "sharing"
     ],
     [process.argv[2]],
     program
