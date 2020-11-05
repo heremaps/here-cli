@@ -1263,6 +1263,13 @@ async function createSpace(options: any) {
             gp['processors'] = processors;
         }
     }
+    if(options.processors){
+        if(!gp['processors']){
+            gp['processors'] = {...gp['processors'], ...options.processors}
+        } else {
+            gp['processors'] = options.processors;
+        }
+    }
 
 
     const response = await execute("/hub/spaces?clientId=cli", "POST", "application/json", gp, options.token);
@@ -2936,7 +2943,6 @@ async function geocoderConfig(id:string, options:any) {
     let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
     let apiKeys = await common.decryptAndGet("apiKeys");
     const apiKeyArr = common.getSplittedKeys(apiKeys);
-    console.log(apiKeyArr);
     if(!apiKeyArr){
         console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
                     "If already generated/enabled, please try again in a few minutes.");
@@ -3171,6 +3177,79 @@ function showSpaceConfig(spacedef: any) {
     }
     common.drawNewTable(spaceconfigs, ['property', 'value'], [30, 90])
     //console.table(spacedef);
+}
+
+program
+    .command("geocode")
+    .description("{Data Hub Add-on} create a new space with a CSV and configures geocoder processor on it") 
+    .option("-t, --title [title]", "Title for Data Hub space")
+    .option("-d, --message [message]", "Short description ")   
+    .option("-f, --file <file>", "file to be uploaded and associated")
+    .option("-i, --keyField <keyField>", "field in csv file to become feature id")
+    .option("--keys <keys>", "comma separated property names of csvProperty and space property")
+    .option("--forward <forward>", "comma separated property names to be used for forward geocoding")
+    .option("--suffix <suffix>", "comma separated suffix string to be used for forward geocoding")
+    .option("-x, --lon [lon]", "longitude field name")
+    .option("-y, --lat [lat]", "latitude field name")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option("-s, --stream", "streaming data for faster uploads and large csv support")
+    .action(function (options) {
+        createGeocoderSpace(options).catch((error) => {
+            handleError(error, true);
+        });
+    })
+
+async function createGeocoderSpace(options:any){
+    await common.verifyProLicense();
+    if(!options.file){
+        console.log("ERROR : Please specify file for upload");
+        return;
+    }
+    if(!options.forward && !options.reverse){
+        console.log("ERROR : Please specify either forward or reverse option");
+        return;
+    }
+    if(options.forward && options.reverse){
+        console.log("ERROR : Please specify only one option from forward or reverse");
+        return;
+    }
+    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
+    let apiKeys = await common.decryptAndGet("apiKeys");
+    const apiKeyArr = common.getSplittedKeys(apiKeys);
+    if(!apiKeyArr){
+        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
+                    "If already generated/enabled, please try again in a few minutes.");
+        process.exit(1);
+    }
+    const apiKey = apiKeyArr[1];
+    let params : any = {};
+    if(options.reverse){
+        params['doReverseGeocode'] = true;
+    }
+    if(options.forward){
+        params['doForwardGeocode'] = true;
+        params['forwardPropertyList'] = options.forward.split(',').map((x: string) => "$"+x.trim());
+        if(options.suffix){
+            const suffixArray: string[] = options.suffix.split(',').map((x: string) => x.trim());;
+            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+        }
+    }
+    let processorDef:any = getEmptyGeocoderProcessorProfile();
+    processorDef['params'] = params;       
+    options.processors = {"geocoder-preprocessor": [processorDef]};
+    const spaceData:any = await createSpace(options).catch(err => 
+        {
+            handleError(err);
+            process.exit(1);                                           
+        });
+    const secondSpaceid = spaceData.id;
+    options.id = options.keyField;
+    options.noCoords = true;
+    options.askUserForId = true;
+    await uploadToXyzSpace(secondSpaceid, options);
 }
 
 program
@@ -3868,7 +3947,8 @@ common.validate(
         "vs",
         "virtualize",
         "gis",
-        "join"
+        "join",
+        "geocode"
     ],
     [process.argv[2]],
     program
