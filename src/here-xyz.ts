@@ -3226,6 +3226,7 @@ async function createGeocoderSpace(options:any){
     }
     const apiKey = apiKeyArr[1];
     let params : any = {};
+    params['apiKey'] = apiKey;
     if(options.reverse){
         params['doReverseGeocode'] = true;
     }
