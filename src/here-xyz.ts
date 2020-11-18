@@ -655,6 +655,7 @@ program
     .option("-b, --bbox [bbox]", "only create hexbins for records inside the bounding box specified either by individual coordinates provided interactively or as minLon,minLat,maxLon,maxLat (use “\\ “ to escape a bbox with negative coordinate(s))")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
     .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels (1-18) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
+    .option("--h3", "uses h3 library to create hexbins")
     .action(function (id, options) {
         (async () => {
             try {
@@ -675,6 +676,10 @@ program
                 if (options.bbox == true) {
                     options.bbox = await getBoundingBoxFromUser();
                 }
+                if(options.h3 && !options.zoomLevels){
+                    console.error(`Please specify --zoomLevels with --h3 option`);
+                    process.exit(1);
+                }
 
                 let cellSizes: number[] = [];
                 if (options.zoomLevels) {
@@ -687,7 +692,11 @@ program
                                     console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-18`);
                                     process.exit(1);
                                 }
-                                cellSizes.push(parseInt(zoomLevelsMap[number]));
+                                if(options.h3){
+                                    cellSizes.push(number);
+                                } else {
+                                    cellSizes.push(parseInt(zoomLevelsMap[number]));
+                                }
                             } else if (zoomLevels.length !== 2) {
                                 console.error(`hexbin creation failed: zoom level input "${item}" is not a valid sequence`);
                                 process.exit(1);
@@ -699,12 +708,20 @@ program
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
-                                    cellSizes.push(parseInt(zoomLevelsMap[i]));
+                                    if(options.h3){
+                                        cellSizes.push(i);
+                                    } else {
+                                        cellSizes.push(parseInt(zoomLevelsMap[i]));
+                                    }
                                 }
                             }
                         }
                     });
                 } else if (options.cellsize) {
+                    if(options.h3){
+                        console.error(`cellSize option is not available with --h3 option. please use --zoomLevels option`);
+                        process.exit(1);
+                    }
                     options.cellsize.split(",").forEach(function (item: string) {
                         if (item && item != "") {
                             let number = parseInt(item.toLowerCase());

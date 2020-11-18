@@ -26,6 +26,8 @@
 
 import * as turf from '@turf/helpers';
 import * as common from "./common";
+import * as h3 from "h3-js";
+const geojson2h3 = require('geojson2h3');
 
 const cosines: number[] = [];
 const sines: number[] = [];
@@ -47,6 +49,15 @@ function getHexBin(feature: any, cellSize: number, isMeters: boolean){
     const finalHexRootPoint = getSelectedHexagon(point[1],point[0],degreesCellSize);
     let data= hexagon(finalHexRootPoint,degreesCellSize,degreesCellSize,null,cosines,sines);
     return data;
+}
+
+function getH3HexBin(feature: any, cellSize: number){
+    const point = feature.geometry.coordinates;
+    let h3Index = h3.geoToH3(point[1],point[0], cellSize);
+    const hexCenter = h3.h3ToGeo(h3Index); 
+    let hexFeature = geojson2h3.h3ToFeature(h3Index);
+    hexFeature.properties.centroid = [hexCenter[1], hexCenter[0]];
+    return hexFeature;
 }
 
 //here x and y is inverse, x is latitude and y is longitude
@@ -172,7 +183,7 @@ function hexagon(center:number[], rx:number, ry:number, properties:any, cosines:
     return feature;
 }
 
-function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, existingHexFeatures:any[]){
+function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, useH3Library: boolean = false,  existingHexFeatures:any[]){
     let gridMap: any={};
     let maxCount = 0;
     let maxSum = 0;
@@ -202,7 +213,12 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
       if (feature.geometry != null && feature.geometry.type != null && feature.geometry.type.toLowerCase() === 'point') {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
-        let x = getHexBin(feature, degreesCellSize, false);
+        let x;
+        if(useH3Library){
+            x = getH3HexBin(feature, cellSize);
+        } else {
+            x = getHexBin(feature, degreesCellSize, false);
+        }
         if (x) {
           let gridId = common.md5Sum(JSON.stringify(x.geometry));
           x.id = gridId;
