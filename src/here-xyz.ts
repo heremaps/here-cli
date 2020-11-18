@@ -192,6 +192,12 @@ const forwardgeocoderConfiguration = [
         type: 'input',
         name: 'suffix',
         message: 'Enter fixed suffix string to be appended to location fields for more precise geocoding (e.g. add city, state, country if only street address is in the csv), leave blank if not required: '
+    },
+    {
+        type: "list",
+        name: "verbosity",
+        message: "Select verbosity level for forward geocoding",
+        choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
     }
 ];
 
@@ -1126,7 +1132,13 @@ async function showSpace(id: string, options: any) {
     }
     else if (options.web) {
         //console.log(uri);
-        await launchHereGeoJson(uri, id, options.token, options.permanent);
+        let spaceIds: string[] = [id];
+        if(options.feature){
+            const refspacefeature = options.feature.split(',');
+            const refspace = refspacefeature[0];
+            spaceIds.push(refspace);
+        }
+        await launchHereGeoJson(uri, spaceIds, options.token, options.permanent);
     } else {
         const response = await execute(
             uri,
@@ -2542,9 +2554,9 @@ function chunkify(data: any[], chunksize: number) {
     return chunks;
 }
 
-async function launchHereGeoJson(uri: string,spaceId: string,  token: string, isPermanent: boolean) {
+async function launchHereGeoJson(uri: string, spaceIds: string[],  token: string, isPermanent: boolean) {
     if(!token){
-        token = await getReadOnlyToken(spaceId, isPermanent);
+        token = await getReadOnlyToken(spaceIds, isPermanent);
     }
     const accessAppend =
         uri.indexOf("?") == -1
@@ -2558,16 +2570,19 @@ async function launchHereGeoJson(uri: string,spaceId: string,  token: string, is
         , { wait: false });
 }
 
-async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
+async function getReadOnlyToken(inputSpaceIds: string[], isPermanent: boolean){
     console.log("generating " + (isPermanent ? "permanent":"temporary") + " token for this space");
-    const spaceConfig = await getSpaceMetaData(spaceId);
-    let spaceIds = [spaceId];
-    if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
-        const storageparams = spaceConfig.storage.params.virtualspace;
-        spaceIds = spaceIds.concat(storageparams['group'] ? storageparams['group'] : []);
-        spaceIds = spaceIds.concat(storageparams['merge'] ? storageparams['merge'] : []);
-        spaceIds = spaceIds.concat(storageparams['override'] ? storageparams['override'] : []);
-        spaceIds = spaceIds.concat(storageparams['custom'] ? storageparams['custom'] : []);
+    let spaceIds: string[] = [];
+    for(let spaceId of inputSpaceIds){
+        const spaceConfig = await getSpaceMetaData(spaceId);
+        spaceIds.push(spaceId);
+        if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
+            const storageparams = spaceConfig.storage.params.virtualspace;
+            spaceIds = spaceIds.concat(storageparams['group'] ? storageparams['group'] : []);
+            spaceIds = spaceIds.concat(storageparams['merge'] ? storageparams['merge'] : []);
+            spaceIds = spaceIds.concat(storageparams['override'] ? storageparams['override'] : []);
+            spaceIds = spaceIds.concat(storageparams['custom'] ? storageparams['custom'] : []);
+        }
     }
     const token = await common.createReadOnlyToken(spaceIds, isPermanent);
     return token;
@@ -2575,7 +2590,7 @@ async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
 
 async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string, isPermanent: boolean) {
     if(!token){
-        token = await getReadOnlyToken(spaceId, isPermanent);
+        token = await getReadOnlyToken([spaceId], isPermanent);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     open(
@@ -2996,13 +3011,16 @@ async function geocoderConfig(id:string, options:any) {
         if(geocoderInput.forwardGeocoderConfirmation){
             params['doForwardGeocode'] = true;
             params['forwardPropertyList'] = [];
-            const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string }>(forwardgeocoderConfiguration);
+            const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string, verbosity?: string }>(forwardgeocoderConfiguration);
             if(forwardGeocoderInput.propertyNames) {
                 params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
             }
             if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
                 const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
                 params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+            }
+            if(forwardGeocoderInput.verbosity){
+                params['verbosity'] = forwardGeocoderInput.verbosity;
             }
         }
         
@@ -3013,7 +3031,6 @@ async function geocoderConfig(id:string, options:any) {
         console.log("please select only one option");
         process.exit(1);
     }
-    console.log(JSON.stringify(patchRequest));
     if(Object.keys(patchRequest).length > 0) {
     const url = `/hub/spaces/${id}?clientId=cli`
         const response = await execute(
@@ -3179,8 +3196,9 @@ function showSpaceConfig(spacedef: any) {
     //console.table(spacedef);
 }
 
+const validVerbosityLevels = ["NONE", "MIN", "MORE", "ALL"];
 program
-    .command("geocode")
+    .command("geocode [id]")
     .description("{Data Hub Add-on} create a new space with a CSV and configures geocoder processor on it") 
     .option("-t, --title [title]", "Title for Data Hub space")
     .option("-d, --message [message]", "Short description ")   
@@ -3189,6 +3207,7 @@ program
     .option("--keys <keys>", "comma separated property names of csvProperty and space property")
     .option("--forward <forward>", "comma separated property names to be used for forward geocoding")
     .option("--suffix <suffix>", "comma separated suffix string to be used for forward geocoding")
+    .option("--verbosity <verbosity>", "verbosity level to be used for forward geocoding")
     .option("-x, --lon [lon]", "longitude field name")
     .option("-y, --lat [lat]", "latitude field name")
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
@@ -3196,13 +3215,13 @@ program
     .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
     .option('-q, --quote ["]', 'quote used in csv', '"')
     .option("-s, --stream", "streaming data for faster uploads and large csv support")
-    .action(function (options) {
-        createGeocoderSpace(options).catch((error) => {
+    .action(function (id, options) {
+        createGeocoderSpace(id, options).catch((error) => {
             handleError(error, true);
         });
     })
 
-async function createGeocoderSpace(options:any){
+async function createGeocoderSpace(id:string, options:any){
     await common.verifyProLicense();
     if(!options.file){
         console.log("ERROR : Please specify file for upload");
@@ -3214,6 +3233,10 @@ async function createGeocoderSpace(options:any){
     }
     if(options.forward && options.reverse){
         console.log("ERROR : Please specify only one option from forward or reverse");
+        return;
+    }
+    if(options.verbosity && !validVerbosityLevels.includes(options.verbosity.toUpperCase())){
+        console.log("ERROR : Please specify valid verbosity level - " + validVerbosityLevels);
         return;
     }
     let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
@@ -3237,20 +3260,43 @@ async function createGeocoderSpace(options:any){
             const suffixArray: string[] = options.suffix.split(',').map((x: string) => x.trim());;
             params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
         }
+        if(options.verbosity){
+            params['verbosity'] = options.verbosity.toUpperCase();
+        }
     }
     let processorDef:any = getEmptyGeocoderProcessorProfile();
     processorDef['params'] = params;       
-    options.processors = {"geocoder-preprocessor": [processorDef]};
-    const spaceData:any = await createSpace(options).catch(err => 
-        {
-            handleError(err);
-            process.exit(1);                                           
-        });
-    const secondSpaceid = spaceData.id;
+    if(id){
+        let patchRequest:any = {};
+        patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
+        const url = `/hub/spaces/${id}?clientId=cli`
+        const response = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+    } else {
+        if(!options.title){
+            options.title = (options.forward ? "forward" : " reverse") + " geocode " + path.parse(options.file).name;
+        }
+        if(!options.message){
+            options.message = (options.forward ? "forward" : " reverse") + " geocode " + path.parse(options.file).name;
+        }
+        options.processors = {"geocoder-preprocessor": [processorDef]};
+        const spaceData:any = await createSpace(options).catch(err => 
+            {
+                handleError(err);
+                process.exit(1);                                           
+            });
+        id = spaceData.id;
+    }
     options.id = options.keyField;
     options.noCoords = true;
-    options.askUserForId = true;
-    await uploadToXyzSpace(secondSpaceid, options);
+    options.geocode = true;
+    await uploadToXyzSpace(id, options);
 }
 
 program
