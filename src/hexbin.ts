@@ -38,8 +38,7 @@ for (let i = 0; i < 6; i++) {
 }
 const hexagonAngle = 0.523598776; //30 degrees in radians
 
-function getHexBin(feature: any, cellSize: number, isMeters: boolean){
-    const point = feature.geometry.coordinates;
+function getHexBin(point: number[], cellSize: number, isMeters: boolean){
     let degreesCellSize;
     if(isMeters){
         degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(point[1] * Math.PI / 180));
@@ -51,8 +50,7 @@ function getHexBin(feature: any, cellSize: number, isMeters: boolean){
     return data;
 }
 
-function getH3HexBin(feature: any, cellSize: number){
-    const point = feature.geometry.coordinates;
+function getH3HexBin(point: number[], cellSize: number){
     let h3Index = h3.geoToH3(point[1],point[0], cellSize);
     const hexCenter = h3.h3ToGeo(h3Index); 
     let hexFeature = geojson2h3.h3ToFeature(h3Index);
@@ -210,14 +208,25 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     //let minCount = Number.MAX_SAFE_INTEGER;
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
-      if (feature.geometry != null && feature.geometry.type != null && feature.geometry.type.toLowerCase() === 'point') {
+      if (feature.geometry != null && feature.geometry.type != null && (feature.geometry.type.toLowerCase() === 'point' || feature.geometry.type.toLowerCase() === 'linestring')) {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
         let x;
-        if(useH3Library){
-            x = getH3HexBin(feature, cellSize);
+        let point = [];
+        if(feature.geometry.type.toLowerCase() === 'point'){
+            point = feature.geometry.coordinates;
         } else {
-            x = getHexBin(feature, degreesCellSize, false);
+            if(feature.geometry.coordinates.length > 2){
+                point = feature.geometry.coordinates[Math.round(feature.geometry.coordinates.length/2)];
+            } else {
+                point[0] = (feature.geometry.coordinates[0][0] + feature.geometry.coordinates[1][0]) / 2;
+                point[1] = (feature.geometry.coordinates[0][1] + feature.geometry.coordinates[1][1]) / 2;
+            }
+        }
+        if(useH3Library){
+            x = getH3HexBin(point, cellSize);
+        } else {
+            x = getHexBin(point, degreesCellSize, false);
         }
         if (x) {
           let gridId = common.md5Sum(JSON.stringify(x.geometry));
