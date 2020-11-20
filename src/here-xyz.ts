@@ -285,17 +285,20 @@ async function execInternal(
         );
     }
     if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
+        uri = common.xyzRoot(false) + uri;
     }
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
+    let headers: any = {
+        "Content-Type": contentType,
+        "App-Name": "HereCLI"
+    };
+    if(common.isApiServerXyz()){
+        headers["Authorization"] = "Bearer " + token;
+    }
     const reqJson = {
         url: uri,
         method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
+        headers: headers,
         json: method === "GET" ? undefined : data,
         allowGetBody: true,
         responseType: responseType
@@ -332,19 +335,23 @@ async function execInternalGzip(
 ) {
     const zippedData = await gzip(data);
     if (!uri.startsWith("http")) {
-        uri = common.xyzRoot() + uri;
+        uri = common.xyzRoot(false) + uri;
+    }
+    let headers: any = {
+        "Content-Type": contentType,
+        "App-Name": "HereCLI",
+        "Content-Encoding": "gzip",
+        "Accept-Encoding": "gzip"
+    };
+    if(common.isApiServerXyz()){
+        headers["Authorization"] = "Bearer " + token;
     }
     //const size: number = (zippedData.length) / Math.pow(1024,2);
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
         method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "Content-Encoding": "gzip",
-            "Accept-Encoding": "gzip"
-        },
+        headers: headers,
         decompress: true,
         body: method === "GET" ? undefined : zippedData,
         allowGetBody: true,
@@ -2627,7 +2634,7 @@ async function launchHereGeoJson(uri: string, spaceIds: string[],  token: string
             : "&access_token=" + token;
     open(
         "http://geojson.tools/index.html?url=" +
-        common.xyzRoot() +
+        common.xyzRoot(false) +
         uri +
         accessAppend
         , { wait: false });

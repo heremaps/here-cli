@@ -45,12 +45,35 @@ const questions = [
 
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
+let apiServerUrl: string;
+const xyzUrl = "https://xyz.api.here.com";
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
-export const xyzRoot = () => "https://xyz.api.here.com";
+export function xyzRoot(xyzUrlAlways: boolean){
+    if(xyzUrlAlways){
+        return xyzUrl;
+    } else {
+        if(!apiServerUrl){
+            apiServerUrl = settings.get('apiServerUrl');
+            if(!apiServerUrl){
+                settings.set('apiServerUrl',xyzUrl);
+                apiServerUrl = xyzUrl;
+            }
+        }
+        return apiServerUrl;
+    }
+}
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 
+export function isApiServerXyz(){
+    return (xyzRoot(false) === xyzUrl);
+}
+
+export function setApiServerUrl(url: string){
+    settings.set('apiServerUrl',url);
+    apiServerUrl = url;
+}
 
 export const keySeparator = "%%";
 
@@ -159,6 +182,7 @@ export async function loginFlow(email: string, password: string) {
             await generateTokenAndStoreIt(cookieData, appId, {}).catch(err => {throw err});//{} as urm so that its full rights as per policy even when it changes at later stage
             await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
             await encryptAndStore('apiKeys', appId).catch(err => {throw err});
+            settings.set('apiServerUrl','https://xyz.api.here.com');
             console.log('Default App Selected - ' + appId);
         }else{
             console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
@@ -248,7 +272,7 @@ function getMacAddress() {
 
 export async function login(authId: string, authSecret: string) {
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
+        url: xyzRoot(true) + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
         json: rightsRequest(authId),
         responseType: "json"
@@ -293,7 +317,7 @@ async function readOnlySpaceRightsRequest(spaceIds:string[]) {
 
 export async function getAppIds(cookies: string) {
     const options = {
-        url: xyzRoot()+`/account-api/accounts/me?clientId=cli`,
+        url: xyzRoot(true)+`/account-api/accounts/me?clientId=cli`,
         method: 'GET',
         headers: {
             "Cookie": cookies
@@ -313,7 +337,7 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             payload.tcAccepted = true;
         }
         var options = {
-            url : xyzRoot()+`/account-api/accounts/${accountId}`,
+            url : xyzRoot(true)+`/account-api/accounts/${accountId}`,
             method : 'PATCH',
             headers : {
                 "Cookie": cookies
@@ -333,7 +357,7 @@ async function validateToken(token: string) {
         return true;
 
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens/" + token,
+        url: xyzRoot(true) + "/token-api/tokens/" + token,
         method: "GET",
         responseType: "json"
     });
@@ -361,7 +385,7 @@ export async function getAccountId(){
 
 async function getTokenInformation(tokenId: string){
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens/" + tokenId,
+        url: xyzRoot(true) + "/token-api/tokens/" + tokenId,
         method: "GET",
         responseType: "json"
     });
@@ -375,7 +399,7 @@ async function getTokenInformation(tokenId: string){
 export async function getTokenList(){
     const cookie = await getCookieFromStoredCredentials();
     const options = {
-        url: xyzRoot() + "/token-api/tokens",
+        url: xyzRoot(true) + "/token-api/tokens",
         method: "GET",
         headers: {
             Cookie: cookie
