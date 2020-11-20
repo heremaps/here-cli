@@ -26,10 +26,8 @@
 
 import * as zlib from "zlib";
 import { requestAsync } from "./requestAsync";
-import { geoCodeString } from "./geocodeUtil";
 import * as program from "commander";
 import * as common from "./common";
-import * as sso from "./sso";
 import * as inquirer from "inquirer";
 import * as transform from "./transformutil";
 import * as gis from "./gisUtil";
@@ -49,6 +47,7 @@ import { option } from "commander";
 
 let hexbin = require('./hexbin');
 const zoomLevelsMap = require('./zoomLevelsMap.json');
+const h3ZoomLevelResolutionMap = require('./h3ZoomLevelResolutionMap.json');
 let choiceList: { name: string, value: string }[] = [];
 const bboxDirections = ["west", "south", "east", "north"];
 const commandHistoryCount = 3;
@@ -656,6 +655,7 @@ program
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
     .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels (1-18) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .option("--h3", "uses h3 library to create hexbins")
+    .option("--resolution <resolution>", "h3 resolution (1-15) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
@@ -676,8 +676,12 @@ program
                 if (options.bbox == true) {
                     options.bbox = await getBoundingBoxFromUser();
                 }
-                if(options.h3 && !options.zoomLevels){
-                    console.error(`Please specify --zoomLevels with --h3 option`);
+                if(options.h3 && !(options.zoomLevels || options.resolution)){
+                    console.error(`Please specify --zoomLevels or --resolution with --h3 option`);
+                    process.exit(1);
+                }
+                if(!options.h3 && options.resolution){
+                    console.error(`Please specify --h3 option with --resolution option`);
                     process.exit(1);
                 }
 
@@ -717,6 +721,33 @@ program
                             }
                         }
                     });
+                } else if(options.resolution){
+                    options.resolution.split(",").forEach(function (item: string) {
+                        if (item && item != "") {
+                            let resolution = item.split("-");
+                            if (resolution.length === 1) {
+                                let number = parseInt(resolution[0].toLowerCase());
+                                if (isNaN(number) || number < 1 || number > 15) {
+                                    console.error(`hexbin creation failed: resolution input "${resolution[0]}" is not a valid between 1-15`);
+                                    process.exit(1);
+                                }
+                                cellSizes.push(parseInt(h3ZoomLevelResolutionMap[number]));
+                            } else if (resolution.length !== 2) {
+                                console.error(`hexbin creation failed: resolution input "${item}" is not a valid sequence`);
+                                process.exit(1);
+                            } else {
+                                let lowNumber = parseInt(resolution[0].toLowerCase());
+                                let highNumber = parseInt(resolution[1].toLowerCase());
+                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 15 || highNumber < 1 || highNumber > 15) {
+                                    console.error(`hexbin creation failed: resolution input "${resolution}" must be between 1-15`);
+                                    process.exit(1);
+                                }
+                                for (var i = lowNumber; i <= highNumber; i++) {
+                                    cellSizes.push(parseInt(h3ZoomLevelResolutionMap[i]));
+                                }
+                            }
+                        }
+                    });
                 } else if (options.cellsize) {
                     if(options.h3){
                         console.error(`cellSize option is not available with --h3 option. please use --zoomLevels option`);
@@ -746,7 +777,7 @@ program
                 options.handle = 0;
                 let cHandle;
                 let featureCount = 0;
-                console.log("Creating hexbins for the space data");
+                console.log("Creating " + (options.h3 ? "h3": "") + " hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
                     if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
@@ -837,10 +868,15 @@ program
                     });
                     */
                     if (hexFeatures.length > 0) {
-                        let logStat = "uploading the hexagon grids to space with size " + cellsize;
+                        let logStat = "uploading the hexagon grids to space with " + (options.h3 ? "resolution ":"size ") + cellsize;
                         cellSizeSet.add(cellsize + "");
                         if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            let zoomNumber;
+                            if(options.h3){
+                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            }
                             logStat += " / zoom Level " + zoomNumber;
                             zoomLevelSet.add(zoomNumber + "");
                         }
@@ -851,7 +887,12 @@ program
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
                         options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
                         if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            let zoomNumber;
+                            if(options.h3){
+                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            }
                             options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
                         }
                         //if(options.destSpace){
@@ -865,7 +906,12 @@ program
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
                         options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
                         if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            let zoomNumber;
+                            if(options.h3){
+                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                            }
                             options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
                         }
                         //if(options.destSpace){
@@ -2972,16 +3018,7 @@ async function activityLogConfig(id:string, options:any) {
 async function geocoderConfig(id:string, options:any) {
     await common.verifyProLicense();
     let patchRequest:any = {};
-    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
-    let apiKeys = await common.decryptAndGet("apiKeys");
-    const apiKeyArr = common.getSplittedKeys(apiKeys);
-    if(!apiKeyArr){
-        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
-                    "If already generated/enabled, please try again in a few minutes.");
-        process.exit(1);
-    }
-    const apiKey = apiKeyArr[1];
-
+    const apiKey = await common.getLocalApiKey();
     let tabledata:any = {};
     let spacedef = await getSpaceMetaData(id);
     let enabled = false;
@@ -3021,26 +3058,7 @@ async function geocoderConfig(id:string, options:any) {
     } else if(actionChoice == 'configure') {
         let params : any = {};
         params['apiKey'] = apiKey;
-        const geocoderInput = await inquirer.prompt<{ reverseGeocoderConfirmation?: boolean, forwardGeocoderConfirmation?: boolean }>(geocoderConfiguration);
-        if(geocoderInput.reverseGeocoderConfirmation){
-            params['doReverseGeocode'] = true;
-        }
-        if(geocoderInput.forwardGeocoderConfirmation){
-            params['doForwardGeocode'] = true;
-            params['forwardPropertyList'] = [];
-            const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string, verbosity?: string }>(forwardgeocoderConfiguration);
-            if(forwardGeocoderInput.propertyNames) {
-                params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
-            }
-            if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
-                const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
-                params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
-            }
-            if(forwardGeocoderInput.verbosity){
-                params['verbosity'] = forwardGeocoderInput.verbosity;
-            }
-        }
-        
+        params = await configureGeocodeInteractively(params);        
         let processorDef:any = getEmptyGeocoderProcessorProfile();
         processorDef['params'] = params;       
         patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
@@ -3065,6 +3083,29 @@ async function geocoderConfig(id:string, options:any) {
     } 
     //console.log(options);
 
+}
+
+async function configureGeocodeInteractively(params: any){
+    const geocoderInput = await inquirer.prompt<{ reverseGeocoderConfirmation?: boolean, forwardGeocoderConfirmation?: boolean }>(geocoderConfiguration);
+    if(geocoderInput.reverseGeocoderConfirmation){
+        params['doReverseGeocode'] = true;
+    }
+    if(geocoderInput.forwardGeocoderConfirmation){
+        params['doForwardGeocode'] = true;
+        params['forwardPropertyList'] = [];
+        const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string, verbosity?: string }>(forwardgeocoderConfiguration);
+        if(forwardGeocoderInput.propertyNames) {
+            params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
+        }
+        if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
+            const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
+            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+        }
+        if(forwardGeocoderInput.verbosity){
+            params['verbosity'] = forwardGeocoderInput.verbosity;
+        }
+    }
+    return params;
 }
 
 function getEmptyAcitivityLogListenerProfile() {
@@ -3223,6 +3264,7 @@ program
     .option("-i, --keyField <keyField>", "field in csv file to become feature id")
     .option("--keys <keys>", "comma separated property names of csvProperty and space property")
     .option("--forward <forward>", "comma separated property names to be used for forward geocoding")
+    .option("--reverse", "reverse geocoding")
     .option("--suffix <suffix>", "comma separated suffix string to be used for forward geocoding")
     .option("--verbosity <verbosity>", "verbosity level to be used for forward geocoding")
     .option("-x, --lon [lon]", "longitude field name")
@@ -3244,10 +3286,6 @@ async function createGeocoderSpace(id:string, options:any){
         console.log("ERROR : Please specify file for upload");
         return;
     }
-    if(!options.forward && !options.reverse){
-        console.log("ERROR : Please specify either forward or reverse option");
-        return;
-    }
     if(options.forward && options.reverse){
         console.log("ERROR : Please specify only one option from forward or reverse");
         return;
@@ -3256,17 +3294,11 @@ async function createGeocoderSpace(id:string, options:any){
         console.log("ERROR : Please specify valid verbosity level - " + validVerbosityLevels);
         return;
     }
-    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
-    let apiKeys = await common.decryptAndGet("apiKeys");
-    const apiKeyArr = common.getSplittedKeys(apiKeys);
-    if(!apiKeyArr){
-        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
-                    "If already generated/enabled, please try again in a few minutes.");
-        process.exit(1);
-    }
-    const apiKey = apiKeyArr[1];
     let params : any = {};
-    params['apiKey'] = apiKey;
+    params['apiKey'] = await common.getLocalApiKey();;
+    if(!options.forward && !options.reverse){
+        params = await configureGeocodeInteractively(params);
+    }
     if(options.reverse){
         params['doReverseGeocode'] = true;
     }

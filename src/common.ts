@@ -27,7 +27,7 @@ import { requestAsync } from "./requestAsync";
 import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
 import getMAC from 'getmac';
-
+import { geoCodeString } from "./geocodeUtil";
 import {table,getBorderCharacters} from 'table';
 
 const fs = require('fs');
@@ -556,6 +556,19 @@ export function getSplittedKeys(inString: string) {
     } else {
         return null;
     }
+}
+
+export async function getLocalApiKey(){
+    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
+    let apiKeys = await decryptAndGet("apiKeys");
+    const apiKeyArr = getSplittedKeys(apiKeys);
+    if(!apiKeyArr){
+        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
+                    "If already generated/enabled, please try again in a few minutes.");
+        process.exit(1);
+    }
+    const apiKey = apiKeyArr[1];
+    return apiKey;
 }
 
 export async function getApiKeys(cookies: string, appId: string) {
