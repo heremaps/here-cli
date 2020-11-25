@@ -31,6 +31,7 @@ const prompter = require('prompt');
 
 
 program
+    .name('here configure')
     .version('0.1.0');
 
 /*

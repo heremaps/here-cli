@@ -28,6 +28,9 @@ import * as shapefile from "shapefile";
 import * as fs from "fs";
 import * as tmp from "tmp";
 const got = require('got');
+const pathLib = require('path');
+const XLSX = require('xlsx');
+import * as extract from "extract-zip";
 import * as readline from "readline";
 import { requestAsync } from "./requestAsync";
 import * as common from "./common";
@@ -35,6 +38,8 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
+import * as xyz from "./here-xyz";
+import { option } from "commander";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -47,10 +52,12 @@ export type FeatureCollection = {
     "features": Array<any>
 };
 
+let joinValueToFeatureIdMap: Map<string, string> = new Map();
+
 export function readShapeFile(path: string) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
         return new Promise<FeatureCollection>((resolve, reject) =>
-            tmp.file({ mode: 0o644, prefix: '', postfix: '.shp' }, function _tempFileCreated(err, tempFilePath, fd) {
+            tmp.file({ mode: 0o644, prefix: '', postfix: path.indexOf('.zip') !== -1 ? '.zip':'.shp' }, function _tempFileCreated(err, tempFilePath, fd) {
                 if (err)
                     reject(err);
 
@@ -71,29 +78,77 @@ export function readShapeFile(path: string) {
     }
 }
 
-async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
-    const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
-    let isPrjFilePresent : boolean = false;
-    let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
-    let prjFile: any = '';
-    if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
-        //console.log(prjFilePath + " file exists, using this file for crs transformation");
-        prjFile = await readDataFromFile(prjFilePath, false);
+export function readExcelFile(path: string) {
+    if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
+        return new Promise<FeatureCollection>((resolve, reject) =>
+            tmp.file({ mode: 0o644, prefix: '', postfix: path.indexOf('.xlsx') !== -1 ? '.xlsx':'.xls' }, function _tempFileCreated(err, tempFilePath, fd) {
+                if (err)
+                    reject(err);
+
+                const dest = fs.createWriteStream(tempFilePath);
+                dest.on('finish', function (err: any) {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(readExcelFileInternal(tempFilePath));
+                });
+                got.stream(path)
+                    .on('error', (err: any) => reject(err))
+                    .pipe(dest);
+            })
+        );
+    } else {
+        return readExcelFileInternal(path);
     }
-    const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
+}
 
-    while (true) {
-        const result = await source.read();
+function readExcelFileInternal(path: string): any{
+    const workbook = XLSX.readFile(path, {sheetStubs: true});
+    return workbook;
+}
 
-        if (result.done){
-            return fc;
+async function readShapeFileInternal(path: string): Promise<FeatureCollection> {
+    const tmpDir = tmp.dirSync({"unsafeCleanup": true});;
+    try {
+        if(path.lastIndexOf('.zip') !== -1){
+            await extract(path, {'dir':tmpDir.name});
+            const shpFiles = fs.readdirSync(tmpDir.name, { withFileTypes: true })
+                                   .filter(dirent => dirent.isFile() && dirent.name.slice(-4).indexOf(".shp") !== -1)
+                                   .map(dirent => dirent.name);
+            if(shpFiles.length > 1){
+                console.log("Error - more than one shapefiles detected in zip file");
+                process.exit(0);
+            } else if(shpFiles.length == 0){
+                console.log("Error - No shapefile detected in zip file");
+                process.exit(0);
+            }
+            path = pathLib.join(tmpDir.name, shpFiles[0]);
         }
-        let feature = result.value;
-        if(isPrjFilePresent && prjFile.toString().trim() != wgs84prjString.toString().trim()){
-            feature = convertFeatureToPrjCrs(prjFile, feature);
+        const fc: FeatureCollection = { "type": "FeatureCollection", "features": [] };
+        let isPrjFilePresent : boolean = false;
+        let prjFilePath = path.substring(0,path.lastIndexOf('.shp')) + ".prj";
+        let prjFile: any = '';
+        if (isPrjFilePresent = fs.existsSync(prjFilePath)) {
+            //console.log(prjFilePath + " file exists, using this file for crs transformation");
+            prjFile = await readDataFromFile(prjFilePath, false);
         }
-
-        fc.features.push(feature);
+        const source = await shapefile.open(path, undefined, { encoding: "UTF-8" });
+    
+        while (true) {
+            const result = await source.read();
+    
+            if (result.done){
+                return fc;
+            }
+            let feature = result.value;
+            if(isPrjFilePresent && prjFile.toString().trim() != wgs84prjString.toString().trim()){
+                feature = convertFeatureToPrjCrs(prjFile, feature);
+            }
+    
+            fc.features.push(feature);
+        }
+    } finally {
+        tmpDir.removeCallback();
     }
 }
 
@@ -306,6 +361,45 @@ export async function transform(result: any[], options: any) {
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
+            if(options.keys){
+                const propertyValue = ggson.properties[options.csvProperty];
+                if(joinValueToFeatureIdMap.has(propertyValue)){
+                    ggson.properties['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    ggson['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    result[i]['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    if(!joinValueToFeatureIdMap.get(propertyValue)){
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    }
+                } else {
+                    options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
+                    if(options.filter){
+                        options.search = options.search + '&p.' + options.filter;
+                    }
+                    let jsonOut = await xyz.getSpaceDataFromXyz(options.primarySpace, options);
+                    if (jsonOut.features && jsonOut.features.length === 0) {
+                        console.log("\nNo feature available for the required value - " + propertyValue);
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    } else {
+                        ggson.properties['id'] = jsonOut.features[0].id;
+                        ggson['id'] = jsonOut.features[0].id;
+                        result[i]['id'] = jsonOut.features[0].id;
+                    }
+                    joinValueToFeatureIdMap.set(propertyValue, result[i]['id']);
+                }
+                console.log("featureId for property " + propertyValue + " is - " + result[i]['id']);
+            }
             if(options.groupby){
                 let key = null;
                 if(options.id){
@@ -313,7 +407,7 @@ export async function transform(result: any[], options: any) {
                 } else {
                     key = result[i]['id'];
                 }
-                if(!key){
+                if(!key && !options.keys){
                     console.log("'groupby' option requires 'id' field and id is not present in record  - " + JSON.stringify(ggson));
                     process.exit(1);
                 }
@@ -333,13 +427,27 @@ export async function transform(result: any[], options: any) {
                         value.properties['id'] = properties['id'];
                     }
                     value.properties["@ns:com:here:xyz"] = properties["@ns:com:here:xyz"];
-                    value.properties[options.groupby] = {};
+                    if(!options.flatten){
+                        value.properties[options.groupby] = {};
+                    }
                     objects.set(key,value);
                 }
                 delete properties[options.groupby];
                 delete properties[options.id];
                 delete properties["@ns:com:here:xyz"];
-                value.properties[options.groupby][result[i][options.groupby]] = properties;
+                if(options.promote){
+                    options.promote.split(',').forEach((key: string) => {
+                        value.properties[key] = properties[key];
+                        delete properties[key];
+                    });
+                }
+                if(options.flatten){
+                    Object.keys(properties).forEach(key => {
+                        value.properties[options.groupby + ":" + result[i][options.groupby] + ":" + key] = properties[key];
+                    });
+                } else {
+                    value.properties[options.groupby][result[i][options.groupby]] = properties;
+                }
             } else {
                 objects.set(i,ggson);
             }
@@ -443,7 +551,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
                 lon = object[options.lon];
             }
         }
-        if(options.askUserForId && !options.id && !object['id']){
+        if(options.askUserForId && !options.id && !object['id'] && !options.keys){
             let choiceList = createQuestionsList(object);
             const questions = [
                 {
@@ -457,7 +565,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             console.log("new featureID field selected - " + idAnswer.idChoice);
             options.id = idAnswer.idChoice;
         }
-        if(options.groupby && !options.id && !object['id']){
+        if(options.groupby && !options.id && !object['id'] && !options.keys){
             console.log("'groupby' option requires 'id' field to be defined in csv");
             process.exit(1);
         }
@@ -472,7 +580,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             props["@ns:com:here:xyz"]["tags"] = ['invalid'];
         }
     }
-    return { type: "Feature", geometry: geometry, properties: props };
+    return { type: "Feature", geometry: geometry, properties: props, id: object['id']};
 }
 
 function createQuestionsList(object: any) {
@@ -662,15 +770,15 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
             },function end () {
                 if(dataArray.length >0){
                     isGeoJson = true;
-                    (async()=>{
-                        const queue = await streamFuntion(dataArray);
-                        await queue.shutdown();
-                        options.totalCount = queue.uploadCount;
-                        console.log("");
-                        dataArray=new Array<any>();
-                        resolve();
-                    })();
                 }
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
+                    console.log("");
+                    dataArray=new Array<any>();
+                    resolve();
+                })();
 
                 if(!isGeoJson){
                     fileStream = fs.createReadStream(path, {encoding: 'utf8'});
@@ -696,17 +804,17 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                         }
                         return data;
                     },function end () {
-                        if(dataArray.length >0){
-                            (async()=>{
+                        (async()=>{
+                            if(dataArray.length >0){
                                 dataArray = await transform(dataArray, options);
-                                const queue = await streamFuntion(dataArray);
-                                await queue.shutdown();
-                                options.totalCount = queue.uploadCount;
-                                console.log("");
-                                dataArray=new Array<any>();
-                                resolve();
-                            })();
-                        }
+                            }
+                            const queue = await streamFuntion(dataArray);
+                            await queue.shutdown();
+                            options.totalCount = queue.uploadCount;
+                            console.log("");
+                            dataArray=new Array<any>();
+                            resolve();
+                        })();
                     }));
                 }
             }));

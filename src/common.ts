@@ -158,7 +158,7 @@ export async function loginFlow(email: string, password: string) {
             let appCode = appIdAppCodeMap[appId];
             await updateDefaultAppId(cookieData, hereAccountID, appId, updateTC === false).catch(err => {throw err});
             await updatePlanDetails(appsData);
-            await generateToken(cookieData, appId).catch(err => {throw err});
+            await generateTokenAndStoreIt(cookieData, appId, {}).catch(err => {throw err});//{} as urm so that its full rights as per policy even when it changes at later stage
             await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
             await encryptAndStore('apiKeys', appId).catch(err => {throw err});
             console.log('Default App Selected - ' + appId);
@@ -173,8 +173,11 @@ export async function loginFlow(email: string, password: string) {
 export async function refreshAccount(fullRefresh = false) {
     const accountInfo: string = await decryptAndGet("accountInfo", "Please run `here configure` command.");
     const appDataStored: string = await decryptAndGet("appDetails");
-    const appDetails = appDataStored.split("%%");
-    const credentials = accountInfo.split("%%");
+    const appDetails = getSplittedKeys(appDataStored);
+    const credentials = getSplittedKeys(accountInfo);
+    if(!appDetails || !credentials){
+        throw new Error("Error while refreshing Account, please use 'here configre'");
+    }
 
     try {
         if(fullRefresh) {
@@ -183,7 +186,7 @@ export async function refreshAccount(fullRefresh = false) {
             const mainCoookie = await hereAccountLogin(credentials[0], credentials[1]);
             const accountMeStr = await getAppIds(mainCoookie);
             const accountMe = JSON.parse(accountMeStr);
-            const newtoken = await generateToken(mainCoookie, appDetails[0]);
+            const newtoken = await generateTokenAndStoreIt(mainCoookie, appDetails[0], {});//{} as urm so that its full rights as per policy even when it changes at later stage
             if (newtoken) {
                 await updatePlanDetails(accountMe);
                 console.log("Successfully refreshed account!");
@@ -228,13 +231,26 @@ function rightsRequest(appId: string) {
     };
 }
 
+export async function createReadOnlyToken(spaceIds: string[], isPermanent: boolean){
+    const appDataStored: string = await decryptAndGet("appDetails");
+    const keys = getSplittedKeys(appDataStored);
+    const appId = keys ? keys[0] : '';
+    const cookie = await getCookieFromStoredCredentials();
+    let expirationTime : number = 0;
+    if(!isPermanent){
+        expirationTime = Math.round((new Date().getTime())/1000) + (48*60*60); 
+    }
+    const token = await sso.fetchToken(cookie, await readOnlySpaceRightsRequest(spaceIds), appId, expirationTime);
+    return token.tid;
+}
+
 function getMacAddress() {
     return getMAC();
 }
 
 export async function login(authId: string, authSecret: string) {
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/token?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
+        url: xyzRoot() + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
         json: rightsRequest(authId),
         responseType: "json"
@@ -257,28 +273,24 @@ export async function hereAccountLogin(email: string, password: string) {
     return mainCookie;
 }
 
-export async function generateToken(mainCookie:string, appId : string) {
-    const maxRights = await sso.fetchMaxRights(mainCookie);
-    const token = await sso.fetchToken(mainCookie, maxRights, appId);
+export async function generateTokenAndStoreIt(mainCookie:string, appId : string, urm: any) {
+    const token = await sso.fetchToken(mainCookie, urm, appId);
     encryptAndStore('keyInfo', token.tid);
-    await generateROToken(mainCookie, JSON.parse(maxRights), appId);
+    encryptAndStore("accountId",token.aid);
     return token;
 }
 
-function readOnlyRightsRequest(maxRights:any) {
+async function readOnlySpaceRightsRequest(spaceIds:string[]) {
+    const aid = await getAccountId();
     return {
           "xyz-hub": {
-            "readFeatures": maxRights['xyz-hub'].readFeatures,
+            "readFeatures": spaceIds.map(id => { return {space: id, owner: aid}}), 
             "useCapabilities": [{
             }],
             "accessConnectors": [{
             }]
           }
     };
-}
-export async function generateROToken(mainCookie:string, maxRights:any, appId : string) {
-    const token = await sso.fetchToken(mainCookie, JSON.stringify(readOnlyRightsRequest(maxRights)), appId);
-    encryptAndStore('roKeyInfo', token.tid);
 }
 
 export async function getAppIds(cookies: string) {
@@ -362,6 +374,37 @@ async function getTokenInformation(tokenId: string){
     return response.body;
 }
 
+export async function getTokenList(){
+    const cookie = await getCookieFromStoredCredentials();
+    const options = {
+        url: xyzRoot() + "/token-api/tokens",
+        method: "GET",
+        headers: {
+            Cookie: cookie
+        }
+    };
+
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299) {
+        throw new Error("Error while fetching tokens :" + response.body);
+    }
+    const tokenInfo = JSON.parse(response.body);
+    return tokenInfo;
+}
+
+export async function getCookieFromStoredCredentials(){
+    const dataStr = await decryptAndGet(
+        "accountInfo",
+        "No here account configure found. Try running 'here configure account'"
+    );
+    const appInfo = getSplittedKeys(dataStr);
+    if (!appInfo) {
+        throw new Error("Account information out of date. Please re-run 'here configure'");
+    }
+    const cookie = await sso.executeWithCookie(appInfo[0], appInfo[1]);
+    return cookie;
+}
+
 export async function encryptAndStore(key: string, toEncrypt: string) {
     const secretKey = await getMacAddress();
     const ciphertext = CryptoJS.AES.encrypt(toEncrypt, secretKey);
@@ -406,13 +449,13 @@ export async function verify(readOnly: boolean = false) {
 export function validate(commands: string[], args: string[], program: any) {
     if (!args || args.length === 0) {
         console.log("Invalid command 1 :");
-        program.help();
+        program.commandHelp();
     } else {
         if (args[0] == "help" || args[0] == "--help" || args[0] == "-h" || args[0] == "-help") {
-            program.help();
+            program.commandHelp();
         } else if (!commands.includes(args[0])) {
             console.log("Invalid command '" + args[0] + "'");
-            program.help();
+            program.commandHelp();
         }
     }
 }
@@ -579,13 +622,6 @@ export function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
     }
 }
 
-export async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
-    if (!token) {
-        token = await verify();
-    }
-    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
-}
-
 export async function execInternal(
     uri: string,
     method: string,
@@ -635,6 +671,16 @@ export async function execInternal(
     return response;
 }
 
+function gzip(data: zlib.InputType): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) =>
+        zlib.gzip(data, (error, result) => {
+            if (error)
+                reject(error)
+            else
+                resolve(result);
+        })
+    );
+}
 
 async function execInternalGzip(
     uri: string,
@@ -669,6 +715,46 @@ async function execInternalGzip(
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
             response = await execInternalGzip(uri, method, contentType, data, token, --retry);
+        } else if (response.statusCode == 413 && typeof data === "string"){
+            let jsonData = JSON.parse(data);
+            if(jsonData.type && jsonData.type === "FeatureCollection") {
+                if(jsonData.features.length > 1){
+                    console.log("\nuploading chunk size of " + jsonData.features.length + " features failed with 413 Request Entity too large error, trying upload again with smaller chunk of " + Math.ceil(jsonData.features.length / 2));
+                    const half = Math.ceil(jsonData.features.length / 2);    
+                    const firstHalf = jsonData.features.splice(0, half)
+                    const firstHalfString = JSON.stringify({ type: "FeatureCollection", features: firstHalf }, (key, value) => {
+                        if (typeof value === 'string') {
+                            return value.replace(/\0/g, '');
+                        }
+                        return value;
+                    });
+                    response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
+                    const secondHalf = jsonData.features.splice(-half);
+                    const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
+                        if (typeof value === 'string') {
+                            return value.replace(/\0/g, '');
+                        }
+                        return value;
+                    });
+                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
+                    if(secondResponse.body.features) {
+                        response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
+                    }
+                    if(secondResponse.body.failed) {
+                        response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
+                    }
+                } else {
+                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry to reduce its size");
+                    response = {
+                        statusCode:200,
+                        body:{
+                            failed:jsonData.features
+                        }
+                    }
+                }
+            } else {
+                throw new ApiError(response.statusCode, response.body);
+            }
         } else {
             //   throw new Error("Invalid response :" + response.statusCode);
             throw new ApiError(response.statusCode, response.body);
@@ -677,13 +763,9 @@ async function execInternalGzip(
     return response;
 }
 
-function gzip(data: zlib.InputType): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) =>
-        zlib.gzip(data, (error, result) => {
-            if (error)
-                reject(error)
-            else
-                resolve(result);
-        })
-    );
+export async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
+    if (!token) {
+        token = await verify();
+    }
+    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
 }
