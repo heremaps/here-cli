@@ -2962,38 +2962,42 @@ async function showExistingApprovals(){
             choiceList.push({name: sharingApproval.spaceId + ' ' + sharingApproval.emailId, value: sharingApproval.id});
         }
     }
-    const approvalSelectionPrompt = [
-        {
-            type: "list",
-            name: "sharingId",
-            message: "Select sharing request for approval",
-            choices: choiceList
-        },
-        {
-            type: "list",
-            name: "verdict",
-            message: "Please select your decision",
-            choices: [{name:'accept', value: 'accept'}, {name:'reject', value: 'reject'}]
-        }
-    ];
-    const answer: any = await inquirer.prompt(approvalSelectionPrompt);
-    const sharingId = answer.sharingId;
-    const verdict = answer.verdict;
-    let urm;
-    if(verdict === 'accept'){
-        const rightsSelectionPrompt = [
+    if(choiceList.length === 0){
+        console.log("No approvals pending.");
+    } else {
+        const approvalSelectionPrompt = [
             {
-                type: "checkbox",
-                name: "urm",
-                message: "Select the rights for the sharing",
-                choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
+                type: "list",
+                name: "sharingId",
+                message: "Select sharing request for approval",
+                choices: choiceList
+            },
+            {
+                type: "list",
+                name: "verdict",
+                message: "Please select your decision",
+                choices: [{name:'accept', value: 'accept'}, {name:'reject', value: 'reject'}]
             }
         ];
-        const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
-        urm = rightsAnswer.urm;
+        const answer: any = await inquirer.prompt(approvalSelectionPrompt);
+        const sharingId = answer.sharingId;
+        const verdict = answer.verdict;
+        let urm;
+        if(verdict === 'accept'){
+            const rightsSelectionPrompt = [
+                {
+                    type: "checkbox",
+                    name: "urm",
+                    message: "Select the rights for the sharing",
+                    choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
+                }
+            ];
+            const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
+            urm = rightsAnswer.urm;
+        }
+        await common.putSharingApproval(sharingId, verdict, urm);
+        console.log("sharing request " + sharingId + " " + verdict + "ed successfully");
     }
-    await common.putSharingApproval(sharingId, verdict, urm);
-    console.log("sharing request " + sharingId + " " + verdict + "ed successfully");
 }
 
 program
