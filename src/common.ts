@@ -394,6 +394,44 @@ export async function getExistingSharing(){
     return response.body;
 }
 
+export async function deleteSharing(sharingId: string){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharing/${sharingId}`,
+        method : 'DELETE',
+        headers : {
+            "Cookie": cookie
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while deleting sharing: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function deleteSharingRequest(sharingRequestId: string){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharingRequest/${sharingRequestId}`,
+        method : 'DELETE',
+        headers : {
+            "Cookie": cookie
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while deleting sharingRequest: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
 export async function getExistingApprovals(){
     if(!cookie){
         cookie = await getCookieFromStoredCredentials();
@@ -432,6 +470,28 @@ export async function putSharingApproval(sharingId: string, verdict:string, urm:
     const response = await requestAsync(options);
     if (response.statusCode < 200 || response.statusCode > 299){
         throw new Error("Error while putting sharing Approval: " + JSON.stringify(response.body));
+    }
+    return response.body;
+}
+
+export async function modifySharingRights(sharingId: string, urm: string[]){
+    if(!cookie){
+        cookie = await getCookieFromStoredCredentials();
+    }
+    var options = {
+        url : xyzRoot()+`/account-api/sharing/${sharingId}`,
+        method : 'PATCH',
+        headers : {
+            "Cookie": cookie
+        },
+        json : {
+            urm: urm
+        },
+        responseType: "json"
+    }
+    const response = await requestAsync(options);
+    if (response.statusCode < 200 || response.statusCode > 299){
+        throw new Error("Error while Patching sharing: " + JSON.stringify(response.body));
     }
     return response.body;
 }
