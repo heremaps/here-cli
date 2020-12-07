@@ -129,8 +129,23 @@ const sharingQuestion = [
     {
         type: "list",
         name: "sharingChoice",
-        message: "Please select the input",
-        choices: [{name: 'request a new sharing for a space', value: 'newSharing'}, {name: 'view existing sharing requests', value: 'request'}, {name: 'view existing sharing approvals', value: 'approval'}, {name: 'view your existing shared spaces', value: 'sharing'}]
+        message: "Please select the shared spaces option",
+        choices: [{name: 'request access to a space', value: 'newSharing'}, {name: 'list spaces you requested', value: 'request'}, {name: 'approve the requests of others', value: 'approval'}, {name: 'list spaces you are sharing', value: 'sharing'},{name: 'modify/revoke your sharing', value:'modifySharing'}]
+    }
+];
+
+const sharingModifyQuestion = [
+    {
+        type: "list",
+        name: "sharingId",
+        message: "Please select the sharing you want to revoke/modfiy",
+        choices: choiceList
+    },
+    {
+        type: "list",
+        name: "action",
+        message: "Please select the action",
+        choices: [{name: 'Revoke', value:'revoke'},{name: 'Modify', value:'modify'}]
     }
 ];
 
@@ -2897,9 +2912,9 @@ function showSpaceConfig(spacedef: any) {
 program
     .command("sharing")
     .description("configure/view sharing information for Data Hub spaces")
-    .option("--request", "view and configure existing data hub space sharing requests")
-    .option("--spaceId <spaceId>", "request for data hub space sharing, use this with --request option")
+    .option("--request [request]", "view and configure existing data hub space sharing requests")
     .option("--approval", "view and configure existing data hub space approval requests")
+    .option("--retract <retract>", "retract the sharing space request")
     .action(async function (options) {
         try{
             await common.verifyProLicense();
@@ -2907,27 +2922,42 @@ program
                 console.log("ERROR : Only one of the --request or --approval option allowed");
                 return;
             }
-            if(!options.request && options.spaceId){
-                console.log("ERROR : --spaceId option requires --request option as well");
-                return;
-            }
             if(!options.request && !options.approval){
                 const answer: any = await inquirer.prompt(sharingQuestion);
                 const result = answer.sharingChoice;
                 if(result === 'newSharing'){
                     const spaceIdAnswer: any = await inquirer.prompt(sharingSpaceQuestion);
-                    options.spaceId = spaceIdAnswer.sharingSpaceId;
-                    options.request = true;
+                    if(spaceIdAnswer.sharingSpaceId == ''){
+                        console.log("ERROR : Please enter a valid spaceId");
+                        return;
+                    }
+                    options.request = spaceIdAnswer.sharingSpaceId;
                 } else if(result === 'request') {
                     options.request = true;
                 } else if(result === 'approval'){
                     options.approval = true;
                 } else if(result == 'sharing'){
                     await showExistingSharings();
+                } else if(result == 'modifySharing'){
+                    let existingSharings = await common.getExistingSharing();
+                    for(let sharing of existingSharings){
+                        choiceList.push({name: sharing.spaceId + ' ' + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
+                    }
+                    const sharingAnswer: any = await inquirer.prompt(sharingModifyQuestion);
+                    const action = sharingAnswer.action;
+                    const sharingId = sharingAnswer.sharingId;
+                    if(action == 'revoke'){
+                        await common.deleteSharing(sharingId);
+                        console.log("Sharing revoked successfully");
+                    } else if(action == 'modify'){
+                        const urm = await askSharingRightsQuestion();
+                        await common.modifySharingRights(sharingId, urm);
+                        console.log("Sharing rights modified successfully");
+                    }
                 }
             }
             if(options.request){
-                if(options.spaceId){
+                if(options.request != true){
                     const newSharingRequest = await common.createNewSharingRequest(options.spaceId);
                     console.log("New sharing request created with id - " + newSharingRequest.id);
                 } else {
@@ -2935,6 +2965,24 @@ program
                 }
             } else if(options.approval){
                 await showExistingApprovals();
+            } else if(options.retract){
+                let sharingRequests = await common.getSharingRequests();
+                let status = null;
+                for(let sharingRequest of sharingRequests){
+                    if(sharingRequest.id == options.retract){
+                        status = sharingRequest.status;
+                        break;
+                    }
+                }
+                if(!status){
+                    console.log("Sharing request with id " + options.retract + " does not exist. Please give valid sharingId");
+                    return;
+                } else if(status == 'ACCEPTED'){
+                    await common.deleteSharing(options.retract);
+                } else {
+                    await common.deleteSharingRequest(options.retract);
+                }
+                console.log("Sharing request retracted successfully");
             }
         } catch(error) {
             console.log(error.statusCode);
@@ -2984,20 +3032,29 @@ async function showExistingApprovals(){
         const verdict = answer.verdict;
         let urm;
         if(verdict === 'accept'){
-            const rightsSelectionPrompt = [
-                {
-                    type: "checkbox",
-                    name: "urm",
-                    message: "Select the rights for the sharing",
-                    choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
-                }
-            ];
-            const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
-            urm = rightsAnswer.urm;
+            urm = await askSharingRightsQuestion();
         }
         await common.putSharingApproval(sharingId, verdict, urm);
         console.log("sharing request " + sharingId + " " + verdict + "ed successfully");
     }
+}
+
+async function askSharingRightsQuestion(){
+    const rightsSelectionPrompt = [
+        {
+            type: "checkbox",
+            name: "urm",
+            message: "Select the rights for the sharing",
+            choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
+        }
+    ];
+    const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
+    const urm = rightsAnswer.urm;
+    if(urm.length === 0){
+        console.log("ERROR : Please select atleast one right for sharing approval");
+        process.exit(1);
+    }
+    return urm;
 }
 
 program
