@@ -2958,7 +2958,7 @@ program
             }
             if(options.request){
                 if(options.request != true){
-                    const newSharingRequest = await common.createNewSharingRequest(options.spaceId);
+                    const newSharingRequest = await common.createNewSharingRequest(options.request);
                     console.log("New sharing request created with id - " + newSharingRequest.id);
                 } else {
                     await showExistingSharingRequests();
