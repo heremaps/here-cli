@@ -45,7 +45,7 @@ import * as moment from 'moment';
 import * as glob from 'glob';
 import { option } from "commander";
 
-let hexbin = require('./hexbin');
+import * as hexbin from "./hexbin";
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 const h3ZoomLevelResolutionMap = require('./h3ZoomLevelResolutionMap.json');
 let choiceList: { name: string, value: string }[] = [];
@@ -806,7 +806,7 @@ program
                             //(async () => {
                             //console.log("Creating hexbins for the space data with size " + cellsize);
                             let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
-                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.aggregate, options.latitude, hexFeatures);
+                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.aggregate, options.latitude,options.h3, hexFeatures);
                             cellSizeHexFeaturesMap.set(cellsize, hexFeatures);
                             //console.log("uploading the hexagon grids to space with size " + cellsize);
                         }
@@ -910,6 +910,7 @@ program
                         //}
                         options.file = tmpObj.name;
                         options.override = true;
+                        options.stream = true;
                         await uploadToXyzSpace(id, options);
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
@@ -933,6 +934,7 @@ program
                         //}
                         options.file = tmpObj.name;
                         options.override = true;
+                        options.stream = true;
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {

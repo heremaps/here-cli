@@ -38,7 +38,7 @@ for (let i = 0; i < 6; i++) {
 }
 const hexagonAngle = 0.523598776; //30 degrees in radians
 
-function getHexBin(point: number[], cellSize: number, isMeters: boolean){
+export function getHexBin(point: number[], cellSize: number, isMeters: boolean){
     let degreesCellSize;
     if(isMeters){
         degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(point[1] * Math.PI / 180));
@@ -182,7 +182,7 @@ function hexagon(center:number[], rx:number, ry:number, properties:any, cosines:
     return feature;
 }
 
-function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, useH3Library: boolean = false,  existingHexFeatures:any[]){
+export function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, useH3Library: boolean,  existingHexFeatures:any[]){
     let gridMap: any={};
     let maxCount = 0;
     let maxSum = 0;
@@ -238,8 +238,13 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
             x = getHexBin(point, degreesCellSize, false);
         }
         if (x) {
-          let gridId = common.md5Sum(JSON.stringify(x.geometry));
-          x.id = gridId;
+          let gridId;
+          if(useH3Library){
+            gridId = x.id;
+          } else {
+            gridId = common.md5Sum(JSON.stringify(x.geometry));
+            x.id = gridId;
+          }
           if (!x.properties) {
             x.properties = {};
             x.properties['count'] = 0;
@@ -361,5 +366,3 @@ features.push(result);
 let featureCollection = {'type':'FeatureCollection','features':features};
 console.log(JSON.stringify(featureCollection, null, 2));
 */
-module.exports.getHexBin = getHexBin;
-module.exports.calculateHexGrids = calculateHexGrids;
