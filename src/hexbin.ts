@@ -209,7 +209,6 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     //let minCount = Number.MAX_SAFE_INTEGER;
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
-        console.log(feature);
       if (feature.geometry != null && feature.geometry.type != null && (feature.geometry.type.toLowerCase() === 'point' || feature.geometry.type.toLowerCase() === 'linestring' || feature.geometry.type.toLowerCase() === 'multilinestring')) {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
@@ -223,7 +222,7 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
                 points = feature.geometry.coordinates;
             } else if(feature.geometry.type.toLowerCase() === 'multilinestring'){
                 for(const line of feature.geometry.coordinates){
-                    points.concat(line);
+                    points = points.concat(line);
                 }
             }
             if(points.length > 2){
