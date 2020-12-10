@@ -55,6 +55,7 @@ function getH3HexBin(point: number[], cellSize: number){
     const hexCenter = h3.h3ToGeo(h3Index); 
     let hexFeature = geojson2h3.h3ToFeature(h3Index);
     hexFeature.properties.centroid = [hexCenter[1], hexCenter[0]];
+    hexFeature.id = h3Index;
     return hexFeature;
 }
 
@@ -208,7 +209,8 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     //let minCount = Number.MAX_SAFE_INTEGER;
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
-      if (feature.geometry != null && feature.geometry.type != null && (feature.geometry.type.toLowerCase() === 'point' || feature.geometry.type.toLowerCase() === 'linestring')) {
+        console.log(feature);
+      if (feature.geometry != null && feature.geometry.type != null && (feature.geometry.type.toLowerCase() === 'point' || feature.geometry.type.toLowerCase() === 'linestring' || feature.geometry.type.toLowerCase() === 'multilinestring')) {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
         let x;
@@ -216,11 +218,19 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
         if(feature.geometry.type.toLowerCase() === 'point'){
             point = feature.geometry.coordinates;
         } else {
-            if(feature.geometry.coordinates.length > 2){
-                point = feature.geometry.coordinates[Math.round(feature.geometry.coordinates.length/2)];
+            let points: number[][] = [];
+            if(feature.geometry.type.toLowerCase() === 'linestring'){
+                points = feature.geometry.coordinates;
+            } else if(feature.geometry.type.toLowerCase() === 'multilinestring'){
+                for(const line of feature.geometry.coordinates){
+                    points.concat(line);
+                }
+            }
+            if(points.length > 2){
+                point = points[Math.round(points.length/2)];
             } else {
-                point[0] = (feature.geometry.coordinates[0][0] + feature.geometry.coordinates[1][0]) / 2;
-                point[1] = (feature.geometry.coordinates[0][1] + feature.geometry.coordinates[1][1]) / 2;
+                point[0] = (points[0][0] + points[1][0]) / 2;
+                point[1] = (points[0][1] + points[1][1]) / 2;
             }
         }
         if(useH3Library){

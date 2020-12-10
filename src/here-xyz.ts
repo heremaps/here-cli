@@ -515,7 +515,6 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                     uri = uri + "&tags=" + options.tags;
                 }
             }
-            console.log(uri);
             return uri;
         };
         if (!options.totalRecords) {
@@ -892,7 +891,11 @@ program
 
                         let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
-                        options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
+                        if(options.h3){
+                            options.tags = 'hexbin_' + cellsize + ',h3_' + cellsize + ',hexbin,h3';
+                        } else {
+                            options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
+                        }
                         if (options.zoomLevels) {
                             let zoomNumber;
                             if(options.h3){
@@ -911,7 +914,11 @@ program
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
-                        options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
+                        if(options.h3){
+                            options.tags = 'centroid_' + cellsize + ',h3_' + cellsize + ',centroid,h3';
+                        } else {
+                            options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
+                        }
                         if (options.zoomLevels) {
                             let zoomNumber;
                             if(options.h3){
