@@ -703,7 +703,7 @@ program
                                     process.exit(1);
                                 }
                                 if(options.h3){
-                                    cellSizes.push(number);
+                                    cellSizes.push(parseInt(h3ZoomLevelResolutionMap[number]));
                                 } else {
                                     cellSizes.push(parseInt(zoomLevelsMap[number]));
                                 }
@@ -719,7 +719,7 @@ program
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
                                     if(options.h3){
-                                        cellSizes.push(i);
+                                        cellSizes.push(parseInt(h3ZoomLevelResolutionMap[i]));
                                     } else {
                                         cellSizes.push(parseInt(zoomLevelsMap[i]));
                                     }
@@ -737,7 +737,7 @@ program
                                     console.error(`hexbin creation failed: resolution input "${resolution[0]}" is not a valid between 1-15`);
                                     process.exit(1);
                                 }
-                                cellSizes.push(parseInt(h3ZoomLevelResolutionMap[number]));
+                                cellSizes.push(number);
                             } else if (resolution.length !== 2) {
                                 console.error(`hexbin creation failed: resolution input "${item}" is not a valid sequence`);
                                 process.exit(1);
@@ -749,7 +749,7 @@ program
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
-                                    cellSizes.push(parseInt(h3ZoomLevelResolutionMap[i]));
+                                    cellSizes.push(i);
                                 }
                             }
                         }
