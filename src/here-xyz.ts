@@ -892,7 +892,7 @@ program
                         let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
                         if(options.h3){
-                            options.tags = 'hexbin_' + cellsize + ',h3_' + cellsize + ',hexbin,h3';
+                            options.tags = 'hexbin_h3_' + cellsize + ',h3_' + cellsize + ',hexbin,h3';
                         } else {
                             options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
                         }
@@ -916,7 +916,7 @@ program
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
                         if(options.h3){
-                            options.tags = 'centroid_' + cellsize + ',h3_' + cellsize + ',centroid,h3';
+                            options.tags = 'centroid_h3_' + cellsize + ',h3_' + cellsize + ',centroid,h3';
                         } else {
                             options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
                         }
