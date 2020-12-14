@@ -691,7 +691,8 @@ program
                     process.exit(1);
                 }
 
-                let cellSizes: number[] = [];
+                let cellSizes = new Set<number>();
+                let zoomNumbers: number[] = [];
                 if (options.zoomLevels) {
                     options.zoomLevels.split(",").forEach(function (item: string) {
                         if (item && item != "") {
@@ -703,10 +704,11 @@ program
                                     process.exit(1);
                                 }
                                 if(options.h3){
-                                    cellSizes.push(parseInt(h3ZoomLevelResolutionMap[number]));
+                                    cellSizes.add(parseInt(h3ZoomLevelResolutionMap[number]));
                                 } else {
-                                    cellSizes.push(parseInt(zoomLevelsMap[number]));
+                                    cellSizes.add(parseInt(zoomLevelsMap[number]));
                                 }
+                                zoomNumbers.push(number);
                             } else if (zoomLevels.length !== 2) {
                                 console.error(`hexbin creation failed: zoom level input "${item}" is not a valid sequence`);
                                 process.exit(1);
@@ -719,10 +721,11 @@ program
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
                                     if(options.h3){
-                                        cellSizes.push(parseInt(h3ZoomLevelResolutionMap[i]));
+                                        cellSizes.add(parseInt(h3ZoomLevelResolutionMap[i]));
                                     } else {
-                                        cellSizes.push(parseInt(zoomLevelsMap[i]));
+                                        cellSizes.add(parseInt(zoomLevelsMap[i]));
                                     }
+                                    zoomNumbers.push(i);
                                 }
                             }
                         }
@@ -737,7 +740,7 @@ program
                                     console.error(`hexbin creation failed: resolution input "${resolution[0]}" is not a valid between 1-15`);
                                     process.exit(1);
                                 }
-                                cellSizes.push(number);
+                                cellSizes.add(number);
                             } else if (resolution.length !== 2) {
                                 console.error(`hexbin creation failed: resolution input "${item}" is not a valid sequence`);
                                 process.exit(1);
@@ -749,7 +752,7 @@ program
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
-                                    cellSizes.push(i);
+                                    cellSizes.add(i);
                                 }
                             }
                         }
@@ -766,11 +769,11 @@ program
                                 console.error(`hexbin creation failed: cellsize input "${item}" is not a valid number`);
                                 process.exit(1);
                             }
-                            cellSizes.push(number);
+                            cellSizes.add(number);
                         }
                     });
                 } else {
-                    cellSizes.push(2000);
+                    cellSizes.add(2000);
                 }
                 if (!options.latitude) {
                     options.latitude = await getCentreLatitudeOfSpace(id, options.readToken);
@@ -877,14 +880,16 @@ program
                         let logStat = "uploading the hexagon grids to space with " + (options.h3 ? "resolution ":"size ") + cellsize;
                         cellSizeSet.add(cellsize + "");
                         if (options.zoomLevels) {
-                            let zoomNumber;
+                            let zoomNumberArr;
                             if(options.h3){
-                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
                             } else {
-                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
                             }
-                            logStat += " / zoom Level " + zoomNumber;
-                            zoomLevelSet.add(zoomNumber + "");
+                            for(const zoomNumber of zoomNumberArr) {
+                                logStat += " / zoom Level " + zoomNumber;
+                                zoomLevelSet.add(zoomNumber + "");
+                            }
                         }
                         console.log(logStat);
                         //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
@@ -896,14 +901,16 @@ program
                         } else {
                             options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
                         }
-                        if (options.zoomLevels) {
-                            let zoomNumber;
+                        if (options.zoomLevels || options.h3) {
+                            let zoomNumberArr;
                             if(options.h3){
-                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
                             } else {
-                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
                             }
-                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+                            for(const zoomNumber of zoomNumberArr){
+                                options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+                            }
                         }
                         //if(options.destSpace){
                         options.tags += ',' + sourceId;
@@ -920,14 +927,16 @@ program
                         } else {
                             options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
                         }
-                        if (options.zoomLevels) {
-                            let zoomNumber;
+                        if (options.zoomLevels || options.h3) {
+                            let zoomNumberArr;
                             if(options.h3){
-                                zoomNumber = getKeyByValue(h3ZoomLevelResolutionMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
                             } else {
-                                zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
                             }
-                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                            for(const zoomNumber of zoomNumberArr){
+                                options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                            }
                         }
                         //if(options.destSpace){
                         options.tags += ',' + sourceId;
@@ -1013,6 +1022,10 @@ export async function getSpaceMetaData(id: string, token: string | null = null) 
 
 function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
+}
+
+function getKeyArrayByValue(object: any, value: any) {
+    return Object.keys(object).filter(key => object[key] === value);
 }
 
 async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = null) {
@@ -3986,8 +3999,9 @@ program
     .option("--length", "calculates length of LineString features")
     .option("--area", "calculates area of Polygon features")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
-    .option("--tin", "calculates Delaunay Polygons of point features and uploads in different space")
-    .option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
+    .option("--delaunay", "calculates Delaunay Polygons of point features and uploads in different space")
+    .option("--neighbours", "calculates Delaunay neighbours of each point feature and store the ids in the xyz_delaunay_neighbours array")
+    //.option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
     .option("-c, --chunk [chunk]", "chunk size, default 20 -- default for polygons, increase for faster point feature uploads")
     .option("-t, --tags <tags>", "source space tags to filter on")
     .option("--samespace", "option to upload centroids/voronoi/tin to same space, use tags to filter")
