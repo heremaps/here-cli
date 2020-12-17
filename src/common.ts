@@ -848,7 +848,7 @@ export async function execInternal(
         "Content-Type": contentType,
         "App-Name": "HereCLI"
     };
-    if(isApiServerXyz() || setAuthorization){
+    if(isApiServerXyz()){
         headers["Authorization"] = "Bearer " + token;
     }
     const reqJson = {

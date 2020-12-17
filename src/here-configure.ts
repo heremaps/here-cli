@@ -97,7 +97,7 @@ program
 
 program
     .command('server <apiServerUrl>')
-    .description('set other apiServer Url for e.g. https://localhost:8080')
+    .description('set other apiServer Url for e.g. http://localhost:8080')
     .action(function (apiServerUrl:string, options:any) {
         common.setApiServerUrl(apiServerUrl);
     });
