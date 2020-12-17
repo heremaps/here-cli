@@ -50,12 +50,8 @@ const tableConsole = require("console.table");
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
-/*
 export const xyzRoot = () => "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
-*/
-export const xyzRoot = () => "https://xyz.sit.cpdev.aws.in.here.com";
-const account_api_url = 'https://st.p.account.here.com/authentication/v1.1';
 
 export const keySeparator = "%%";
 
