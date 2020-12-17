@@ -51,6 +51,9 @@ describe('Configure', function () {
         file: function (a) {
           return {
             get: function (keyName) {
+              if(keyName == 'apiServerUrl'){
+                return "http://localhost:3578";
+              }
               return "testing";
             },
             set: function () {
@@ -101,8 +104,8 @@ describe('Configure', function () {
       // const configure = rewire('../bin/here-configure');
       // const setAuth = configure.__get__('setAuth');
       // console.log(setAuth({}));
-      const common = require('../bin/common');
-      common.xyzRoot = () => "http://localhost:3578";
+      const common = rewire('../bin/common');
+      common.__set__('xyzRoot', (boolean) => "http://localhost:3578");
       const { esponse, authId, authSecret } = await common.login("abcd", "secret");
       assert.equal("abcd", authId);
       assert.equal("secret", authSecret);
@@ -117,7 +120,6 @@ describe('Configure', function () {
           res("myCookie");
         })
       }
-      common.xyzRoot = () => "http://localhost:3578";
       const token = await common.hereAccountLogin("abcd", "secret");
       assert.equal("myCookie", token);
       count--;

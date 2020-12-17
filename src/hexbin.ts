@@ -26,6 +26,8 @@
 
 import * as turf from '@turf/helpers';
 import * as common from "./common";
+import * as h3 from "h3-js";
+const geojson2h3 = require('geojson2h3');
 
 const cosines: number[] = [];
 const sines: number[] = [];
@@ -36,8 +38,7 @@ for (let i = 0; i < 6; i++) {
 }
 const hexagonAngle = 0.523598776; //30 degrees in radians
 
-function getHexBin(feature: any, cellSize: number, isMeters: boolean){
-    const point = feature.geometry.coordinates;
+export function getHexBin(point: number[], cellSize: number, isMeters: boolean){
     let degreesCellSize;
     if(isMeters){
         degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(point[1] * Math.PI / 180));
@@ -47,6 +48,15 @@ function getHexBin(feature: any, cellSize: number, isMeters: boolean){
     const finalHexRootPoint = getSelectedHexagon(point[1],point[0],degreesCellSize);
     let data= hexagon(finalHexRootPoint,degreesCellSize,degreesCellSize,null,cosines,sines);
     return data;
+}
+
+function getH3HexBin(point: number[], cellSize: number){
+    let h3Index = h3.geoToH3(point[1],point[0], cellSize);
+    const hexCenter = h3.h3ToGeo(h3Index); 
+    let hexFeature = geojson2h3.h3ToFeature(h3Index);
+    hexFeature.properties.centroid = [hexCenter[1], hexCenter[0]];
+    hexFeature.id = h3Index;
+    return hexFeature;
 }
 
 //here x and y is inverse, x is latitude and y is longitude
@@ -172,7 +182,7 @@ function hexagon(center:number[], rx:number, ry:number, properties:any, cosines:
     return feature;
 }
 
-function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, existingHexFeatures:any[]){
+export function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, groupByProperty:string, aggregate:string, cellSizeLatitude: number, useH3Library: boolean,  existingHexFeatures:any[]){
     let gridMap: any={};
     let maxCount = 0;
     let maxSum = 0;
@@ -199,13 +209,42 @@ function calculateHexGrids(features:any[], cellSize:number, isAddIds:boolean, gr
     //let minCount = Number.MAX_SAFE_INTEGER;
     const degreesCellSize = (cellSize/1000)/(111.111 * Math.cos(cellSizeLatitude * Math.PI / 180));
     features.forEach(function (feature, i){
-      if (feature.geometry != null && feature.geometry.type != null && feature.geometry.type.toLowerCase() === 'point') {
+      if (feature.geometry != null && feature.geometry.type != null && (feature.geometry.type.toLowerCase() === 'point' || feature.geometry.type.toLowerCase() === 'linestring' || feature.geometry.type.toLowerCase() === 'multilinestring')) {
         if(!(feature.properties != null && feature.properties['@ns:com:here:xyz'] != null 
             && feature.properties['@ns:com:here:xyz'].tags != null && feature.properties['@ns:com:here:xyz'].tags.includes('centroid'))){
-        let x = getHexBin(feature, degreesCellSize, false);
+        let x;
+        let point = [];
+        if(feature.geometry.type.toLowerCase() === 'point'){
+            point = feature.geometry.coordinates;
+        } else {
+            let points: number[][] = [];
+            if(feature.geometry.type.toLowerCase() === 'linestring'){
+                points = feature.geometry.coordinates;
+            } else if(feature.geometry.type.toLowerCase() === 'multilinestring'){
+                for(const line of feature.geometry.coordinates){
+                    points = points.concat(line);
+                }
+            }
+            if(points.length > 2){
+                point = points[Math.round(points.length/2)];
+            } else {
+                point[0] = (points[0][0] + points[1][0]) / 2;
+                point[1] = (points[0][1] + points[1][1]) / 2;
+            }
+        }
+        if(useH3Library){
+            x = getH3HexBin(point, cellSize);
+        } else {
+            x = getHexBin(point, degreesCellSize, false);
+        }
         if (x) {
-          let gridId = common.md5Sum(JSON.stringify(x.geometry));
-          x.id = gridId;
+          let gridId;
+          if(useH3Library){
+            gridId = x.id;
+          } else {
+            gridId = common.md5Sum(JSON.stringify(x.geometry));
+            x.id = gridId;
+          }
           if (!x.properties) {
             x.properties = {};
             x.properties['count'] = 0;
@@ -327,5 +366,3 @@ features.push(result);
 let featureCollection = {'type':'FeatureCollection','features':features};
 console.log(JSON.stringify(featureCollection, null, 2));
 */
-module.exports.getHexBin = getHexBin;
-module.exports.calculateHexGrids = calculateHexGrids;

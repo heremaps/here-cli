@@ -40,17 +40,21 @@ export async function performGisOperation(id:string, options:any){
     } else {
         options.limit = 20;
     }
-    if(!options['length'] && !options.centroid && !options.area && !options.voronoi && !options.tin){
+    if(!options['length'] && !options.centroid && !options.area && !options.voronoi && !options.delaunay){
         console.log("Please specify GIS operation option");
+        process.exit(1);
+    }
+    if(options.neighbours && !options.delaunay){
+        console.log("Error: --neighbours option is only valid --delaunay option");
         process.exit(1);
     }
     let cHandle;
     let gisFeatures : any[]= [];
     let featureCount = 0;
     let isValidGisFeatures = false;
-    let tinFeaturesMap = new Map();
+    let delaunayFeaturesMap = new Map();
     console.log("Performing GIS operation on the space data");
-    let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: (options.voronoi || options.tin) ? '.geojson':'.geojsonl' });
+    let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: (options.voronoi || options.delaunay) ? '.geojson':'.geojsonl' });
     do {
         let jsonOut = await xyz.getSpaceDataFromXyz(id, options);
         if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
@@ -62,10 +66,10 @@ export async function performGisOperation(id:string, options:any){
         if (jsonOut.features) {
             const features = jsonOut.features;
             features.forEach(function (feature: any, i: number){
-                if(options.voronoi || options.tin){
+                if(options.voronoi || options.delaunay){
                     if(feature.geometry && (feature.geometry.type == 'Point')){
-                        if(options.tin){
-                            tinFeaturesMap.set(feature.geometry.coordinates.slice(0,2).toString(), feature);
+                        if(options.delaunay){
+                            delaunayFeaturesMap.set(feature.geometry.coordinates.slice(0,2).toString(), feature);
                         } else {
                             gisFeatures.push(feature);
                         }
@@ -79,7 +83,7 @@ export async function performGisOperation(id:string, options:any){
                 }
             });
             featureCount += features.length;
-            if(gisFeatures.length > 0 && !(options.voronoi || options.tin)){
+            if(gisFeatures.length > 0 && !(options.voronoi || options.delaunay)){
                 isValidGisFeatures = true;
                 fs.appendFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }) + '\n');
                 gisFeatures = [];
@@ -89,8 +93,8 @@ export async function performGisOperation(id:string, options:any){
         }
     } while (cHandle >= 0);
     process.stdout.write("\n");
-    if(options.tin){
-        gisFeatures = Array.from(tinFeaturesMap.values());
+    if(options.delaunay){
+        gisFeatures = Array.from(delaunayFeaturesMap.values());
     }
     if(gisFeatures.length == 0 && !isValidGisFeatures){
         console.log("required geometry features are not available to perform GIS operation");
@@ -101,19 +105,27 @@ export async function performGisOperation(id:string, options:any){
         console.log("Calculating Voronoi Polygons for points data");
         gisFeatures = await calculateVoronoiPolygon(id, gisFeatures, options);
         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
-    } else if(options.tin){
-        console.log("performing tin operation on " + gisFeatures.length + " features");
-        gisFeatures = calculateTinTriangles(gisFeatures, tinFeaturesMap, options.property);
-        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
+    } else if(options.delaunay){
+        console.log("Performing delaunay operation on " + gisFeatures.length + " features");
+        const delaunayFeatures = calculateDelaunayTriangles(gisFeatures, delaunayFeaturesMap, options.neighbours);
+        fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: delaunayFeatures }));
+        if(options.neighbours){
+            let neighboursTmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.geojson'});
+            fs.writeFileSync(neighboursTmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
+            options.file = neighboursTmpObj.name;
+            options.stream = true;
+            console.log("updating Delaunay neighbours");
+            await xyz.uploadToXyzSpace(id, options);
+        }
     }
-    if(!options.samespace && (options.centroid || options.voronoi || options.tin)){
+    if(!options.samespace && (options.centroid || options.voronoi || options.delaunay)){
         let newSpaceData;
         if(options.centroid){
             newSpaceData = await xyz.createNewSpaceAndUpdateMetadata('centroid', sourceId, options);
         } else if(options.voronoi){
             newSpaceData = await xyz.createNewSpaceAndUpdateMetadata('voronoi', sourceId, options);
-        } else if(options.tin){
-            newSpaceData = await xyz.createNewSpaceAndUpdateMetadata('tin', sourceId, options);
+        } else if(options.delaunay){
+            newSpaceData = await xyz.createNewSpaceAndUpdateMetadata('delaunay', sourceId, options);
         }
         id = newSpaceData.id;
     }
@@ -123,8 +135,8 @@ export async function performGisOperation(id:string, options:any){
             options.tags = 'centroid';
         } else if(options.voronoi){
             options.tags = 'voronoi';
-        } else if(options.tin){
-            options.tags = 'tin';
+        } else if(options.delaunay){
+            options.tags = 'delaunay';
         }
         options.file = tmpObj.name;
         options.stream = true;
@@ -207,24 +219,36 @@ async function calculateVoronoiPolygon(spaceId: string, features: any[], options
     return voronoiFeatures;
 }
 
-function calculateTinTriangles(features: any[], tinFeaturesMap: Map<string,any>, property: string){
+function calculateDelaunayTriangles(features: any[], delaunayFeaturesMap: Map<string,any>, calculateNeighbours: boolean){
     const delaunay = Delaunay.from(features, function(feature){return feature.geometry.coordinates[0]}, function(feature){return feature.geometry.coordinates[1]});
-    const tinResult = delaunay.trianglePolygons();
-    let result = tinResult.next();
-    let tinFeatures = [];
+    const delaunayResult = delaunay.trianglePolygons();
+    let result = delaunayResult.next();
+    let delaunayFeatures = [];
     while (!result.done) {
         //console.log(JSON.stringify(result.value));
         let properties = {
-            a : tinFeaturesMap.get(result.value[0].toString()).id,
-            b : tinFeaturesMap.get(result.value[1].toString()).id,
-            c : tinFeaturesMap.get(result.value[2].toString()).id,
+            a : delaunayFeaturesMap.get(result.value[0].toString()).id,
+            b : delaunayFeaturesMap.get(result.value[1].toString()).id,
+            c : delaunayFeaturesMap.get(result.value[2].toString()).id,
         }
         let polygon = turf.polygon([result.value], properties);
         polygon = populateArea(polygon);
-        tinFeatures.push(polygon);
-        result = tinResult.next();
+        delaunayFeatures.push(polygon);
+        result = delaunayResult.next();
     }
-    return tinFeatures;
+    if(calculateNeighbours){
+        for(let i=0; i < features.length; i++){
+            const neighbours = delaunay.neighbors(i);
+            let neighbourResult = neighbours.next();
+            let neighbourIds: string[] = [];
+            while (!neighbourResult.done) {
+                neighbourIds.push(features[neighbourResult.value].id);
+                neighbourResult = neighbours.next();
+            }
+            features[i].properties['xyz_delaunay_neighbours'] = neighbourIds;
+        }
+    }
+    return delaunayFeatures;
     /*
     const featureCollection = { type: "FeatureCollection", features: features };
     const tinFeatureCollection = turf.tin(featureCollection, property);

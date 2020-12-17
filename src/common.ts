@@ -27,7 +27,7 @@ import { requestAsync } from "./requestAsync";
 import * as CryptoJS from "crypto-js";
 import * as inquirer from 'inquirer';
 import getMAC from 'getmac';
-
+import { geoCodeString } from "./geocodeUtil";
 import {table,getBorderCharacters} from 'table';
 import {ApiError} from "./api-error";
 
@@ -47,11 +47,35 @@ const questions = [
 
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
+let apiServerUrl: string;
+const xyzUrl = "https://xyz.api.here.com";
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
-export const xyzRoot = () => "https://xyz.api.here.com";
+export function xyzRoot(xyzUrlAlways: boolean){
+    if(xyzUrlAlways){
+        return xyzUrl;
+    } else {
+        if(!apiServerUrl){
+            apiServerUrl = settings.get('apiServerUrl');
+            if(!apiServerUrl){
+                settings.set('apiServerUrl',xyzUrl);
+                apiServerUrl = xyzUrl;
+            }
+        }
+        return apiServerUrl;
+    }
+}
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
+
+export function isApiServerXyz(){
+    return (xyzRoot(false) === xyzUrl);
+}
+
+export function setApiServerUrl(url: string){
+    settings.set('apiServerUrl',url);
+    apiServerUrl = url;
+}
 
 export const keySeparator = "%%";
 
@@ -161,6 +185,7 @@ export async function loginFlow(email: string, password: string) {
             await generateTokenAndStoreIt(cookieData, appId, {}).catch(err => {throw err});//{} as urm so that its full rights as per policy even when it changes at later stage
             await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
             await encryptAndStore('apiKeys', appId).catch(err => {throw err});
+            settings.set('apiServerUrl','https://xyz.api.here.com');
             console.log('Default App Selected - ' + appId);
         }else{
             console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
@@ -250,7 +275,7 @@ function getMacAddress() {
 
 export async function login(authId: string, authSecret: string) {
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
+        url: xyzRoot(true) + "/token-api/tokens?app_id=" + authId + "&app_code=" + authSecret + "&tokenType=PERMANENT",
         method: "POST",
         json: rightsRequest(authId),
         responseType: "json"
@@ -295,7 +320,7 @@ async function readOnlySpaceRightsRequest(spaceIds:string[]) {
 
 export async function getAppIds(cookies: string) {
     const options = {
-        url: xyzRoot()+`/account-api/accounts/me?clientId=cli`,
+        url: xyzRoot(true)+`/account-api/accounts/me?clientId=cli`,
         method: 'GET',
         headers: {
             "Cookie": cookies
@@ -315,7 +340,7 @@ export async function updateDefaultAppId(cookies: string, accountId: string, app
             payload.tcAccepted = true;
         }
         var options = {
-            url : xyzRoot()+`/account-api/accounts/${accountId}`,
+            url : xyzRoot(true)+`/account-api/accounts/${accountId}`,
             method : 'PATCH',
             headers : {
                 "Cookie": cookies
@@ -335,7 +360,7 @@ export async function createNewSharingRequest(spaceId: string){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharingRequest`,
+        url : xyzRoot(true)+`/account-api/sharingRequest`,
         method : 'PUT',
         headers : {
             "Cookie": cookie
@@ -357,7 +382,7 @@ export async function getSharingRequests(){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharingRequest`,
+        url : xyzRoot(true)+`/account-api/sharingRequest`,
         method : 'GET',
         headers : {
             "Cookie": cookie
@@ -376,7 +401,7 @@ export async function getExistingSharing(){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharing`,
+        url : xyzRoot(true)+`/account-api/sharing`,
         method : 'GET',
         headers : {
             "Cookie": cookie
@@ -395,7 +420,7 @@ export async function deleteSharing(sharingId: string){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharing/${sharingId}`,
+        url : xyzRoot(true)+`/account-api/sharing/${sharingId}`,
         method : 'DELETE',
         headers : {
             "Cookie": cookie
@@ -414,7 +439,7 @@ export async function deleteSharingRequest(sharingRequestId: string){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharingRequest/${sharingRequestId}`,
+        url : xyzRoot(true)+`/account-api/sharingRequest/${sharingRequestId}`,
         method : 'DELETE',
         headers : {
             "Cookie": cookie
@@ -433,7 +458,7 @@ export async function getExistingApprovals(){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharingApproval`,
+        url : xyzRoot(true)+`/account-api/sharingApproval`,
         method : 'GET',
         headers : {
             "Cookie": cookie
@@ -452,7 +477,7 @@ export async function putSharingApproval(sharingId: string, verdict:string, urm:
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharingApproval/${sharingId}`,
+        url : xyzRoot(true)+`/account-api/sharingApproval/${sharingId}`,
         method : 'PUT',
         headers : {
             "Cookie": cookie
@@ -475,7 +500,7 @@ export async function modifySharingRights(sharingId: string, urm: string[]){
         cookie = await getCookieFromStoredCredentials();
     }
     var options = {
-        url : xyzRoot()+`/account-api/sharing/${sharingId}`,
+        url : xyzRoot(true)+`/account-api/sharing/${sharingId}`,
         method : 'PATCH',
         headers : {
             "Cookie": cookie
@@ -497,7 +522,7 @@ async function validateToken(token: string) {
         return true;
 
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens/" + token,
+        url: xyzRoot(true) + "/token-api/tokens/" + token,
         method: "GET",
         responseType: "json"
     });
@@ -525,7 +550,7 @@ export async function getAccountId(){
 
 async function getTokenInformation(tokenId: string){
     const response = await requestAsync({
-        url: xyzRoot() + "/token-api/tokens/" + tokenId,
+        url: xyzRoot(true) + "/token-api/tokens/" + tokenId,
         method: "GET",
         responseType: "json"
     });
@@ -539,7 +564,7 @@ async function getTokenInformation(tokenId: string){
 export async function getTokenList(){
     const cookie = await getCookieFromStoredCredentials();
     const options = {
-        url: xyzRoot() + "/token-api/tokens",
+        url: xyzRoot(true) + "/token-api/tokens",
         method: "GET",
         headers: {
             Cookie: cookie
@@ -722,6 +747,19 @@ export function getSplittedKeys(inString: string) {
     }
 }
 
+export async function getLocalApiKey(){
+    let response = await geoCodeString("mumbai", false);//sample geocode call to check if apiKey is valid
+    let apiKeys = await decryptAndGet("apiKeys");
+    const apiKeyArr = getSplittedKeys(apiKeys);
+    if(!apiKeyArr){
+        console.log("ApiKey not found, please generate/enable your API Keys at https://developer.here.com. \n" +
+                    "If already generated/enabled, please try again in a few minutes.");
+        process.exit(1);
+    }
+    const apiKey = apiKeyArr[1];
+    return apiKey;
+}
+
 export async function getApiKeys(cookies: string, appId: string) {
     const hrn = encodeURIComponent('hrn:here:account::HERE:app/'+appId);
     let token;
@@ -755,11 +793,11 @@ export async function getApiKeys(cookies: string, appId: string) {
 }
 
 
-// /**
-//  *
-//  * @param apiError error object
-//  * @param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
-//  */
+/**
+ *
+ * @param apiError error object
+ *@param isIdSpaceId set this boolean flag as true if you want to give space specific message in console for 404
+*/
 export function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
     if (apiError.statusCode) {
         if (apiError.statusCode == 401) {
@@ -803,17 +841,20 @@ export async function execInternal(
         );
     }
     if (!uri.startsWith("http")) {
-        uri = xyzRoot() + uri;
+        uri = xyzRoot(false) + uri;
     }
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
+    let headers: any = {
+        "Content-Type": contentType,
+        "App-Name": "HereCLI"
+    };
+    if(isApiServerXyz() || setAuthorization){
+        headers["Authorization"] = "Bearer " + token;
+    }
     const reqJson = {
         url: uri,
         method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "App-Name": "HereCLI"
-        },
+        headers: headers,
         json: method === "GET" ? undefined : data,
         allowGetBody: true,
         responseType: responseType
@@ -854,18 +895,22 @@ async function execInternalGzip(
 ) {
     const zippedData = await gzip(data);
     if (!uri.startsWith("http")) {
-        uri = xyzRoot() + uri;
+        uri = xyzRoot(false) + uri;
+    }
+    let headers: any = {
+        "Content-Type": contentType,
+        "App-Name": "HereCLI",
+        "Content-Encoding": "gzip",
+        "Accept-Encoding": "gzip"
+    };
+    if(isApiServerXyz()){
+        headers["Authorization"] = "Bearer " + token;
     }
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     const reqJson = {
         url: uri,
         method: method,
-        headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": contentType,
-            "Content-Encoding": "gzip",
-            "Accept-Encoding": "gzip"
-        },
+        headers: headers,
         decompress: true,
         body: method === "GET" ? undefined : zippedData,
         allowGetBody: true,
