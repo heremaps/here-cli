@@ -73,7 +73,9 @@ describe('Configure', function () {
         version:option,
         help: option,
         parse: option,
-        command: option
+        command: option,
+        commandHelp: option,
+        name:option
       }
       );
     });
@@ -255,14 +257,13 @@ describe('Configure', function () {
 
     it('list space tokens', async function () {
       const xyz = rewire('../bin/here-xyz');
-      xyz.__get__('common').decryptAndGet=async function(info){
+      xyz.__get__('common').decryptAndGet=async function(info, desc){
         console.log("info is"+info);
         return "x%%y";
       };
-      xyz.__get__('sso').executeWithCookie=async function(a,b){
-        return "x%%y";
+      xyz.__get__('common').getTokenList=async function(){
+        return [{tid:"a",type:"b",iat:"c",description:"d"}];
       };
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -274,7 +275,7 @@ describe('Configure', function () {
       } else {
         assert.fail();
       }
-      if (output.indexOf("a                         │ b          │ c          │ d")!=-1) {
+      if (output.indexOf("a                         │ PERMANENT  │ c          │ d")!=-1) {
         assert.ok(true, "");
       } else {
         assert.fail();
@@ -319,7 +320,6 @@ describe('Configure', function () {
       } else {
         assert.fail();
       }
-      console.log(output);
       if (output.indexOf("Unique tag list  :[\"sample\"]")!=-1) {
         assert.ok(true, "");
       } else {

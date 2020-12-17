@@ -38,6 +38,8 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
+import * as xyz from "./here-xyz";
+import { option } from "commander";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -49,6 +51,8 @@ export type FeatureCollection = {
     "type": "FeatureCollection",
     "features": Array<any>
 };
+
+let joinValueToFeatureIdMap: Map<string, string> = new Map();
 
 export function readShapeFile(path: string) {
     if (path.indexOf("http://") != -1 || path.indexOf("https://") != -1) {
@@ -357,6 +361,45 @@ export async function transform(result: any[], options: any) {
     for (const i in result) {
         const ggson = await toGeoJsonFeature(result[i], options, false);
         if (ggson) {
+            if(options.keys){
+                const propertyValue = ggson.properties[options.csvProperty];
+                if(joinValueToFeatureIdMap.has(propertyValue)){
+                    ggson.properties['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    ggson['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    result[i]['id'] = joinValueToFeatureIdMap.get(propertyValue);
+                    if(!joinValueToFeatureIdMap.get(propertyValue)){
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    }
+                } else {
+                    options.search = "p." + options.spaceProperty + "='" + propertyValue + "'";
+                    if(options.filter){
+                        options.search = options.search + '&p.' + options.filter;
+                    }
+                    let jsonOut = await xyz.getSpaceDataFromXyz(options.primarySpace, options);
+                    if (jsonOut.features && jsonOut.features.length === 0) {
+                        console.log("\nNo feature available for the required value - " + propertyValue);
+                        if(!ggson.properties["@ns:com:here:xyz"]) {
+                            ggson.properties["@ns:com:here:xyz"] = {};
+                        }
+                        if(!ggson.properties["@ns:com:here:xyz"]["tags"]) {
+                            ggson.properties["@ns:com:here:xyz"]["tags"] = [];
+                        }
+                        ggson.properties["@ns:com:here:xyz"]["tags"].push("no_match");
+                    } else {
+                        ggson.properties['id'] = jsonOut.features[0].id;
+                        ggson['id'] = jsonOut.features[0].id;
+                        result[i]['id'] = jsonOut.features[0].id;
+                    }
+                    joinValueToFeatureIdMap.set(propertyValue, result[i]['id']);
+                }
+                console.log("featureId for property " + propertyValue + " is - " + result[i]['id']);
+            }
             if(options.groupby){
                 let key = null;
                 if(options.id){
@@ -364,7 +407,7 @@ export async function transform(result: any[], options: any) {
                 } else {
                     key = result[i]['id'];
                 }
-                if(!key){
+                if(!key && !options.keys){
                     console.log("'groupby' option requires 'id' field and id is not present in record  - " + JSON.stringify(ggson));
                     process.exit(1);
                 }
@@ -522,7 +565,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             console.log("new featureID field selected - " + idAnswer.idChoice);
             options.id = idAnswer.idChoice;
         }
-        if(options.groupby && !options.id && !object['id']){
+        if(options.groupby && !options.id && !object['id'] && !options.keys){
             console.log("'groupby' option requires 'id' field to be defined in csv");
             process.exit(1);
         }
@@ -537,7 +580,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
             props["@ns:com:here:xyz"]["tags"] = ['invalid'];
         }
     }
-    return { type: "Feature", geometry: geometry, properties: props };
+    return { type: "Feature", geometry: geometry, properties: props, id: object['id']};
 }
 
 function createQuestionsList(object: any) {
@@ -727,15 +770,15 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
             },function end () {
                 if(dataArray.length >0){
                     isGeoJson = true;
-                    (async()=>{
-                        const queue = await streamFuntion(dataArray);
-                        await queue.shutdown();
-                        options.totalCount = queue.uploadCount;
-                        console.log("");
-                        dataArray=new Array<any>();
-                        resolve();
-                    })();
                 }
+                (async()=>{
+                    const queue = await streamFuntion(dataArray);
+                    await queue.shutdown();
+                    options.totalCount = queue.uploadCount;
+                    console.log("");
+                    dataArray=new Array<any>();
+                    resolve();
+                })();
 
                 if(!isGeoJson){
                     fileStream = fs.createReadStream(path, {encoding: 'utf8'});
@@ -761,17 +804,17 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
                         }
                         return data;
                     },function end () {
-                        if(dataArray.length >0){
-                            (async()=>{
+                        (async()=>{
+                            if(dataArray.length >0){
                                 dataArray = await transform(dataArray, options);
-                                const queue = await streamFuntion(dataArray);
-                                await queue.shutdown();
-                                options.totalCount = queue.uploadCount;
-                                console.log("");
-                                dataArray=new Array<any>();
-                                resolve();
-                            })();
-                        }
+                            }
+                            const queue = await streamFuntion(dataArray);
+                            await queue.shutdown();
+                            options.totalCount = queue.uploadCount;
+                            console.log("");
+                            dataArray=new Array<any>();
+                            resolve();
+                        })();
                     }));
                 }
             }));

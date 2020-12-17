@@ -130,7 +130,7 @@ export async function performGisOperation(id:string, options:any){
         }
         id = newSpaceData.id;
     }
-    
+
     if (gisFeatures.length > 0 || isValidGisFeatures) {
         if(options.centroid){
             options.tags = 'centroid';
@@ -140,7 +140,6 @@ export async function performGisOperation(id:string, options:any){
             options.tags = 'delaunay';
         }
         options.file = tmpObj.name;
-        options.override = true;
         options.stream = true;
         await xyz.uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);
@@ -170,11 +169,11 @@ function performTurfOperationOnFeature(feature: any, options: any){
             feature.properties['xyz_length_m'] = length;
             feature.properties['xyz_length_km'] = parseFloat((length / 1000).toFixed(2));
             feature.properties['xyz_length_miles'] = parseFloat((length * 0.000621371).toFixed(2));
-            gisFeature = feature; 
+            gisFeature = feature;
         }
     } else if(options.area){
         if(feature.geometry && (feature.geometry.type == 'Polygon' || feature.geometry.type == 'MultiPolygon')){
-            gisFeature = populateArea(feature); 
+            gisFeature = populateArea(feature);
         }
     } else {
         console.log("Please specify GIS operation option");
@@ -191,7 +190,7 @@ function populateArea(feature: any){
     feature.properties['xyz_area_sqm'] = area;
     feature.properties['xyz_area_sqkm'] = parseFloat((area / 1000000).toFixed(2));
     feature.properties['xyz_area_sqmiles'] = parseFloat((area * 0.00000038610215855).toFixed(2));
-    return feature; 
+    return feature;
 }
 
 async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){

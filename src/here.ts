@@ -31,7 +31,7 @@ const program = require('commander');
 const settings = require('user-settings').file('.herecli');
 const latestVersion = require('latest-version');
 
-const commands = ["xyz", "xs","c","configure", "transform","tf", "help", "geocode","gc"];
+const commands = ["xyz", "studio", "xs","c","configure", "transform","tf", "help", "geocode","gc"];
 const fs = require('fs');
 const path = require('path');
 
@@ -55,6 +55,7 @@ async function start() {
         .version(getVersion())
         .command('configure [verify|refresh]', 'setup configuration for authentication').alias('c')
         .command('xyz [list|create|upload]', 'work with Data Hub spaces').alias('xs')
+        .command('studio [list|delete|show]', 'work with HERE Studio projects')
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);
