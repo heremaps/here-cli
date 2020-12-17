@@ -4,7 +4,6 @@ dist: bionic
 
 os:
 - linux
-- osx
 
 node_js:
 - '12.15.0'
