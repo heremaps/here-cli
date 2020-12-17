@@ -113,7 +113,6 @@ export async function performGisOperation(id:string, options:any){
             let neighboursTmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: '.geojson'});
             fs.writeFileSync(neighboursTmpObj.name, JSON.stringify({ type: "FeatureCollection", features: gisFeatures }));
             options.file = neighboursTmpObj.name;
-            options.override = true;
             options.stream = true;
             console.log("updating Delaunay neighbours");
             await xyz.uploadToXyzSpace(id, options);
