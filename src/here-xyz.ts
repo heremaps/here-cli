@@ -130,7 +130,7 @@ const sharingQuestion = [
         type: "list",
         name: "sharingChoice",
         message: "Please select the shared spaces option",
-        choices: [{name: 'request access to a space', value: 'newSharing'}, {name: 'list spaces you requested', value: 'request'}, {name: 'approve the requests of others', value: 'approval'}, {name: 'list spaces you are sharing', value: 'sharing'},{name: 'modify/revoke your sharing', value:'modifySharing'}]
+        choices: [{name: 'request access to a space', value: 'newSharing'}, {name: 'list spaces you requested', value: 'request'}, {name: 'approve the requests of others', value: 'approval'}, {name: 'list spaces you are sharing', value: 'sharing'},{name: 'modify/revoke requests of others to share your spaces', value:'modifySharing'}]
     }
 ];
 
@@ -3258,7 +3258,7 @@ program
     .description("configure/view sharing information for Data Hub spaces")
     .option("--request [request]", "view and configure existing data hub space sharing requests")
     .option("--approval", "view and configure existing data hub space approval requests")
-    .option("--retract <retract>", "retract the sharing space request")
+    .option("--retract <retract>", "retract your requests to share another user's space")
     .action(async function (options) {
         try{
             await common.verifyProLicense();
