@@ -2590,7 +2590,7 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
-    //.option("--geocoder","configure forward or reverse geocoding for your space interactively")
+    .option("--geocoder","configure forward or reverse geocoding for your space interactively")
     .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
         if(options.console){
@@ -3156,7 +3156,6 @@ function showSpaceConfig(spacedef: any) {
 }
 
 const validVerbosityLevels = ["NONE", "MIN", "MORE", "ALL"];
-/*
 program
     .command("geocode [id]")
     .description("{Data Hub Add-on} create a new space with a CSV and configures geocoder processor on it") 
@@ -3181,7 +3180,6 @@ program
             handleError(error, true);
         });
     })
-    */
 
 async function createGeocoderSpace(id:string, options:any){
     await common.verifyProLicense();
@@ -4163,7 +4161,8 @@ common.validate(
         "virtualize",
         "gis",
         "join",
-        "sharing"
+        "sharing",
+        "geocode"
     ],
     [process.argv[2]],
     program
