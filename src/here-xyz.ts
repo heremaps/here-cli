@@ -140,12 +140,6 @@ const sharingModifyQuestion = [
         name: "sharingId",
         message: "Please select the sharing you want to revoke/modfiy",
         choices: choiceList
-    },
-    {
-        type: "list",
-        name: "action",
-        message: "Please select the action",
-        choices: [{name: 'Revoke', value:'revoke'},{name: 'Modify', value:'modify'}]
     }
 ];
 
@@ -3293,12 +3287,32 @@ program
                         console.log("No spaces are shared");
                         return;
                     }
+                    let choiceList: { name: string, value: any }[] = [];
                     for(let sharing of existingSharings){
-                        choiceList.push({name: sharing.spaceId + " '" + sharing.title + "' " + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
+                        choiceList.push({name: sharing.spaceId + " '" + sharing.title + "' " + sharing.emailId + ' ' + sharing.urm, value: {id: sharing.id, title: sharing.title}});
                     }
+                    const sharingModifyQuestion = [
+                        {
+                            type: "list",
+                            name: "sharingId",
+                            message: "Please select the sharing you want to revoke/modfiy",
+                            choices: choiceList
+                        }
+                    ];
                     const sharingAnswer: any = await inquirer.prompt(sharingModifyQuestion);
-                    const action = sharingAnswer.action;
-                    const sharingId = sharingAnswer.sharingId;
+                    const sharingId = sharingAnswer.sharingId.id;
+                    let actionList = [{name:'Revoke', value: 'revoke'}];
+                    if(sharingAnswer.sharingId.title != "SPACE IS DELETED"){
+                        actionList.push({name: 'Modify', value: 'modify'});
+                    }
+                    const actionSelectionPrompt = [ {
+                        type: "list",
+                        name: "action",
+                        message: "Please select your decision",
+                        choices: actionList
+                    }];
+                    const actionAnswer: any = await inquirer.prompt(actionSelectionPrompt);
+                    const action = actionAnswer.action;
                     if(action == 'revoke'){
                         await common.deleteSharing(sharingId);
                         console.log("Sharing revoked successfully");
@@ -3394,10 +3408,10 @@ async function addTitleInSharingList(sharingList: any[], isOwner: boolean){
 async function showExistingApprovals(){
     let existingApprovals = await common.getExistingApprovals();
     existingApprovals = await addTitleInSharingList(existingApprovals, true);
-    let choiceList: { name: string, value: string }[] = [];
+    let choiceList: { name: string, value: any }[] = [];
     for(let sharingApproval of existingApprovals){
         if(sharingApproval.status == 'PENDING'){
-            choiceList.push({name: sharingApproval.spaceId + " '" + sharingApproval.title + "' " + sharingApproval.emailId, value: sharingApproval.id});
+            choiceList.push({name: sharingApproval.spaceId + " '" + sharingApproval.title + "' " + sharingApproval.emailId, value: { id: sharingApproval.id, title: sharingApproval.title}});
         }
     }
     if(choiceList.length === 0){
@@ -3409,17 +3423,22 @@ async function showExistingApprovals(){
                 name: "sharingId",
                 message: "Select sharing request for approval",
                 choices: choiceList
-            },
-            {
-                type: "list",
-                name: "verdict",
-                message: "Please select your decision",
-                choices: [{name:'accept', value: 'accept'}, {name:'reject', value: 'reject'}]
             }
         ];
         const answer: any = await inquirer.prompt(approvalSelectionPrompt);
-        const sharingId = answer.sharingId;
-        const verdict = answer.verdict;
+        const sharingId = answer.sharingId.id;
+        let verdictList = [{name:'reject', value: 'reject'}];
+        if(answer.sharingId.title != "SPACE IS DELETED"){
+            verdictList.push({name: 'accept', value: 'accept'});
+        }
+        const verdictSelectionPrompt = [ {
+            type: "list",
+            name: "verdict",
+            message: "Please select your decision",
+            choices: verdictList
+        }];
+        const veridctAnswer: any = await inquirer.prompt(verdictSelectionPrompt);
+        const verdict = veridctAnswer.verdict; 
         let urm;
         if(verdict === 'accept'){
             urm = await askSharingRightsQuestion();
