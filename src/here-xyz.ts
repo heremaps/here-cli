@@ -299,17 +299,14 @@ async function execute(uri: string, method: string, contentType: string, data: a
 }
 
 async function listSpaces(options: any) {
-    const uri = "/hub/spaces?clientId=cli";
-    const cType = "application/json";
-    const response = await execute(uri, "GET", cType, "", options.token);
-    if (response.body.length == 0) {
+    let result = await getListOfSpaces(options.token);
+    if (result.length == 0) {
         console.log("No Data Hub space found");
     } else {
         let fields = ["id", "title", "description"];
         if (options.prop.length > 0) {
             fields = options.prop;
         }
-        let result = response.body;
         if(options.filter){
             const filterArray = options.filter.split(",");
             result = result.filter((element: any) => {
@@ -326,6 +323,13 @@ async function listSpaces(options: any) {
             common.drawNewTable(result, fields, [10, 40, 60]);
         }
     }
+}
+
+async function getListOfSpaces(token: string | null = null){
+    const uri = "/hub/spaces?clientId=cli";
+    const cType = "application/json";
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function collect(val: string, memo: string[]) {
@@ -3284,8 +3288,13 @@ program
                     await showExistingSharings();
                 } else if(result == 'modifySharing'){
                     let existingSharings = await common.getExistingSharing();
+                    existingSharings = await addTitleInSharingList(existingSharings, true);
+                    if(existingSharings.length == 0){
+                        console.log("No spaces are shared");
+                        return;
+                    }
                     for(let sharing of existingSharings){
-                        choiceList.push({name: sharing.spaceId + ' ' + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
+                        choiceList.push({name: sharing.spaceId + ' ' + sharing.title + ' ' + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
                     }
                     const sharingAnswer: any = await inquirer.prompt(sharingModifyQuestion);
                     const action = sharingAnswer.action;
@@ -3336,22 +3345,59 @@ program
 
 async function showExistingSharingRequests(){
     let sharingRequests = await common.getSharingRequests();
+    sharingRequests = await addTitleInSharingList(sharingRequests, false);
     //TODO - check how to give delete operation
-    common.drawNewTable(sharingRequests, ['id', 'spaceId', 'urm','status']);
+    common.drawNewTable(sharingRequests, ['id', 'spaceId','title', 'urm','status']);
 }
 
 async function showExistingSharings(){
     let existingSharings = await common.getExistingSharing();
+    existingSharings = await addTitleInSharingList(existingSharings, true);
     //TODO - check how to give delete and update operation
-    common.drawNewTable(existingSharings, ['id', 'spaceId', 'emailId', 'urm','status']);
+    common.drawNewTable(existingSharings, ['id', 'spaceId','title', 'emailId', 'urm','status']);
+}
+
+async function addTitleInSharingList(sharingList: any[], isOwner: boolean){
+    let spaceMap = new Map<string,any>();
+    if(isOwner){
+        let spaceList = await getListOfSpaces();
+        for(let space of spaceList){
+            spaceMap.set(space.id, space);
+        }
+    }   
+    for(let sharing of sharingList){
+        let spaceData;
+        if(isOwner){
+            spaceData = spaceMap.get(sharing.spaceId);
+        } else {
+            try{
+                if(sharing.status == 'ACCEPTED'){
+                    spaceData = await getSpaceMetaData(sharing.spaceId);
+                } else {
+                    spaceData = {'title': ''};
+                }
+            } catch(error){
+                if(!error.statusCode || error.statusCode != 404){
+                    throw error;
+                }
+            }
+        }
+        if(spaceData){
+            sharing.title = spaceData.title;
+        } else {
+            sharing.title = "SPACE IS DELETED";
+        }
+    }
+    return sharingList;
 }
 
 async function showExistingApprovals(){
     let existingApprovals = await common.getExistingApprovals();
+    existingApprovals = await addTitleInSharingList(existingApprovals, true);
     let choiceList: { name: string, value: string }[] = [];
     for(let sharingApproval of existingApprovals){
         if(sharingApproval.status == 'PENDING'){
-            choiceList.push({name: sharingApproval.spaceId + ' ' + sharingApproval.emailId, value: sharingApproval.id});
+            choiceList.push({name: sharingApproval.spaceId + ' ' + sharingApproval.title + ' ' + sharingApproval.emailId, value: sharingApproval.id});
         }
     }
     if(choiceList.length === 0){
