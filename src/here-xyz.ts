@@ -3294,7 +3294,7 @@ program
                         return;
                     }
                     for(let sharing of existingSharings){
-                        choiceList.push({name: sharing.spaceId + ' ' + sharing.title + ' ' + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
+                        choiceList.push({name: sharing.spaceId + " '" + sharing.title + "' " + sharing.emailId + ' ' + sharing.urm, value: sharing.id});
                     }
                     const sharingAnswer: any = await inquirer.prompt(sharingModifyQuestion);
                     const action = sharingAnswer.action;
@@ -3397,7 +3397,7 @@ async function showExistingApprovals(){
     let choiceList: { name: string, value: string }[] = [];
     for(let sharingApproval of existingApprovals){
         if(sharingApproval.status == 'PENDING'){
-            choiceList.push({name: sharingApproval.spaceId + ' ' + sharingApproval.title + ' ' + sharingApproval.emailId, value: sharingApproval.id});
+            choiceList.push({name: sharingApproval.spaceId + " '" + sharingApproval.title + "' " + sharingApproval.emailId, value: sharingApproval.id});
         }
     }
     if(choiceList.length === 0){
