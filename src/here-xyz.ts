@@ -3266,7 +3266,7 @@ program
                 console.log("ERROR : Only one of the --request or --approval option allowed");
                 return;
             }
-            if(!options.request && !options.approval){
+            if(!options.request && !options.approval && !options.retract){
                 const answer: any = await inquirer.prompt(sharingQuestion);
                 const result = answer.sharingChoice;
                 if(result === 'newSharing'){
