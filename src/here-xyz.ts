@@ -3437,8 +3437,8 @@ async function showExistingApprovals(){
             message: "Please select your decision",
             choices: verdictList
         }];
-        const veridctAnswer: any = await inquirer.prompt(verdictSelectionPrompt);
-        const verdict = veridctAnswer.verdict; 
+        const verdictAnswer: any = await inquirer.prompt(verdictSelectionPrompt);
+        const verdict = verdictAnswer.verdict; 
         let urm;
         if(verdict === 'accept'){
             urm = await askSharingRightsQuestion();
