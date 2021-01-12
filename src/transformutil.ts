@@ -236,6 +236,32 @@ async function parseCsv(csvStr: string, options: any) {
     });
 }
 
+export async function getFirstNRowsOfCsv(options: any, numberOfRows: number){
+    return new Promise<any[]>((res, rej) => {
+        var stream = fs.createReadStream(options.file);
+        let csvStream = csv.parseStream(stream, {headers : true, delimiter: options.delimiter, quote: options.quote});
+        //.on("data", async function(data:any){
+
+        var rows: any[] = [];
+        var onData = function(row: any){
+            rows.push(row);
+            if (rows.length == numberOfRows) {
+                csvStream.emit('donereading'); //custom event for convenience
+            }
+        };
+        csvStream.on('data', onData);
+        csvStream.on('donereading', function(){
+            stream.close();
+            csvStream.removeListener('data', onData);
+            res(rows);
+        });
+        csvStream.on("end", function(){
+            res(rows);
+        });
+        csvStream.on('error', (err: any) => rej(err));
+    });
+}
+
 async function getGpxDataFromXmlNode(node: any, result: any) {
     if (!result) result = { segments: [] }
     switch (node.nodeName) {
@@ -675,7 +701,7 @@ export function readLineFromFile(incomingPath: string, chunckSize = 100) {
 
 export function readLineAsChunks(incomingPath: string, chunckSize:number, options: any, streamFuntion:Function) {
     return readData(incomingPath, 'geojsonl').then(path => {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             let dataArray = new Array<any>();
             var LineByLineReader = require('line-by-line'),
             lr = new LineByLineReader(path);
@@ -709,7 +735,7 @@ export function readLineAsChunks(incomingPath: string, chunckSize:number, option
 export function readCSVAsChunks(incomingPath: string, chunckSize:number,options:any, streamFuntion:Function) {
     let isQuestionAsked : boolean = false;
     return readData(incomingPath, 'csv').then(path => {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             let dataArray = new Array<any>();
             var csv = require("fast-csv");
             var stream = fs.createReadStream(path);
@@ -749,7 +775,7 @@ export function readGeoJsonAsChunks(incomingPath: string, chunckSize:number, opt
     let isGeoJson : boolean = false;
     let isQuestionAsked : boolean = false;
     return readData(incomingPath, 'geojson').then(path => {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             let dataArray = new Array<any>();
             const JSONStream = require('JSONStream');
             const  es = require('event-stream');
