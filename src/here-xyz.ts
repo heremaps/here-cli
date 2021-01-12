@@ -208,25 +208,6 @@ const geocoderConfiguration = [
     }
 ];
 
-const forwardgeocoderConfiguration = [
-    {
-        type: 'input',
-        name: 'propertyNames',
-        message: 'Enter comma separated property names: '
-    },
-    {
-        type: 'input',
-        name: 'suffix',
-        message: 'Enter fixed suffix string to be appended to location fields for more precise geocoding (e.g. add city, state, country if only street address is in the csv), leave blank if not required: '
-    },
-    {
-        type: "list",
-        name: "verbosity",
-        message: "Select verbosity level for forward geocoding",
-        choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
-    }
-];
-
 const searchablePropertiesDisable = [
     {
         type: "checkbox",
@@ -2959,7 +2940,7 @@ async function geocoderConfig(id:string, options:any) {
     } else if(actionChoice == 'configure') {
         let params : any = {};
         params['apiKey'] = apiKey;
-        params = await configureGeocodeInteractively(params);        
+        params = await configureGeocodeInteractively(params, options);        
         let processorDef:any = getEmptyGeocoderProcessorProfile();
         processorDef['params'] = params;       
         patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
@@ -2986,25 +2967,122 @@ async function geocoderConfig(id:string, options:any) {
 
 }
 
-async function configureGeocodeInteractively(params: any){
+async function configureGeocodeInteractively(params: any, options: any){
     const geocoderInput = await inquirer.prompt<{ reverseGeocoderConfirmation?: boolean, forwardGeocoderConfirmation?: boolean }>(geocoderConfiguration);
     if(geocoderInput.reverseGeocoderConfirmation){
         params['doReverseGeocode'] = true;
     }
     if(geocoderInput.forwardGeocoderConfirmation){
         params['doForwardGeocode'] = true;
-        params['forwardPropertyList'] = [];
-        const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string, verbosity?: string }>(forwardgeocoderConfiguration);
-        if(forwardGeocoderInput.propertyNames) {
-            params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
+        let qualifiedQueryList: { name: string, value: string }[] = [{name:'country',value:'country'}, {name:'region',value:'region'} , {name:'city',value:'city'}, {name:'street',value:'street'}, {name:'street number',value:'street number'}];
+        if(options.file.toLowerCase().indexOf(".csv") != -1){
+            let csvColumnsChoiceList: { name: string, value: string }[] = await getCsvColumnsChoiceList(options);
+            const qualifiedQueryConfirmation = [
+                {
+                    type: 'confirm',
+                    name: 'qualifiedQueryConfirmation',
+                    message: 'Is your address data structured? (columns for city, state, etc)?',
+                    default: false
+                }];
+            const qqInput = await inquirer.prompt<{ qualifiedQueryConfirmation: boolean }>(qualifiedQueryConfirmation);
+            params['forwardQualifiedQuery'] = {};
+            if(qqInput.qualifiedQueryConfirmation){
+                params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, false);
+            } else {
+                params['forwardQuery'] = [];
+                const forwardColumnSelection = [
+                    {
+                        type: "checkbox",
+                        name: "columnChoices",
+                        message: "Select columns to be used for geocoding",
+                        choices: csvColumnsChoiceList
+                    }
+                ];
+                let answers: any = await inquirer.prompt(forwardColumnSelection);
+                answers.columnChoices.forEach((key: string) => {
+                    params['forwardQuery'].push("$"+key);
+                });
+            }
+            const suffixConfirmationPrompt = [{
+                type: 'confirm',
+                name: 'suffixConfirmation',
+                message: 'Do you want to add fix suffix strings to geocoding search?',
+                default: false
+            }]
+            if(qualifiedQueryList.length > 0){
+                const suffixConfirmationPromptInput = await inquirer.prompt<{ suffixConfirmation: boolean}>(suffixConfirmationPrompt);
+                if(suffixConfirmationPromptInput.suffixConfirmation) {
+                    params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, true);
+                }
+            }
+            const verbositySelection = [{
+                type: "list",
+                name: "verbosity",
+                message: "Select verbosity level for forward geocoding",
+                choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
+            }];
+            const verbositySelectionInput = await inquirer.prompt<{ verbosity?: string }>(verbositySelection);
+            if(verbositySelectionInput.verbosity){
+                params['verbosity'] = verbositySelectionInput.verbosity;
+            }
+        } else {
+            console.log("ERROR : forward geocoding is only allowed for csv files");
+            return;
         }
-        if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
-            const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
-            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+    }
+    return params;
+}
+
+async function getQualifiedQueryInput(params: any, csvColumnsChoiceList: { name: string, value: string }[], qualifiedQueryList: { name: string, value: string }[], isSuffix: boolean){
+    const continueQQConfirmation = [
+        {
+            type: 'confirm',
+            name: 'continueQQConfirmation',
+            message: 'Do you want to add more qualified query parameters?',
+            default: false
+        }];
+    
+    const forwardQualifiedKeySelection = [
+        {
+            type: 'list',
+            name: 'forwardQualifiedKey',
+            message: 'Please select qualified query type',
+            choices: qualifiedQueryList
+        }];
+    
+    const forwardQualifiedColumnSelection = [
+        {
+            type: "list",
+            name: "forwardQualifiedColumn",
+            message: "Select column to be used for qualified parameter",
+            choices: csvColumnsChoiceList
         }
-        if(forwardGeocoderInput.verbosity){
-            params['verbosity'] = forwardGeocoderInput.verbosity;
+    ];
+    const forwardSuffixValueSelection = [
+        {
+            type: 'input',
+            name: 'suffix',
+            message: 'Enter fixed suffix string to be used for qualified parameter'
         }
+    ]
+    let continueQQInput = true;
+    while(continueQQInput && qualifiedQueryList.length > 0){
+        const forwardQualifiedKeySelectionInput = await inquirer.prompt<{ forwardQualifiedKey: string }>(forwardQualifiedKeySelection);
+        if(isSuffix){
+            const forwardSuffixValueSelectionInput = await inquirer.prompt<{ suffix: string }>(forwardSuffixValueSelection);
+            params['forwardQualifiedQuery'][forwardQualifiedKeySelectionInput.forwardQualifiedKey] = forwardSuffixValueSelectionInput.suffix;
+        } else {
+            const forwardQualifiedColumnSelectionInput = await inquirer.prompt<{ forwardQualifiedColumn: string }>(forwardQualifiedColumnSelection);
+            params['forwardQualifiedQuery'][forwardQualifiedKeySelectionInput.forwardQualifiedKey] = "$" + forwardQualifiedColumnSelectionInput.forwardQualifiedColumn;
+        }
+        for(var i = 0; i < qualifiedQueryList.length; i++){
+            if(qualifiedQueryList[i].value == forwardQualifiedKeySelectionInput.forwardQualifiedKey){
+                qualifiedQueryList.splice(i, 1);
+                break;
+            }
+        }
+        const continueQQConfirmationInput = await inquirer.prompt<{ continueQQConfirmation: boolean }>(continueQQConfirmation);
+        continueQQInput = continueQQConfirmationInput.continueQQConfirmation;
     }
     return params;
 }
@@ -3198,17 +3276,17 @@ async function createGeocoderSpace(id:string, options:any){
     let params : any = {};
     params['apiKey'] = await common.getLocalApiKey();;
     if(!options.forward && !options.reverse){
-        params = await configureGeocodeInteractively(params);
+        params = await configureGeocodeInteractively(params, options);
     }
     if(options.reverse){
         params['doReverseGeocode'] = true;
     }
     if(options.forward){
         params['doForwardGeocode'] = true;
-        params['forwardPropertyList'] = options.forward.split(',').map((x: string) => "$"+x.trim());
+        params['forwardQuery'] = options.forward.split(',').map((x: string) => "$"+x.trim());
         if(options.suffix){
             const suffixArray: string[] = options.suffix.split(',').map((x: string) => x.trim());;
-            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+            params['forwardQuery'] = params['forwardQuery'].concat(suffixArray);
         }
         if(options.verbosity){
             params['verbosity'] = options.verbosity.toUpperCase();
@@ -3247,6 +3325,30 @@ async function createGeocoderSpace(id:string, options:any){
     options.noCoords = true;
     options.geocode = true;
     await uploadToXyzSpace(id, options);
+}
+
+async function getCsvColumnsChoiceList(options: any){
+    let csvColumnsChoiceList: { name: string, value: string }[] = [];
+    const rows = await transform.getFirstNRowsOfCsv(options, 3);
+    for (let i = 0; i < rows.length; i++) {
+        let j = 0;
+        for (let key in rows[0]) {
+            if (i === 0) {
+                const desc =
+                    "" +
+                    (1 + j++) +
+                    " : " +
+                    key +
+                    " : " +
+                    rows[i][key];
+                    csvColumnsChoiceList.push({ name: desc, value: key });
+            } else {
+                csvColumnsChoiceList[j].name = csvColumnsChoiceList[j].name + " , " + rows[i][key];
+                j++;
+            }
+        }
+    }
+    return csvColumnsChoiceList;
 }
 
 program
