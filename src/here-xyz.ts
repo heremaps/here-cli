@@ -2974,7 +2974,7 @@ async function configureGeocodeInteractively(params: any, options: any){
     }
     if(geocoderInput.forwardGeocoderConfirmation){
         params['doForwardGeocode'] = true;
-        let qualifiedQueryList: { name: string, value: string }[] = [{name:'country',value:'country'}, {name:'region',value:'region'} , {name:'city',value:'city'}, {name:'street',value:'street'}, {name:'street number',value:'street number'}];
+        let qualifiedQueryList: { name: string, value: string }[] = [{name:'country',value:'country'}, {name:'state',value:'state'} , {name:'city',value:'city'}, {name:'street',value:'street'}, {name:'houseNumber',value:'houseNumber'}];
         if(options.file.toLowerCase().indexOf(".csv") != -1){
             let csvColumnsChoiceList: { name: string, value: string }[] = await getCsvColumnsChoiceList(options);
             const qualifiedQueryConfirmation = [
