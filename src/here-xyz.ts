@@ -2974,23 +2974,32 @@ async function configureGeocodeInteractively(params: any, options: any){
     }
     if(geocoderInput.forwardGeocoderConfirmation){
         params['doForwardGeocode'] = true;
-        let qualifiedQueryList: { name: string, value: string }[] = [{name:'country',value:'country'}, {name:'state',value:'state'} , {name:'city',value:'city'}, {name:'street',value:'street'}, {name:'houseNumber',value:'houseNumber'}];
-        if(options.file.toLowerCase().indexOf(".csv") != -1){
-            let csvColumnsChoiceList: { name: string, value: string }[] = await getCsvColumnsChoiceList(options);
-            const qualifiedQueryConfirmation = [
-                {
-                    type: 'confirm',
-                    name: 'qualifiedQueryConfirmation',
-                    message: 'Is your address data structured? (columns for city, state, etc)?',
-                    default: false
-                }];
-            const qqInput = await inquirer.prompt<{ qualifiedQueryConfirmation: boolean }>(qualifiedQueryConfirmation);
-            params['forwardQualifiedQuery'] = {};
-            if(qqInput.qualifiedQueryConfirmation){
-                params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, false);
+        let qualifiedQueryList: { name: string, value: string }[] = [{name:'country',value:'country'}, {name:'state',value:'state'} , {name:'county',value:'county'}, {name:'city',value:'city'}, {name:'district',value:'district'}, {name:'street',value:'street'}, {name:'houseNumber',value:'houseNumber'}, {name:'postalCode',value:'postalCode'}];
+        let csvColumnsChoiceList: { name: string, value: string }[] = [];
+        if(options.file){
+            if(options.file.toLowerCase().indexOf(".csv") != -1){
+                csvColumnsChoiceList = await getCsvColumnsChoiceList(options);
             } else {
-                params['forwardQuery'] = [];
-                const forwardColumnSelection = [
+                console.error("ERROR : forward geocoding is only allowed for csv files");
+                process.exit(1);
+            }
+        }
+        const qualifiedQueryConfirmation = [
+            {
+                type: 'confirm',
+                name: 'qualifiedQueryConfirmation',
+                message: 'Is your address data structured? (columns for city, state, etc)?',
+                default: false
+            }];
+        const qqInput = await inquirer.prompt<{ qualifiedQueryConfirmation: boolean }>(qualifiedQueryConfirmation);
+        params['forwardQualifiedQuery'] = {};
+        if(qqInput.qualifiedQueryConfirmation){
+            params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, false);
+        } else {
+            params['forwardQuery'] = [];
+            let forwardColumnSelection;
+            if(csvColumnsChoiceList.length > 0){
+                forwardColumnSelection = [
                     {
                         type: "checkbox",
                         name: "columnChoices",
@@ -2998,36 +3007,47 @@ async function configureGeocodeInteractively(params: any, options: any){
                         choices: csvColumnsChoiceList
                     }
                 ];
-                let answers: any = await inquirer.prompt(forwardColumnSelection);
-                answers.columnChoices.forEach((key: string) => {
-                    params['forwardQuery'].push("$"+key);
-                });
+            } else {
+                forwardColumnSelection = [
+                    {
+                        type: "input",
+                        name: "columnChoices",
+                        message: "Enter comma separated column names to be used for geocoding",
+                    }
+                ];
             }
-            const suffixConfirmationPrompt = [{
-                type: 'confirm',
-                name: 'suffixConfirmation',
-                message: 'Do you want to add fix suffix strings to geocoding search?',
-                default: false
-            }]
-            if(qualifiedQueryList.length > 0){
-                const suffixConfirmationPromptInput = await inquirer.prompt<{ suffixConfirmation: boolean}>(suffixConfirmationPrompt);
-                if(suffixConfirmationPromptInput.suffixConfirmation) {
-                    params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, true);
-                }
+            let answers: any = await inquirer.prompt(forwardColumnSelection);
+            let columnNames: string[];
+            if(csvColumnsChoiceList.length > 0){
+                columnNames = answers.columnChoices.split(',');
+            } else {
+                columnNames = answers.columnChoices;
             }
-            const verbositySelection = [{
-                type: "list",
-                name: "verbosity",
-                message: "Select verbosity level for forward geocoding",
-                choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
-            }];
-            const verbositySelectionInput = await inquirer.prompt<{ verbosity?: string }>(verbositySelection);
-            if(verbositySelectionInput.verbosity){
-                params['verbosity'] = verbositySelectionInput.verbosity;
+            columnNames.forEach((key: string) => {
+                params['forwardQuery'].push("$"+key);
+            });
+        }
+        const suffixConfirmationPrompt = [{
+            type: 'confirm',
+            name: 'suffixConfirmation',
+            message: 'Do you want to add fix suffix strings to geocoding search?',
+            default: false
+        }];
+        if(qualifiedQueryList.length > 0){
+            const suffixConfirmationPromptInput = await inquirer.prompt<{ suffixConfirmation: boolean}>(suffixConfirmationPrompt);
+            if(suffixConfirmationPromptInput.suffixConfirmation) {
+                params = await getQualifiedQueryInput(params, csvColumnsChoiceList, qualifiedQueryList, true);
             }
-        } else {
-            console.log("ERROR : forward geocoding is only allowed for csv files");
-            return;
+        }
+        const verbositySelection = [{
+            type: "list",
+            name: "verbosity",
+            message: "Select verbosity level for forward geocoding",
+            choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
+        }];
+        const verbositySelectionInput = await inquirer.prompt<{ verbosity?: string }>(verbositySelection);
+        if(verbositySelectionInput.verbosity){
+            params['verbosity'] = verbositySelectionInput.verbosity;
         }
     }
     return params;
@@ -3050,14 +3070,25 @@ async function getQualifiedQueryInput(params: any, csvColumnsChoiceList: { name:
             choices: qualifiedQueryList
         }];
     
-    const forwardQualifiedColumnSelection = [
-        {
-            type: "list",
-            name: "forwardQualifiedColumn",
-            message: "Select column to be used for qualified parameter",
-            choices: csvColumnsChoiceList
-        }
-    ];
+    let forwardQualifiedColumnSelection;
+    if(csvColumnsChoiceList.length > 0){
+        forwardQualifiedColumnSelection = [
+            {
+                type: "list",
+                name: "forwardQualifiedColumn",
+                message: "Select column to be used for qualified parameter",
+                choices: csvColumnsChoiceList
+            }
+        ];
+    } else {
+        forwardQualifiedColumnSelection = [
+            {
+                type: "input",
+                name: "forwardQualifiedColumn",
+                message: "Enter the column name to be used for qualified parameter",
+            }
+        ];
+    }
     const forwardSuffixValueSelection = [
         {
             type: 'input',

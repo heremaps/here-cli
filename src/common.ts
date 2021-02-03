@@ -813,7 +813,7 @@ export function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
                 console.log("Operation FAILED : Resource not found.");
             }
         } else {
-            console.log("OPERATION FAILED : " + apiError.message);
+            console.log("OPERATION FAILED : Error code - " + apiError.statusCode + ", message - " + apiError.message);
         }
     } else {
         if (apiError.message && apiError.message.indexOf("Insufficient rights.") != -1) {
