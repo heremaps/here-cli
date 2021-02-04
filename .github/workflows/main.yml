@@ -1,8 +1,5 @@
 name: build and test
-on:
-  push:
-    branches:
-      - "patch-1"
+on: [ push, pull_request ]
 
 jobs:
   build:
@@ -11,7 +8,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [10.x, 12.15.0]
-    name: OS${{ matrix.os }} - node${{ matrix.node-version }}
+    name: OS ${{ matrix.os }} - node ${{ matrix.node-version }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
