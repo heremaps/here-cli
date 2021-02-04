@@ -14,16 +14,20 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Cache Node.js modules
+
+
+      - name: Cache node_modules directory
         uses: actions/cache@v2
+        id: node_modules-cache
         with:
-          path: ~/.npm
-          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
-            ${{ runner.OS }}-
+          path: node_modules
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+
       - name: Install NPM packages
+        if: steps.node_modules-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Npm test
         run: |
-          npm ci
           npm link
           npm test
