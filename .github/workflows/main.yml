@@ -1,0 +1,12 @@
+name: build and test
+on: [push, pull_request]
+runs-on: [ubuntu-latest, macos-latest]
+jobs:
+  build:
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+      - run: npm install
+      - run: npm link
+      - run: npm test
+
