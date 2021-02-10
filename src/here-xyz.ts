@@ -3019,9 +3019,9 @@ async function configureGeocodeInteractively(params: any, options: any){
             let answers: any = await inquirer.prompt(forwardColumnSelection);
             let columnNames: string[];
             if(csvColumnsChoiceList.length > 0){
-                columnNames = answers.columnChoices.split(',');
-            } else {
                 columnNames = answers.columnChoices;
+            } else {
+                columnNames = answers.columnChoices.split(',');
             }
             columnNames.forEach((key: string) => {
                 params['forwardQuery'].push("$"+key);
