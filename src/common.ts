@@ -48,10 +48,8 @@ const questions = [
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
 let apiServerUrl: string;
-const xyzUrl = "https://xyz.api.here.com";
-// const xyzUrl = "https://xyz.sit.cpdev.aws.in.here.com";
+const xyzUrl = "https://eu-west-1-xyz.prd.internal.community.nw.ops.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
-// const account_api_url = 'https://st.p.account.here.com/authentication/v1.1';
 //const tableNew = require("table");
 
 // TODO this should go into env config as well
