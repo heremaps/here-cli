@@ -28,7 +28,6 @@ import * as zlib from "zlib";
 import { requestAsync } from "./requestAsync";
 import * as program from "commander";
 import * as common from "./common";
-import * as sso from "./sso";
 import * as inquirer from "inquirer";
 import * as transform from "./transformutil";
 import * as gis from "./gisUtil";
@@ -47,8 +46,9 @@ import * as glob from 'glob';
 import { option } from "commander";
 import {execInternal, handleError} from "./common";
 
-let hexbin = require('./hexbin');
+import * as hexbin from "./hexbin";
 const zoomLevelsMap = require('./zoomLevelsMap.json');
+const h3ZoomLevelResolutionMap = require('./h3ZoomLevelResolutionMap.json');
 let choiceList: { name: string, value: string }[] = [];
 const bboxDirections = ["west", "south", "east", "north"];
 const commandHistoryCount = 3;
@@ -125,6 +125,32 @@ const filesToUpload = [
     }
 ];
 
+const sharingQuestion = [
+    {
+        type: "list",
+        name: "sharingChoice",
+        message: "Please select the shared spaces option",
+        choices: [{name: 'request access to a space', value: 'newSharing'}, {name: 'list spaces you requested', value: 'request'}, {name: 'approve the requests of others', value: 'approval'}, {name: 'list spaces you are sharing', value: 'sharing'},{name: 'modify/revoke requests of others to share your spaces', value:'modifySharing'}]
+    }
+];
+
+const sharingModifyQuestion = [
+    {
+        type: "list",
+        name: "sharingId",
+        message: "Please select the sharing you want to revoke/modfiy",
+        choices: choiceList
+    }
+];
+
+const sharingSpaceQuestion = [
+    {
+        type: "input",
+        name: "sharingSpaceId",
+        message: "Enter the spaceId you want access"
+    }
+];
+
 const tagruleUpdatePrompt = [
     {
         type: "list",
@@ -143,6 +169,15 @@ const activityLogAction = [
     }
 ]
 
+const geocoderAction = [
+    {
+        type: "list",
+        name: "actionChoice",
+        message: "Select action for geocoder",
+        choices: choiceList
+    }
+];
+
 const activityLogConfiguration = [
     {
         type: "list",
@@ -156,8 +191,41 @@ const activityLogConfiguration = [
         message: "Select state (number of change history to be kept) for activity log",
         choices: [{name: '1', value: '1'},{name: '2', value: '2'},{name: '3', value: '3'},{name: '4', value: '4'},{name: '5', value: '5'}]
     }
-]
+];
 
+const geocoderConfiguration = [
+    {
+        type: 'confirm',
+        name: 'reverseGeocoderConfirmation',
+        message: 'Do you want to enable reverse geocoding (coordinates to address)?',
+        default: false
+    },
+    {
+        type: 'confirm',
+        name: 'forwardGeocoderConfirmation',
+        message: 'Do you want to enable forward geocoding? (address to coordinates)',
+        default: true
+    }
+];
+
+const forwardgeocoderConfiguration = [
+    {
+        type: 'input',
+        name: 'propertyNames',
+        message: 'Enter comma separated property names: '
+    },
+    {
+        type: 'input',
+        name: 'suffix',
+        message: 'Enter fixed suffix string to be appended to location fields for more precise geocoding (e.g. add city, state, country if only street address is in the csv), leave blank if not required: '
+    },
+    {
+        type: "list",
+        name: "verbosity",
+        message: "Select verbosity level for forward geocoding",
+        choices: [{name: 'NONE', value: 'NONE'},{name: 'MIN', value: 'MIN'},{name: 'MORE', value: 'MORE'},{name: 'ALL', value: 'ALL'}]
+    }
+];
 
 const searchablePropertiesDisable = [
     {
@@ -225,17 +293,14 @@ async function execute(uri: string, method: string, contentType: string, data: a
 }
 
 async function listSpaces(options: any) {
-    const uri = "/hub/spaces?clientId=cli";
-    const cType = "application/json";
-    const response = await execute(uri, "GET", cType, "", options.token);
-    if (response.body.length == 0) {
+    let result = await getListOfSpaces(options.token);
+    if (result.length == 0) {
         console.log("No Data Hub space found");
     } else {
         let fields = ["id", "title", "description"];
         if (options.prop.length > 0) {
             fields = options.prop;
         }
-        let result = response.body;
         if(options.filter){
             const filterArray = options.filter.split(",");
             result = result.filter((element: any) => {
@@ -252,6 +317,13 @@ async function listSpaces(options: any) {
             common.drawNewTable(result, fields, [10, 40, 60]);
         }
     }
+}
+
+async function getListOfSpaces(token: string | null = null){
+    const uri = "/hub/spaces?clientId=cli";
+    const cType = "application/json";
+    const response = await execute(uri, "GET", cType, "", token);
+    return response.body;
 }
 
 function collect(val: string, memo: string[]) {
@@ -450,6 +522,8 @@ program
     .option("-b, --bbox [bbox]", "only create hexbins for records inside the bounding box specified either by individual coordinates provided interactively or as minLon,minLat,maxLon,maxLat (use “\\ “ to escape a bbox with negative coordinate(s))")
     .option("-l, --latitude <latitude>", "latitude which will be used for converting cellSize from meters to degrees")
     .option("-z, --zoomLevels <zoomLevels>", "hexbins optimized for zoom levels (1-18) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
+    .option("--h3", "uses h3 library to create hexbins")
+    .option("--resolution <resolution>", "h3 resolution (1-15) - comma separate multiple values(-z 8,10,12) or dash for continuous range(-z 10-15)")
     .action(function (id, options) {
         (async () => {
             try {
@@ -470,8 +544,17 @@ program
                 if (options.bbox == true) {
                     options.bbox = await getBoundingBoxFromUser();
                 }
+                if(options.h3 && !(options.zoomLevels || options.resolution)){
+                    console.error(`Please specify --zoomLevels or --resolution with --h3 option`);
+                    process.exit(1);
+                }
+                if(!options.h3 && options.resolution){
+                    console.error(`Please specify --h3 option with --resolution option`);
+                    process.exit(1);
+                }
 
-                let cellSizes: number[] = [];
+                let cellSizes = new Set<number>();
+                let zoomNumbers: number[] = [];
                 if (options.zoomLevels) {
                     options.zoomLevels.split(",").forEach(function (item: string) {
                         if (item && item != "") {
@@ -482,7 +565,12 @@ program
                                     console.error(`hexbin creation failed: zoom level input "${zoomLevels[0]}" is not a valid between 1-18`);
                                     process.exit(1);
                                 }
-                                cellSizes.push(parseInt(zoomLevelsMap[number]));
+                                if(options.h3){
+                                    cellSizes.add(parseInt(h3ZoomLevelResolutionMap[number]));
+                                } else {
+                                    cellSizes.add(parseInt(zoomLevelsMap[number]));
+                                }
+                                zoomNumbers.push(number);
                             } else if (zoomLevels.length !== 2) {
                                 console.error(`hexbin creation failed: zoom level input "${item}" is not a valid sequence`);
                                 process.exit(1);
@@ -494,12 +582,48 @@ program
                                     process.exit(1);
                                 }
                                 for (var i = lowNumber; i <= highNumber; i++) {
-                                    cellSizes.push(parseInt(zoomLevelsMap[i]));
+                                    if(options.h3){
+                                        cellSizes.add(parseInt(h3ZoomLevelResolutionMap[i]));
+                                    } else {
+                                        cellSizes.add(parseInt(zoomLevelsMap[i]));
+                                    }
+                                    zoomNumbers.push(i);
+                                }
+                            }
+                        }
+                    });
+                } else if(options.resolution){
+                    options.resolution.split(",").forEach(function (item: string) {
+                        if (item && item != "") {
+                            let resolution = item.split("-");
+                            if (resolution.length === 1) {
+                                let number = parseInt(resolution[0].toLowerCase());
+                                if (isNaN(number) || number < 1 || number > 15) {
+                                    console.error(`hexbin creation failed: resolution input "${resolution[0]}" is not a valid between 1-15`);
+                                    process.exit(1);
+                                }
+                                cellSizes.add(number);
+                            } else if (resolution.length !== 2) {
+                                console.error(`hexbin creation failed: resolution input "${item}" is not a valid sequence`);
+                                process.exit(1);
+                            } else {
+                                let lowNumber = parseInt(resolution[0].toLowerCase());
+                                let highNumber = parseInt(resolution[1].toLowerCase());
+                                if (isNaN(lowNumber) || isNaN(highNumber) || (lowNumber > highNumber) || lowNumber < 1 || lowNumber > 15 || highNumber < 1 || highNumber > 15) {
+                                    console.error(`hexbin creation failed: resolution input "${resolution}" must be between 1-15`);
+                                    process.exit(1);
+                                }
+                                for (var i = lowNumber; i <= highNumber; i++) {
+                                    cellSizes.add(i);
                                 }
                             }
                         }
                     });
                 } else if (options.cellsize) {
+                    if(options.h3){
+                        console.error(`cellSize option is not available with --h3 option. please use --zoomLevels option`);
+                        process.exit(1);
+                    }
                     options.cellsize.split(",").forEach(function (item: string) {
                         if (item && item != "") {
                             let number = parseInt(item.toLowerCase());
@@ -507,11 +631,11 @@ program
                                 console.error(`hexbin creation failed: cellsize input "${item}" is not a valid number`);
                                 process.exit(1);
                             }
-                            cellSizes.push(number);
+                            cellSizes.add(number);
                         }
                     });
                 } else {
-                    cellSizes.push(2000);
+                    cellSizes.add(2000);
                 }
                 if (!options.latitude) {
                     options.latitude = await getCentreLatitudeOfSpace(id, options.readToken);
@@ -524,7 +648,7 @@ program
                 options.handle = 0;
                 let cHandle;
                 let featureCount = 0;
-                console.log("Creating hexbins for the space data");
+                console.log("Creating " + (options.h3 ? "h3": "") + " hexbins for the space data");
                 do {
                     let jsonOut = await getSpaceDataFromXyz(id, options);
                     if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
@@ -547,7 +671,7 @@ program
                             //(async () => {
                             //console.log("Creating hexbins for the space data with size " + cellsize);
                             let hexFeatures = cellSizeHexFeaturesMap.get(cellsize);
-                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.aggregate, options.latitude, hexFeatures);
+                            hexFeatures = hexbin.calculateHexGrids(features, cellsize, options.ids, options.groupBy, options.aggregate, options.latitude,options.h3, hexFeatures);
                             cellSizeHexFeaturesMap.set(cellsize, hexFeatures);
                             //console.log("uploading the hexagon grids to space with size " + cellsize);
                         }
@@ -615,40 +739,71 @@ program
                     });
                     */
                     if (hexFeatures.length > 0) {
-                        let logStat = "uploading the hexagon grids to space with size " + cellsize;
+                        let logStat = "uploading the hexagon grids to space with " + (options.h3 ? "resolution ":"size ") + cellsize;
                         cellSizeSet.add(cellsize + "");
                         if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                            logStat += " / zoom Level " + zoomNumber;
-                            zoomLevelSet.add(zoomNumber + "");
+                            let zoomNumberArr;
+                            if(options.h3){
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
+                            }
+                            for(const zoomNumber of zoomNumberArr) {
+                                logStat += " / zoom Level " + zoomNumber;
+                                zoomLevelSet.add(zoomNumber + "");
+                            }
                         }
                         console.log(logStat);
                         //console.log("data to be uploaded - " + JSON.stringify(hexFeatures));
 
                         let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: hexFeatures }));
-                        options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
-                        if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+                        if(options.h3){
+                            options.tags = 'hexbin_h3_' + cellsize + ',h3_' + cellsize + ',hexbin,h3';
+                        } else {
+                            options.tags = 'hexbin_' + cellsize + ',cell_' + cellsize + ',hexbin';
+                        }
+                        if (options.zoomLevels || options.h3) {
+                            let zoomNumberArr;
+                            if(options.h3){
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
+                            }
+                            for(const zoomNumber of zoomNumberArr){
+                                options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_hexbin';
+                            }
                         }
                         //if(options.destSpace){
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
+                        options.stream = true;
                         await uploadToXyzSpace(id, options);
 
                         tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'hex', postfix: '.json' });
                         fs.writeFileSync(tmpObj.name, JSON.stringify({ type: "FeatureCollection", features: centroidFeatures }));
-                        options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
-                        if (options.zoomLevels) {
-                            const zoomNumber = getKeyByValue(zoomLevelsMap, cellsize);
-                            options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                        if(options.h3){
+                            options.tags = 'centroid_h3_' + cellsize + ',h3_' + cellsize + ',centroid,h3';
+                        } else {
+                            options.tags = 'centroid_' + cellsize + ',cell_' + cellsize + ',centroid';
+                        }
+                        if (options.zoomLevels || options.h3) {
+                            let zoomNumberArr;
+                            if(options.h3){
+                                zoomNumberArr = getKeyArrayByValue(h3ZoomLevelResolutionMap, cellsize);
+                            } else {
+                                zoomNumberArr = getKeyArrayByValue(zoomLevelsMap, cellsize);
+                            }
+                            for(const zoomNumber of zoomNumberArr){
+                                options.tags += ',zoom' + zoomNumber + ',zoom' + zoomNumber + '_centroid';
+                            }
                         }
                         //if(options.destSpace){
                         options.tags += ',' + sourceId;
                         //}
                         options.file = tmpObj.name;
+                        options.stream = true;
                         await uploadToXyzSpace(id, options);
                         //});
                     } else {
@@ -727,6 +882,10 @@ export async function getSpaceMetaData(id: string, token: string | null = null) 
 
 function getKeyByValue(object: any, value: any) {
     return Object.keys(object).find(key => object[key] === value);
+}
+
+function getKeyArrayByValue(object: any, value: any) {
+    return Object.keys(object).filter(key => object[key] === value);
 }
 
 async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = null) {
@@ -925,7 +1084,13 @@ async function showSpace(id: string, options: any) {
     }
     else if (options.web) {
         //console.log(uri);
-        await launchHereGeoJson(uri, id, options.token, options.permanent);
+        let spaceIds: string[] = [id];
+        if(options.feature){
+            const refspacefeature = options.feature.split(',');
+            const refspace = refspacefeature[0];
+            spaceIds.push(refspace);
+        }
+        await launchHereGeoJson(uri, spaceIds, options.token, options.permanent);
     } else {
         const response = await execute(
             uri,
@@ -1060,6 +1225,13 @@ async function createSpace(options: any) {
             let processors = getSchemaProcessorProfile(schemaDef);
 
             gp['processors'] = processors;
+        }
+    }
+    if(options.processors){
+        if(!gp['processors']){
+            gp['processors'] = {...gp['processors'], ...options.processors}
+        } else {
+            gp['processors'] = options.processors;
         }
     }
 
@@ -2342,9 +2514,9 @@ function chunkify(data: any[], chunksize: number) {
     return chunks;
 }
 
-async function launchHereGeoJson(uri: string,spaceId: string,  token: string, isPermanent: boolean) {
+async function launchHereGeoJson(uri: string, spaceIds: string[],  token: string, isPermanent: boolean) {
     if(!token){
-        token = await getReadOnlyToken(spaceId, isPermanent);
+        token = await getReadOnlyToken(spaceIds, isPermanent);
     }
     const accessAppend =
         uri.indexOf("?") == -1
@@ -2352,26 +2524,29 @@ async function launchHereGeoJson(uri: string,spaceId: string,  token: string, is
             : "&access_token=" + token;
     open(
         "http://geojson.tools/index.html?url=" +
-        common.xyzRoot() +
+        common.xyzRoot(false) +
         uri +
         accessAppend
         , { wait: false });
 }
 
-async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
+async function getReadOnlyToken(inputSpaceIds: string[], isPermanent: boolean){
     if(isPermanent){
         console.log("generating permanent token for this space");
     } else {
         console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this space that will not expire");
     }
-    const spaceConfig = await getSpaceMetaData(spaceId);
-    let spaceIds = [spaceId];
-    if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
-        const storageparams = spaceConfig.storage.params.virtualspace;
-        spaceIds = spaceIds.concat(storageparams['group'] ? storageparams['group'] : []);
-        spaceIds = spaceIds.concat(storageparams['merge'] ? storageparams['merge'] : []);
-        spaceIds = spaceIds.concat(storageparams['override'] ? storageparams['override'] : []);
-        spaceIds = spaceIds.concat(storageparams['custom'] ? storageparams['custom'] : []);
+    let spaceIds: string[] = [];
+    for(let spaceId of inputSpaceIds){
+        const spaceConfig = await getSpaceMetaData(spaceId);
+        spaceIds.push(spaceId);
+        if(spaceConfig.storage && spaceConfig.storage.id && spaceConfig.storage.id === 'virtualspace'){
+            const storageparams = spaceConfig.storage.params.virtualspace;
+            spaceIds = spaceIds.concat(storageparams['group'] ? storageparams['group'] : []);
+            spaceIds = spaceIds.concat(storageparams['merge'] ? storageparams['merge'] : []);
+            spaceIds = spaceIds.concat(storageparams['override'] ? storageparams['override'] : []);
+            spaceIds = spaceIds.concat(storageparams['custom'] ? storageparams['custom'] : []);
+        }
     }
     const token = await common.createReadOnlyToken(spaceIds, isPermanent);
     return token;
@@ -2379,7 +2554,7 @@ async function getReadOnlyToken(spaceId: string, isPermanent: boolean){
 
 async function launchXYZSpaceInvader(spaceId: string, tags: string, token: string, isPermanent: boolean) {
     if(!token){
-        token = await getReadOnlyToken(spaceId, isPermanent);
+        token = await getReadOnlyToken([spaceId], isPermanent);
     }
     const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     open(
@@ -2415,6 +2590,7 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
+    //.option("--geocoder","configure forward or reverse geocoding for your space interactively")
     .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
         if(options.console){
@@ -2432,23 +2608,23 @@ program
     })
 
 async function configXyzSpace(id: string, options: any) {
-    if(options.schema || options.searchable || options.tagrules || options.activitylog){
+    if(options.schema || options.searchable || options.tagrules || options.activitylog || options.geocoder){
         await common.verifyProLicense();
     }
 
     let patchRequest: any = {};
     let spacedef: any = null;
 
-    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 )
+    let counter = ( options.schema ? 1 : 0 ) + ( options.searchable ? 1 : 0 ) + ( options.tagrules ? 1 : 0 ) + ( options.activitylog ? 1 : 0 ) + ( options.geocoder ? 1 : 0 )
 
     if (counter > 1) {
-        console.log("conflicting options, searchable/schema/tagrules/activitylog options can not be used together.")
+        console.log("conflicting options, searchable/schema/tagrules/activitylog/geocoder options can not be used together.")
         process.exit(1);
     }
 
-    if ((options.schema || options.searchable || options.tagrules || options.activitylog) &&
+    if ((options.schema || options.searchable || options.tagrules || options.activitylog || options.geocoder) &&
         (options.shared || options.readonly || options.title || options.message || options.copyright || options.stats)) {
-        console.log("conflicting options, searchable/schema/tagrules/activitylog options can be used only with add/update/view/delete options")
+        console.log("conflicting options, searchable/schema/tagrules/activitylog/geocoder options can be used only with add/update/view/delete options")
         process.exit(1);
     }
 
@@ -2473,6 +2649,9 @@ async function configXyzSpace(id: string, options: any) {
         process.exit(1);
     } else if (options.activitylog) {
         await activityLogConfig(id, options);
+        process.exit(1);
+    } else if (options.geocoder) {
+        await geocoderConfig(id, options);
         process.exit(1);
     } else if (options.schema) {
         spacedef = await getSpaceMetaData(id);
@@ -2650,7 +2829,6 @@ async function configXyzSpace(id: string, options: any) {
 
 
 async function activityLogConfig(id:string, options:any) {
-    let enableMode = options.enable;
     await common.verifyProLicense();
     let patchRequest:any = {};
 
@@ -2738,6 +2916,99 @@ async function activityLogConfig(id:string, options:any) {
 
 }
 
+async function geocoderConfig(id:string, options:any) {
+    await common.verifyProLicense();
+    let patchRequest:any = {};
+    const apiKey = await common.getLocalApiKey();
+    let tabledata:any = {};
+    let spacedef = await getSpaceMetaData(id);
+    let enabled = false;
+    if(spacedef.processors) {
+        const processors:any = spacedef.processors;
+        let processor = processors['geocoder-preprocessor'];
+        if(processor && processor[0]){
+            tabledata = processor[0].params;
+        }
+        if(Object.keys(tabledata).length > 0) {
+            enabled = true;
+            console.log("geocoder is enabled for this space with below configurations.");
+            delete tabledata.apiKey;
+            console.table(tabledata);
+        } else {
+            console.log("geocoder for this space is not enabled.")
+        }
+    } else {
+        console.log("geocoder for this space is not enabled.")
+    }
+    
+    if(enabled) {
+        choiceList.push({'name': 'disable geocoder for this space', 'value': 'disable'});
+        choiceList.push({'name': 'reconfigure geocoder for the space', 'value' : 'configure'});
+    } else {
+        choiceList.push({'name': 'enable geocoder for this space', 'value': 'configure'});
+    }
+    choiceList.push({'name': 'cancel operation', 'value': 'abort'});
+
+    const answer: any = await inquirer.prompt(geocoderAction);
+    const actionChoice = answer.actionChoice;
+    
+    if(actionChoice == 'abort') {
+        process.exit(1);
+    } else if (actionChoice == 'disable') {
+        patchRequest['processors'] = {"geocoder-preprocessor": null};
+    } else if(actionChoice == 'configure') {
+        let params : any = {};
+        params['apiKey'] = apiKey;
+        params = await configureGeocodeInteractively(params);        
+        let processorDef:any = getEmptyGeocoderProcessorProfile();
+        processorDef['params'] = params;       
+        patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
+    } else {
+        console.log("please select only one option");
+        process.exit(1);
+    }
+    if(Object.keys(patchRequest).length > 0) {
+    const url = `/hub/spaces/${id}?clientId=cli`
+        const response = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+
+        if(response.statusCode >= 200 && response.statusCode < 210) {
+            console.log("geocoder configuration updated successfully, it may take a few seconds to take effect and reflect.");
+        }
+    } 
+    //console.log(options);
+
+}
+
+async function configureGeocodeInteractively(params: any){
+    const geocoderInput = await inquirer.prompt<{ reverseGeocoderConfirmation?: boolean, forwardGeocoderConfirmation?: boolean }>(geocoderConfiguration);
+    if(geocoderInput.reverseGeocoderConfirmation){
+        params['doReverseGeocode'] = true;
+    }
+    if(geocoderInput.forwardGeocoderConfirmation){
+        params['doForwardGeocode'] = true;
+        params['forwardPropertyList'] = [];
+        const forwardGeocoderInput = await inquirer.prompt<{ propertyNames?: string, suffix?: string, verbosity?: string }>(forwardgeocoderConfiguration);
+        if(forwardGeocoderInput.propertyNames) {
+            params['forwardPropertyList'] = forwardGeocoderInput.propertyNames.split(',').map(x => "$"+x.trim());
+        }
+        if(forwardGeocoderInput.suffix && forwardGeocoderInput.suffix != ''){
+            const suffixArray: string[] = forwardGeocoderInput.suffix.split(',').map(x => x.trim());;
+            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+        }
+        if(forwardGeocoderInput.verbosity){
+            params['verbosity'] = forwardGeocoderInput.verbosity;
+        }
+    }
+    return params;
+}
+
 function getEmptyAcitivityLogListenerProfile() {
     return {
         "id": "activity-log",
@@ -2746,6 +3017,13 @@ function getEmptyAcitivityLogListenerProfile() {
             "ModifySpaceEvent.request"
         ]
     }
+}
+
+function getEmptyGeocoderProcessorProfile() {
+    return {
+            "id": "geocoder-preprocessor",
+            "params": null
+        }
 }
 
 
@@ -2875,6 +3153,317 @@ function showSpaceConfig(spacedef: any) {
     }
     common.drawNewTable(spaceconfigs, ['property', 'value'], [30, 90])
     //console.table(spacedef);
+}
+
+const validVerbosityLevels = ["NONE", "MIN", "MORE", "ALL"];
+/*
+program
+    .command("geocode [id]")
+    .description("{Data Hub Add-on} create a new space with a CSV and configures geocoder processor on it") 
+    .option("-t, --title [title]", "Title for Data Hub space")
+    .option("-d, --message [message]", "Short description ")   
+    .option("-f, --file <file>", "file to be uploaded and associated")
+    .option("-i, --keyField <keyField>", "field in csv file to become feature id")
+    .option("--keys <keys>", "comma separated property names of csvProperty and space property")
+    .option("--forward <forward>", "comma separated property names to be used for forward geocoding")
+    .option("--reverse", "reverse geocoding")
+    .option("--suffix <suffix>", "comma separated suffix string to be used for forward geocoding")
+    .option("--verbosity <verbosity>", "verbosity level to be used for forward geocoding")
+    .option("-x, --lon [lon]", "longitude field name")
+    .option("-y, --lat [lat]", "latitude field name")
+    .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
+    .option("--lonlat", "parse a —point/-z csv field as (lon,lat) instead of (lat,lon)")
+    .option('-d, --delimiter [,]', 'alternate delimiter used in csv', ',')
+    .option('-q, --quote ["]', 'quote used in csv', '"')
+    .option("-s, --stream", "streaming data for faster uploads and large csv support")
+    .action(function (id, options) {
+        createGeocoderSpace(id, options).catch((error) => {
+            handleError(error, true);
+        });
+    })
+    */
+
+async function createGeocoderSpace(id:string, options:any){
+    await common.verifyProLicense();
+    if(!options.file){
+        console.log("ERROR : Please specify file for upload");
+        return;
+    }
+    if(options.forward && options.reverse){
+        console.log("ERROR : Please specify only one option from forward or reverse");
+        return;
+    }
+    if(options.verbosity && !validVerbosityLevels.includes(options.verbosity.toUpperCase())){
+        console.log("ERROR : Please specify valid verbosity level - " + validVerbosityLevels);
+        return;
+    }
+    let params : any = {};
+    params['apiKey'] = await common.getLocalApiKey();;
+    if(!options.forward && !options.reverse){
+        params = await configureGeocodeInteractively(params);
+    }
+    if(options.reverse){
+        params['doReverseGeocode'] = true;
+    }
+    if(options.forward){
+        params['doForwardGeocode'] = true;
+        params['forwardPropertyList'] = options.forward.split(',').map((x: string) => "$"+x.trim());
+        if(options.suffix){
+            const suffixArray: string[] = options.suffix.split(',').map((x: string) => x.trim());;
+            params['forwardPropertyList'] = params['forwardPropertyList'].concat(suffixArray);
+        }
+        if(options.verbosity){
+            params['verbosity'] = options.verbosity.toUpperCase();
+        }
+    }
+    let processorDef:any = getEmptyGeocoderProcessorProfile();
+    processorDef['params'] = params;       
+    if(id){
+        let patchRequest:any = {};
+        patchRequest['processors'] = {"geocoder-preprocessor": [processorDef]};
+        const url = `/hub/spaces/${id}?clientId=cli`
+        const response = await execute(
+                url,
+                "PATCH",
+                "application/json",
+                patchRequest,
+                null,
+                false
+            );
+    } else {
+        if(!options.title){
+            options.title = (options.forward ? "forward" : " reverse") + " geocode " + path.parse(options.file).name;
+        }
+        if(!options.message){
+            options.message = (options.forward ? "forward" : " reverse") + " geocode " + path.parse(options.file).name;
+        }
+        options.processors = {"geocoder-preprocessor": [processorDef]};
+        const spaceData:any = await createSpace(options).catch(err => 
+            {
+                handleError(err);
+                process.exit(1);                                           
+            });
+        id = spaceData.id;
+    }
+    options.id = options.keyField;
+    options.noCoords = true;
+    options.geocode = true;
+    await uploadToXyzSpace(id, options);
+}
+
+program
+    .command("sharing")
+    .description("configure/view sharing information for Data Hub spaces")
+    .option("--request [request]", "view and configure existing data hub space sharing requests")
+    .option("--approval", "view and configure existing data hub space approval requests")
+    .option("--retract <retract>", "retract your requests to share another user's space")
+    .action(async function (options) {
+        try{
+            await common.verifyProLicense();
+            if(options.request && options.approval){
+                console.log("ERROR : Only one of the --request or --approval option allowed");
+                return;
+            }
+            if(!options.request && !options.approval && !options.retract){
+                const answer: any = await inquirer.prompt(sharingQuestion);
+                const result = answer.sharingChoice;
+                if(result === 'newSharing'){
+                    const spaceIdAnswer: any = await inquirer.prompt(sharingSpaceQuestion);
+                    if(spaceIdAnswer.sharingSpaceId == ''){
+                        console.log("ERROR : Please enter a valid spaceId");
+                        return;
+                    }
+                    options.request = spaceIdAnswer.sharingSpaceId;
+                } else if(result === 'request') {
+                    options.request = true;
+                } else if(result === 'approval'){
+                    options.approval = true;
+                } else if(result == 'sharing'){
+                    await showExistingSharings();
+                } else if(result == 'modifySharing'){
+                    let existingSharings = await common.getExistingSharing();
+                    existingSharings = await addTitleInSharingList(existingSharings, true);
+                    if(existingSharings.length == 0){
+                        console.log("No spaces are shared");
+                        return;
+                    }
+                    let choiceList: { name: string, value: any }[] = [];
+                    for(let sharing of existingSharings){
+                        choiceList.push({name: sharing.spaceId + " '" + sharing.title + "' " + sharing.emailId + ' ' + sharing.urm, value: {id: sharing.id, title: sharing.title}});
+                    }
+                    const sharingModifyQuestion = [
+                        {
+                            type: "list",
+                            name: "sharingId",
+                            message: "Please select the sharing you want to revoke/modfiy",
+                            choices: choiceList
+                        }
+                    ];
+                    const sharingAnswer: any = await inquirer.prompt(sharingModifyQuestion);
+                    const sharingId = sharingAnswer.sharingId.id;
+                    let actionList = [{name:'Revoke', value: 'revoke'}];
+                    if(sharingAnswer.sharingId.title != "SPACE IS DELETED"){
+                        actionList.push({name: 'Modify', value: 'modify'});
+                    }
+                    const actionSelectionPrompt = [ {
+                        type: "list",
+                        name: "action",
+                        message: "Please select your decision",
+                        choices: actionList
+                    }];
+                    const actionAnswer: any = await inquirer.prompt(actionSelectionPrompt);
+                    const action = actionAnswer.action;
+                    if(action == 'revoke'){
+                        await common.deleteSharing(sharingId);
+                        console.log("Sharing revoked successfully");
+                    } else if(action == 'modify'){
+                        const urm = await askSharingRightsQuestion();
+                        await common.modifySharingRights(sharingId, urm);
+                        console.log("Sharing rights modified successfully");
+                    }
+                }
+            }
+            if(options.request){
+                if(options.request != true){
+                    const newSharingRequest = await common.createNewSharingRequest(options.request);
+                    console.log("New sharing request created with id - " + newSharingRequest.id);
+                } else {
+                    await showExistingSharingRequests();
+                }
+            } else if(options.approval){
+                await showExistingApprovals();
+            } else if(options.retract){
+                let sharingRequests = await common.getSharingRequests();
+                let status = null;
+                for(let sharingRequest of sharingRequests){
+                    if(sharingRequest.id == options.retract){
+                        status = sharingRequest.status;
+                        break;
+                    }
+                }
+                if(!status){
+                    console.log("Sharing request with id " + options.retract + " does not exist. Please give valid sharingId");
+                    return;
+                } else if(status == 'ACCEPTED'){
+                    await common.deleteSharing(options.retract);
+                } else {
+                    await common.deleteSharingRequest(options.retract);
+                }
+                console.log("Sharing request retracted successfully");
+            }
+        } catch(error) {
+            console.log(error.statusCode);
+            handleError(error, false);
+        }
+    });
+
+async function showExistingSharingRequests(){
+    let sharingRequests = await common.getSharingRequests();
+    sharingRequests = await addTitleInSharingList(sharingRequests, false);
+    //TODO - check how to give delete operation
+    common.drawNewTable(sharingRequests, ['id', 'spaceId','title', 'urm','status']);
+}
+
+async function showExistingSharings(){
+    let existingSharings = await common.getExistingSharing();
+    existingSharings = await addTitleInSharingList(existingSharings, true);
+    //TODO - check how to give delete and update operation
+    common.drawNewTable(existingSharings, ['id', 'spaceId','title', 'emailId', 'urm','status']);
+}
+
+async function addTitleInSharingList(sharingList: any[], isOwner: boolean){
+    let spaceMap = new Map<string,any>();
+    if(isOwner){
+        let spaceList = await getListOfSpaces();
+        for(let space of spaceList){
+            spaceMap.set(space.id, space);
+        }
+    }   
+    for(let sharing of sharingList){
+        let spaceData;
+        if(isOwner){
+            spaceData = spaceMap.get(sharing.spaceId);
+        } else {
+            try{
+                if(sharing.status == 'ACCEPTED'){
+                    spaceData = await getSpaceMetaData(sharing.spaceId);
+                } else {
+                    spaceData = {'title': ''};
+                }
+            } catch(error){
+                if(!error.statusCode || error.statusCode != 404){
+                    throw error;
+                }
+            }
+        }
+        if(spaceData){
+            sharing.title = spaceData.title;
+        } else {
+            sharing.title = "SPACE IS DELETED";
+        }
+    }
+    return sharingList;
+}
+
+async function showExistingApprovals(){
+    let existingApprovals = await common.getExistingApprovals();
+    existingApprovals = await addTitleInSharingList(existingApprovals, true);
+    let choiceList: { name: string, value: any }[] = [];
+    for(let sharingApproval of existingApprovals){
+        if(sharingApproval.status == 'PENDING'){
+            choiceList.push({name: sharingApproval.spaceId + " '" + sharingApproval.title + "' " + sharingApproval.emailId, value: { id: sharingApproval.id, title: sharingApproval.title}});
+        }
+    }
+    if(choiceList.length === 0){
+        console.log("No approvals pending.");
+    } else {
+        const approvalSelectionPrompt = [
+            {
+                type: "list",
+                name: "sharingId",
+                message: "Select sharing request for approval",
+                choices: choiceList
+            }
+        ];
+        const answer: any = await inquirer.prompt(approvalSelectionPrompt);
+        const sharingId = answer.sharingId.id;
+        let verdictList = [{name:'reject', value: 'reject'}];
+        if(answer.sharingId.title != "SPACE IS DELETED"){
+            verdictList.push({name: 'accept', value: 'accept'});
+        }
+        const verdictSelectionPrompt = [ {
+            type: "list",
+            name: "verdict",
+            message: "Please select your decision",
+            choices: verdictList
+        }];
+        const verdictAnswer: any = await inquirer.prompt(verdictSelectionPrompt);
+        const verdict = verdictAnswer.verdict; 
+        let urm;
+        if(verdict === 'accept'){
+            urm = await askSharingRightsQuestion();
+        }
+        await common.putSharingApproval(sharingId, verdict, urm);
+        console.log("sharing request " + sharingId + " " + verdict + "ed successfully");
+    }
+}
+
+async function askSharingRightsQuestion(){
+    const rightsSelectionPrompt = [
+        {
+            type: "checkbox",
+            name: "urm",
+            message: "Select the rights for the sharing",
+            choices: [{name: 'readFeatures', value: 'readFeatures'},{name: 'createFeatures', value: 'createFeatures'},{name: 'updateFeatures', value: 'updateFeatures'}]
+        }
+    ];
+    const rightsAnswer: any = await inquirer.prompt(rightsSelectionPrompt);
+    const urm = rightsAnswer.urm;
+    if(urm.length === 0){
+        console.log("ERROR : Please select atleast one right for sharing approval");
+        process.exit(1);
+    }
+    return urm;
 }
 
 program
@@ -3499,8 +4088,9 @@ program
     .option("--length", "calculates length of LineString features and adds it as new properties")
     .option("--area", "calculates area of Polygon features and adds as new properties")
     .option("--voronoi", "calculates Voronoi Polygons of point features and uploads in different space")
-    .option("--tin", "calculates Delaunay Polygons of point features and uploads in different space")
-    .option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
+    .option("--delaunay", "calculates Delaunay Polygons of point features and uploads in different space")
+    .option("--neighbours", "calculates Delaunay neighbours of each point feature and store the ids in the xyz_delaunay_neighbours array")
+    //.option("--property <property>", "populates Delaunay polygons' properties based on the specified feature property")
     .option("-c, --chunk [chunk]", "chunk size, default 20 -- default for polygons, increase for faster point feature uploads")
     .option("-t, --tags <tags>", "source space tags to filter on")
     .option("--samespace", "option to upload centroids/voronoi/tin to same space, use tags to filter")
@@ -3572,7 +4162,8 @@ common.validate(
         "vs",
         "virtualize",
         "gis",
-        "join"
+        "join",
+        "sharing"
     ],
     [process.argv[2]],
     program

@@ -572,7 +572,7 @@ async function toGeoJsonFeature(object: any, options: any, isAskQuestion: boolea
     }
     
     const geometry = toGeometry(lat, lon, alt);
-    if(geometry == null){
+    if(geometry == null && !options.geocode){
         props["@ns:com:here:xyz"]={};
         if(lat == null || lat == '' || parseFloat(lat) == 0 || lon == null || lon == '' || parseFloat(lon) == 0){
             props["@ns:com:here:xyz"]["tags"] = ['null_island'];

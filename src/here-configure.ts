@@ -95,13 +95,20 @@ program
         common.refreshAccount(true);
     });
 
+program
+    .command('server <apiServerUrl>')
+    .description('set other apiServer Url for e.g. http://localhost:8080')
+    .action(function (apiServerUrl:string, options:any) {
+        common.setApiServerUrl(apiServerUrl);
+    });
+
 prompter.stop();
 //program.parse(process.argv);
 
 if (process.argv.length == 2) {
     setUserPass();
 } else {
-    common.validate(["help","verify","account","refresh"], [process.argv[2]], program);
+    common.validate(["help","verify","account","refresh","server"], [process.argv[2]], program);
     program.parse(process.argv);
 }
 
