@@ -60,6 +60,7 @@ async function start() {
         .command('transform [csv2geo|shp2geo|gpx2geo]', 'convert from csv/shapefile/gpx to geojson').alias('tf')
         .command('geocode', 'geocode feature').alias('gc')
         .parse(process.argv);
+
     common.validate(commands, program.args, program);
 }
 

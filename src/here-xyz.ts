@@ -45,12 +45,14 @@ import * as moment from 'moment';
 import * as glob from 'glob';
 import { option } from "commander";
 import {execInternal, handleError} from "./common";
-
 import * as hexbin from "./hexbin";
+import { execute, getSpaceDataFromXyz, replaceOpearators } from "./xyz-serviceutils";
+
+
 const zoomLevelsMap = require('./zoomLevelsMap.json');
 const h3ZoomLevelResolutionMap = require('./h3ZoomLevelResolutionMap.json');
 let choiceList: { name: string, value: string }[] = [];
-const bboxDirections = ["west", "south", "east", "north"];
+
 const commandHistoryCount = 3;
 const questions = [
     {
@@ -285,12 +287,6 @@ program
             })
     });
 
-async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false) {
-    if (!token) {
-        token = await common.verify();
-    }
-    return await execInternal(uri, method, contentType, data, token, gzip, true);
-}
 
 async function listSpaces(options: any) {
     let result = await getListOfSpaces(options.token);
@@ -331,107 +327,6 @@ function collect(val: string, memo: string[]) {
     return memo;
 }
 
-export function getSpaceDataFromXyz(id: string, options: any) {
-    return new Promise<any>(function (resolve, reject) {
-        let cType = "application/json";
-        if (!options.limit) {
-            options.limit = 5000;
-        }
-        const getUrI = function (offset: string) {
-            let uri = "/hub/spaces/" + id;
-            let spFunction;
-            if (options.bbox) {
-                spFunction = "bbox";
-                options.limit = 100000;//Max limit of records space api supports 
-            } else if(options.search) {
-                spFunction = "search"
-            } else {
-                spFunction = "iterate";
-            }
-            if (options.limit) {
-                uri = uri + "/" + spFunction + "?limit=" + options.limit + "&clientId=cli";
-                if (options.bbox) {
-                    var bboxarray = options.bbox.split(",");
-                    if (bboxarray.length !== 4) {
-                        console.error(`\nboundingbox input size is not proper - "${options.bbox}"`);
-                        process.exit(1);
-                    }
-                    bboxarray.forEach(function (item: string, i: number) {
-                        if (item && item != "") {
-                            let number = parseFloat(item.toLowerCase());
-                            if (isNaN(number)) {
-                                console.error(`\nLoading space data using bounding box failed - "${item}" is not a valid number`);
-                                process.exit(1);
-                            }
-                            uri = uri + "&" + bboxDirections[i] + "=" + number;
-                        }
-                    });
-                }
-                if(options.search){
-                    uri = uri + "&" + replaceOpearators(options.search);
-                }
-                if (offset && offset !== '0') {
-                    uri = uri + "&handle=" + offset;
-                }
-                if (options.tags) {
-                    uri = uri + "&tags=" + options.tags;
-                }
-            }
-            return uri;
-        };
-        if (!options.totalRecords) {
-            options.totalRecords = 500000;
-        }
-        let recordLength = 0;
-        let features = new Array();
-        let jsonOut;
-        (async () => {
-
-            try {
-                let cHandle = options.handle ? options.handle : 0;
-                if (cHandle === 0 && !options.ignoreLogs) {
-                    process.stdout.write("Operation may take a while. Please wait...");
-                }
-                do {
-                    if(!options.ignoreLogs){
-                        process.stdout.write(".");
-                    }
-                    let response = await execute(
-                        getUrI(String(cHandle)),
-                        "GET",
-                        cType,
-                        "",
-                        options.token,
-                        true
-                    );
-                    jsonOut = response.body;
-                    if (jsonOut.constructor !== {}.constructor) {
-                        jsonOut = JSON.parse(jsonOut);
-                    }
-                    cHandle = jsonOut.handle;
-                    if (jsonOut.features) {
-                        recordLength += jsonOut.features.length;
-                        features = features.concat(jsonOut.features);
-                    } else {
-                        cHandle = -1;
-                    }
-                    if (options.currentHandleOnly) {
-                        cHandle = -1;
-                        break;
-                    }
-                } while (cHandle >= 0 && recordLength < options.totalRecords);
-                if (!options.currentHandleOnly && !options.ignoreLogs) {
-                    process.stdout.write("\n");
-                }
-                jsonOut.features = features;
-                resolve(jsonOut);
-            } catch (error) {
-                console.error(`\ngetting data from Data Hub space failed: ${JSON.stringify(error)}`);
-                reject(error);
-            }
-        })();
-    });
-}
 
 program
     .command("analyze <id>")
@@ -895,9 +790,7 @@ async function getCentreLatitudeOfSpace(spaceId: string, token: string | null = 
     return centreLatitude;
 }
 
-function replaceOpearators(expr: string) {
-    return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
-}
+
 
 program
     .command("show <id>")
@@ -4146,6 +4039,8 @@ export async function createNewSpaceAndUpdateMetadata(newSpaceType: string, sour
 //     })
 
 
+program.name('here xyz').parse(process.argv);
+
 common.validate(
     [
         "list",
@@ -4168,4 +4063,3 @@ common.validate(
     [process.argv[2]],
     program
 );
-program.name('here xyz').parse(process.argv);

@@ -634,8 +634,8 @@ export async function verify(readOnly: boolean = false) {
 }
 
 export function validate(commands: string[], args: string[], program: any) {
+
     if (!args || args.length === 0) {
-        console.log("Invalid command 1 :");
         program.commandHelp();
     } else {
         if (args[0] == "help" || args[0] == "--help" || args[0] == "-h" || args[0] == "-help") {
