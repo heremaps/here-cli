@@ -9,11 +9,11 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: test
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
           node-version: 12.15.0
+      - name: test
         run: |
           npm install
           npm publish --dry-run
