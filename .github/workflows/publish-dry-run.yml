@@ -6,6 +6,7 @@ on:
     types: [closed]
 jobs:
   publish-dry-run:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: test
