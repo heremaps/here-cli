@@ -25,16 +25,17 @@ set -ex
 echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 
 # Check that tag and package.json versions match
-package_version=`node -p "require('./package.json').version"`
-if [[ $package_version != $GITHUB_REF ]]; then
+PACKAGE_VERSION=`node -p "require('./package.json').version"`
+TAG_NAME=`echo $GITHUB_REF | cut -d'/' -f 3`
+if [[ $PACKAGE_VERSION != $TAG_NAME ]]; then
     echo "Tag version does not match package.json version."
     exit 1
 fi
 
 # Install
-npm install
+npm ci
 
 # Publish
 npm publish --access=public
 
-echo "Published Here CLI version $package_version to https://www.npmjs.com/ successfully!"
+echo "Published Here CLI version $PACKAGE_VERSION to https://www.npmjs.com/ successfully!"
