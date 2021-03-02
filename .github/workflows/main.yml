@@ -1,4 +1,4 @@
-name: main
+name: build-test
 on:
   push:
   pull_request:
@@ -14,7 +14,8 @@ jobs:
     name: OS ${{ matrix.os }} - node ${{ matrix.node-version }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - name: Setup node
+        uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -28,9 +29,8 @@ jobs:
       - name: Install NPM packages
         if: steps.node_modules-cache.outputs.cache-hit != 'true'
         run: npm ci
-      
-      - name: test
+
+      - name: Run tests
         run: |
           npm link
           npm test
-
