@@ -6,11 +6,11 @@ jobs:
   npm-publish:
     runs-on: ubuntu-latest
     steps:
-      - name: publish
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
           node-version: 12.15.0
+      - name: publish
         run: ./scripts/publish-npm-gha.sh
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
