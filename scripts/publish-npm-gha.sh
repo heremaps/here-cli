@@ -26,7 +26,7 @@ echo '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > ~/.npmrc
 
 # Check that tag and package.json versions match
 package_version=`node -p "require('./package.json').version"`
-if [[ $package_version != $TRAVIS_TAG ]]; then
+if [[ $package_version != $GITHUB_REF ]]; then
     echo "Tag version does not match package.json version."
     exit 1
 fi
