@@ -1,0 +1,18 @@
+name: main
+on:
+  pull_request:
+    branches:
+      - master
+    types: [closed]
+jobs:
+  publish-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: test
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12.15.0
+      - run: |
+          npm install
+          npm publish --dry-run
