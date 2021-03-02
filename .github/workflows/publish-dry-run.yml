@@ -14,6 +14,6 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 12.15.0
-      - run: |
+        run: |
           npm install
           npm publish --dry-run

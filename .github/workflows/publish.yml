@@ -11,6 +11,6 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: 12.15.0
-      - run: ./scripts/publish-npm-gha.sh
+        run: ./scripts/publish-npm-gha.sh
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
