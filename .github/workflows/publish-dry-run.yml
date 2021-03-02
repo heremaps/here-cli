@@ -1,4 +1,4 @@
-name: main
+name: npm-publish-dry-run
 on:
   pull_request:
     branches:
@@ -10,10 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - name: Setup node
+        uses: actions/setup-node@v2
         with:
           node-version: 12.15.0
-      - name: test
+
+      - name: Dry run publish
         run: |
           npm install
           npm publish --dry-run
