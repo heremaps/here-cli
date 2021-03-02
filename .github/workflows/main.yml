@@ -11,22 +11,26 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: [10.x, 12.15.0]
+    name: OS ${{ matrix.os }} - node ${{ matrix.node-version }}
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
       - name: Cache node_modules directory
         uses: actions/cache@v2
         id: node_modules-cache
         with:
           path: node_modules
-          key: ${{ runner.OS }}-build-${{ hashFiles('**/package.json') }}-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+
       - name: Install NPM packages
         if: steps.node_modules-cache.outputs.cache-hit != 'true'
         run: npm ci
+      
       - name: test
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-      - run: |
+        run: |
           npm link
           npm test
 
