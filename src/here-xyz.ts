@@ -326,6 +326,8 @@ export function getSpaceDataFromXyz(id: string, options: any) {
                 options.limit = 100000;//Max limit of records space api supports 
             } else if(options.search) {
                 spFunction = "search"
+            } else if(options.id){
+                spFunction = "features/"+options.id
             } else {
                 spFunction = "iterate";
             }
@@ -897,6 +899,7 @@ program
     .option("-x, --permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
+    .option("--h3 <h3resolution>","h3 resolution level for spatial search")
     .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
@@ -942,8 +945,19 @@ async function showSpace(id: string, options: any) {
         process.exit(1);
     }
 
-    if(options.web && options.geometry) {
-        console.log("usage of options web and geometry together is not yet supported, please try option web with radius, feature/center options");
+    if(options.h3resolution && !options.feature){
+        console.log("'feature' option is required for a --h3 --spatial search");
+        process.exit(1);
+    }
+
+    if(options.web && (options.geometry || options.h3resolution)) {
+        let invalidOption;
+        if(options.geometry){
+            invalidOption = "geometry"
+        } else {
+            invalidOption = "h3"
+        }
+        console.log("usage of options web and " + invalidOption + " together is not yet supported, please try option web with radius, feature/center options");
         process.exit(1);
     }
 
@@ -1004,6 +1018,7 @@ async function showSpace(id: string, options: any) {
     }
 
     cType = "application/geo+json";
+    let refspace,reffeature;
     if (!options.limit) {
         options.limit = 5000;
     }
@@ -1037,8 +1052,8 @@ async function showSpace(id: string, options: any) {
             }
             if(options.feature) {
                 const refspacefeature = options.feature.split(',');
-                const refspace = refspacefeature[0];
-                const reffeature = refspacefeature[1];
+                refspace = refspacefeature[0];
+                reffeature = refspacefeature[1];
                 uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature;
                 if(options.radius) {
                     uri = uri + "&" + "radius="+ options.radius;
@@ -1073,13 +1088,35 @@ async function showSpace(id: string, options: any) {
         }
         await launchHereGeoJson(uri, spaceIds, options.token, options.permanent);
     } else {
-        const response = await execute(
-            uri,
-            requestMethod,
-            cType,
-            postData,
-            options.token
-        );
+        let response;
+        if(options.h3resolution){
+            options.id = reffeature;
+            let jsonOut = await getSpaceDataFromXyz(refspace, options);
+            let spatialfeature = jsonOut.features[0];
+            let hexbins = common.geth3HexbinsInsidePolygon(spatialfeature, options.h3resolution);
+            requestMethod = "POST";
+            let allFeatures: any[] = [];
+            for(let hexbin of hexbins){
+                postData = hexbin.geometry;
+                response = await execute(
+                    uri,
+                    requestMethod,
+                    cType,
+                    postData,
+                    options.token
+                );
+                allFeatures = allFeatures.concat(response.body.features);
+            }
+            response.body.features = allFeatures;
+        } else {
+            response = await execute(
+                uri,
+                requestMethod,
+                cType,
+                postData,
+                options.token
+            );
+        }
         if (response.statusCode >= 200 && response.statusCode < 210) {
 
             let fields = [
