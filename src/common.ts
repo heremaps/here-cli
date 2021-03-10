@@ -50,7 +50,7 @@ const questions = [
 const settings = require('user-settings').file('.herecli');
 const tableConsole = require("console.table");
 let apiServerUrl: string;
-const xyzUrl = "https://eu-west-1-xyz.prd.internal.community.nw.ops.here.com";
+const xyzUrl = "https://xyz.api.here.com";
 const account_api_url = 'https://account.api.here.com/authentication/v1.1';
 //const tableNew = require("table");
 
@@ -983,4 +983,8 @@ export async function execute(uri: string, method: string, contentType: string, 
         token = await verify();
     }
     return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
+}
+
+export function replaceOpearators(expr: string) {
+    return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
 }
