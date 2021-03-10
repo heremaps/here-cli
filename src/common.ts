@@ -34,6 +34,8 @@ import {ApiError} from "./api-error";
 const fs = require('fs');
 const path = require('path');
 import * as zlib from "zlib";
+import * as h3 from "h3-js";
+const geojson2h3 = require('geojson2h3');
 
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
@@ -790,6 +792,12 @@ export async function getApiKeys(cookies: string, appId: string) {
         }
     }
     return apiKeys;
+}
+
+export function geth3HexbinsInsidePolygon(feature: any, h3resolution: string){
+    //h3.polyfill
+    const hexagons = geojson2h3.featureToH3Set(feature, Number(h3resolution));
+    return geojson2h3.h3SetToFeatureCollection(hexagons);
 }
 
 
