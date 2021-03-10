@@ -28,6 +28,7 @@ import * as tmp from "tmp";
 import * as fs from "fs";
 import * as turf from "@turf/turf";
 import {Delaunay} from "d3-delaunay";
+import {getSpaceDataFromXyz} from "./xyzutil";
 
 export async function performGisOperation(id:string, options:any){
     await common.verifyProLicense();
@@ -56,7 +57,7 @@ export async function performGisOperation(id:string, options:any){
     console.log("Performing GIS operation on the space data");
     let tmpObj = tmp.fileSync({ mode: 0o644, prefix: 'gis', postfix: (options.voronoi || options.delaunay) ? '.geojson':'.geojsonl' });
     do {
-        let jsonOut = await xyz.getSpaceDataFromXyz(id, options);
+        let jsonOut = await getSpaceDataFromXyz(id, options);
         if (jsonOut.features && jsonOut.features.length === 0 && options.handle == 0) {
             console.log("\nNo features are available to execute GIS operation");
             process.exit(1);

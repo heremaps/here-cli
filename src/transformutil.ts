@@ -38,8 +38,7 @@ import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
 import { DOMParser } from 'xmldom';
-import * as xyz from "./here-xyz";
-import { option } from "commander";
+import {getSpaceDataFromXyz} from "./xyzutil";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
 const lonArray = ["x", "xcoord", "xcoordinate", "coordx", "coordinatex", "longitude", "lon", "lng", "long", "longitud"];
@@ -407,7 +406,7 @@ export async function transform(result: any[], options: any) {
                     if(options.filter){
                         options.search = options.search + '&p.' + options.filter;
                     }
-                    let jsonOut = await xyz.getSpaceDataFromXyz(options.primarySpace, options);
+                    let jsonOut = await getSpaceDataFromXyz(options.primarySpace, options);
                     if (jsonOut.features && jsonOut.features.length === 0) {
                         console.log("\nNo feature available for the required value - " + propertyValue);
                         if(!ggson.properties["@ns:com:here:xyz"]) {

@@ -146,7 +146,7 @@ describe('Configure', function () {
     });
 
     it('describe space', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyz = rewire('../bin/xyzutil');
       const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
