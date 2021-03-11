@@ -791,7 +791,8 @@ program
     .option("-x, --permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
-    .option("--h3 <h3resolution>","h3 resolution level for spatial search")
+    .option("--h3 <h3>","h3 resolution level for spatial search")
+    .option("--targetSpace <targetSpace>","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
@@ -837,12 +838,12 @@ async function showSpace(id: string, options: any) {
         process.exit(1);
     }
 
-    if(options.h3resolution && !options.feature){
+    if(options.h3 && !options.feature){
         console.log("'feature' option is required for a --h3 --spatial search");
         process.exit(1);
     }
 
-    if(options.web && (options.geometry || options.h3resolution)) {
+    if(options.web && (options.geometry || options.h3)) {
         let invalidOption;
         if(options.geometry){
             invalidOption = "geometry"
@@ -981,14 +982,18 @@ async function showSpace(id: string, options: any) {
         await launchHereGeoJson(uri, spaceIds, options.token, options.permanent);
     } else {
         let response;
-        if(options.h3resolution){
+        if(options.h3){
             options.id = reffeature;
             let jsonOut = await getSpaceDataFromXyz(refspace, options);
-            let spatialfeature = jsonOut.features[0];
-            let hexbins = common.geth3HexbinsInsidePolygon(spatialfeature, options.h3resolution);
+            //this returns Feature, not a FeatureCollections
+            let spatialfeature = jsonOut;
+            let hexbins = common.geth3HexbinsInsidePolygon(spatialfeature, options.h3);
+            if(!options.raw){
+            	console.log("feature", spatialfeature.id,"contains",hexbins.features.length,"hexbins @ h3 resolution",options.h3)
+            }
             requestMethod = "POST";
             let allFeatures: any[] = [];
-            for(let hexbin of hexbins){
+            for(let hexbin of hexbins.features){
                 postData = hexbin.geometry;
                 response = await execute(
                     uri,
@@ -997,9 +1002,20 @@ async function showSpace(id: string, options: any) {
                     postData,
                     options.token
                 );
-                allFeatures = allFeatures.concat(response.body.features);
+                if(!options.raw){
+                	console.log('hexbin',hexbin,response.body.features.length)
+                }
+                if(options.targetSpace){
+                    await iterateChunk(response.body.features, "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli", options.token);
+                } else {
+                    allFeatures = allFeatures.concat(response.body.features);
+                }
             }
-            response.body.features = allFeatures;
+            if(options.targetSpace){
+                console.log("all features uploaded successfully to target space " + options.targetSpace);
+            } else {
+                response.body.features = allFeatures;
+            }
         } else {
             response = await execute(
                 uri,
@@ -1009,7 +1025,7 @@ async function showSpace(id: string, options: any) {
                 options.token
             );
         }
-        if (response.statusCode >= 200 && response.statusCode < 210) {
+        if (response.statusCode >= 200 && response.statusCode < 210 && !options.targetSpace) {
 
             let fields = [
                 "id",
@@ -2400,14 +2416,19 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
     }
     return await iterateChunks(chunks, url, index, chunkSize, token, upresult, printFailed);
 }
-async function iterateChunk(chunk: any, url: string) {
+async function iterateChunk(chunk: any, url: string, token: string | null = null) {
     const fc = { type: "FeatureCollection", features: chunk };
     const response = await execute(
         url,
-        "PUT",
+        "POST",
         "application/geo+json",
-        JSON.stringify(fc),
-        null,
+        JSON.stringify(fc, (key, value) => {
+            if (typeof value === 'string') {
+                return value.replace(/\0/g, '');
+            }
+            return value;
+        }),
+        token,
         true
     );
     return response.body;
