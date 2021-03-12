@@ -50,6 +50,11 @@ export function getHexBin(point: number[], cellSize: number, isMeters: boolean){
     return data;
 }
 
+export function getH3HexbinArea(resolution: number){
+	let area = h3.hexArea(resolution, "km2")
+	return area
+}
+
 function getH3HexBin(point: number[], cellSize: number){
     let h3Index = h3.geoToH3(point[1],point[0], cellSize);
     const hexCenter = h3.h3ToGeo(h3Index); 

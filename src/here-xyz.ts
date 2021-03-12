@@ -988,11 +988,20 @@ async function showSpace(id: string, options: any) {
             //this returns Feature, not a FeatureCollections
             let spatialfeature = jsonOut;
             let hexbins = common.geth3HexbinsInsidePolygon(spatialfeature, options.h3);
+            let area = hexbin.getH3HexbinArea(parseInt(options.h3))
+            let units = "km2";
+            let printArea = area.toFixed(1) + units;
+			if (area < .1){
+				units = "m2"
+				printArea = (area*1000).toFixed(1) + units
+			}
             if(!options.raw){
-            	console.log("feature", spatialfeature.id,"contains",hexbins.features.length,"hexbins @ h3 resolution",options.h3)
+            	console.log("feature", spatialfeature.id,"contains",hexbins.features.length,"h3 hexbins @ resolution",options.h3,"(average area of",printArea + ")")
+				console.log()
             }
             requestMethod = "POST";
             let allFeatures: any[] = [];
+            let fullHexbinCounter = hexbins.features.length;
             for(let hexbin of hexbins.features){
                 postData = hexbin.geometry;
                 response = await execute(
@@ -1003,14 +1012,25 @@ async function showSpace(id: string, options: any) {
                     options.token
                 );
                 if(!options.raw){
-                	console.log('hexbin',hexbin,response.body.features.length)
+                    if(response.body.features.length > 0){
+                    	fullHexbinCounter -= 1
+                        let density = (response.body.features.length/area).toFixed(1)
+                    	density = density + "/" + units
+                    	let hexCount = hexbins.features.length - fullHexbinCounter
+                    	let hexCountStatus = hexCount + " of " + hexbins.features.length
+                    	let data = {'count': hexCountStatus,'h3 id': hexbin.id,'features': response.body.features.length,'density': density}
+                		console.table([data])
+                	} 
                 }
                 if(options.targetSpace){
-                    await iterateChunk(response.body.features, "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli", options.token);
+                	let uri = "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli" + "&addTags=h3@" + hexbin.id
+                    await iterateChunk(response.body.features, uri, options.token);
                 } else {
                     allFeatures = allFeatures.concat(response.body.features);
                 }
             }
+            let done = hexbins.features.length - fullHexbinCounter
+            console.log(fullHexbinCounter,"h3 hexbins processed (" + done ,"were empty)")
             if(options.targetSpace){
                 console.log("all features uploaded successfully to target space " + options.targetSpace);
             } else {
