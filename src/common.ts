@@ -263,11 +263,12 @@ export async function createReadOnlyToken(spaceIds: string[], isPermanent: boole
     const keys = getSplittedKeys(appDataStored);
     const appId = keys ? keys[0] : '';
     const cookie = await getCookieFromStoredCredentials();
+    const accountMeStr = await getAppIds(cookie);
     let expirationTime : number = 0;
     if(!isPermanent){
         expirationTime = Math.round((new Date().getTime())/1000) + (48*60*60); 
     }
-    const token = await sso.fetchToken(cookie, await readOnlySpaceRightsRequest(spaceIds), appId, expirationTime);
+    const token = await sso.fetchToken(cookie, await readOnlySpaceRightsRequest(spaceIds, accountMeStr), appId, expirationTime);
     return token.tid;
 }
 
@@ -307,11 +308,18 @@ export async function generateTokenAndStoreIt(mainCookie:string, appId : string,
     return token;
 }
 
-async function readOnlySpaceRightsRequest(spaceIds:string[]) {
+async function readOnlySpaceRightsRequest(spaceIds:string[], accountMeString: string) {
     const aid = await getAccountId();
+    const readFeatureArray = spaceIds.map(id => { 
+        if(accountMeString.indexOf(id) !== -1) {
+            return {space: id};
+        }else {
+            return {space: id, owner: aid};
+        }
+    });
     return {
           "xyz-hub": {
-            "readFeatures": spaceIds.map(id => { return {space: id, owner: aid}}), 
+            "readFeatures": readFeatureArray, 
             "useCapabilities": [{
             }],
             "accessConnectors": [{
