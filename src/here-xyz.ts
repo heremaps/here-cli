@@ -791,8 +791,8 @@ program
     .option("-x, --permanent", "Uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
-    .option("--h3 <h3>","h3 resolution level for spatial search")
-    .option("--targetSpace <targetSpace>","target space id where the results of h3 spatial search will be written")
+    //.option("--h3 <h3>","h3 resolution level for spatial search")
+    //.option("--targetSpace <targetSpace>","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
@@ -2541,7 +2541,7 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
-    .option("--geocoder","configure forward or reverse geocoding for your space interactively")
+    //.option("--geocoder","configure forward or reverse geocoding for your space interactively")
     .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
         if(options.console){
@@ -3235,6 +3235,7 @@ function showSpaceConfig(spacedef: any) {
 }
 
 const validVerbosityLevels = ["NONE", "MIN", "MORE", "ALL"];
+/*
 program
     .command("geocode [id]")
     .description("{Data Hub Add-on} create a new space with a CSV and configures geocoder processor on it") 
@@ -3259,6 +3260,7 @@ program
             handleError(error, true);
         });
     })
+*/
 
 async function createGeocoderSpace(id:string, options:any){
     await common.verifyProLicense();
@@ -4264,8 +4266,7 @@ common.validate(
         "virtualize",
         "gis",
         "join",
-        "sharing",
-        "geocode"
+        "sharing"
     ],
     [process.argv[2]],
     program
