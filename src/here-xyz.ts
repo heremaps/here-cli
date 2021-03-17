@@ -2507,7 +2507,7 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
     if(!token){
         token = await getReadOnlyToken([spaceId], isPermanent);
     }
-    const uri = "https://s3.amazonaws.com/xyz-demo/scenes/xyz_tangram/index.html?space=" + spaceId + "&token=" + token + tags; //TODO add property search values
+    const uri = "https://xyz-demo.s3.amazonaws.com/datahub/space-invader/index.html?mode=1&space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     open(
         uri
         , { wait: false });
