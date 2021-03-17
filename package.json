@@ -2,7 +2,7 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
@@ -22,12 +22,15 @@
     "crypto-js": "4.0.0",
     "d3-delaunay": "5.3.0",
     "event-stream": "^4.0.1",
+    "extract-zip": "2.0.1",
     "fast-csv": "^4.3.6",
     "geojson-validation": "^0.2.1",
+    "geojson2h3": "1.0.1",
     "get-stdin": "8.0.0",
     "getmac": "5.10.0",
     "glob": "7.1.6",
     "got": "11.3.0",
+    "h3-js": "3.7.0",
     "inquirer": "7.2.0",
     "latest-version": "5.1.0",
     "line-by-line": "^0.1.6",
@@ -41,11 +44,8 @@
     "table": "^5.4.6",
     "tmp": "0.2.1",
     "user-settings": "0.2.0",
-    "xmldom": "0.3.0",
-    "extract-zip": "2.0.1",
-    "h3-js": "3.7.0",
-    "geojson2h3": "1.0.1",
-    "xlsx": "0.16.4"
+    "xlsx": "0.16.4",
+    "xmldom": "^0.5.0"
   },
   "devDependencies": {
     "@turf/nearest-point-to-line": "6.0.0",

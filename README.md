@@ -88,7 +88,7 @@ If the command is interacting with a HERE service, please include a links to the
 
 ## License
 
-Copyright (C) 2018 - 2020 HERE Europe B.V.
+Copyright (C) 2018 - 2021 HERE Europe B.V.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
 
