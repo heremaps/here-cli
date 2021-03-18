@@ -15,7 +15,7 @@ jobs:
       - name: Check tag version
         id: check_tag
         run: |
-          if [[ ${{ github.ref }} =~ ^refs/tags/^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ${{ github.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Tag matches expected format."
             echo "::set-output name=tag_match::true"
           fi
