@@ -898,13 +898,22 @@ async function showSpace(id: string, options: any) {
 
     if (options.raw) {
         tableFunction = function (data: any, columns: any) {
-            if(options.geojsonl){
-                if (data.features && data.features.length > 0) {
-                    data.features.forEach((element: any) => {
+            if (data.features && data.features.length > 0) {
+                data.features.forEach((element: any) => {
+                    if(element.properties && element.properties['@ns:com:here:xyz']){
+                        if(element.properties['@ns:com:here:xyz']['uuid']){
+                            delete element.properties['@ns:com:here:xyz']['uuid'];
+                        }
+                        if(element.properties['@ns:com:here:xyz']['puuid']){
+                            delete element.properties['@ns:com:here:xyz']['puuid'];
+                        }
+                    }
+                    if(options.geojsonl){
                         console.log(JSON.stringify(element));
-                    });
-                }
-            } else {
+                    }
+                });
+            }
+            if(!options.geojsonl){
                 console.log(JSON.stringify(data, null, 2));
             }
         };
