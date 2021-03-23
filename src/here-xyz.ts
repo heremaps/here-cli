@@ -1620,9 +1620,6 @@ function taskQueue(size: number = 8, totalTaskSize: number) {
 export async function uploadToXyzSpace(id: string, options: any) {
     //(async () => {
     let tags = "";
-    if (options.tags) {
-        tags = options.tags;
-    }
 
     let printErrors = false;
     if (options.errors) {
@@ -2079,13 +2076,17 @@ async function uploadDataToSpaceWithTags(
             );
 
             try {
+                let uri = "/hub/spaces/" + id + "/features" + "?clientId=cli";
+                if(options.tags){
+                    uri = uri + "&addTags=" + options.tags.toLowerCase();
+                }
                 if (options.stream) {
-                    upresult = await iterateChunks([featureOut], "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, 1, options.token, upresult, printFailed);
+                    upresult = await iterateChunks([featureOut], uri, 0, 1, options.token, upresult, printFailed);
                 } else {
                     const chunks = options.chunk
                         ? chunkify(featureOut, parseInt(options.chunk))
                         : [featureOut];
-                    upresult = await iterateChunks(chunks, "/hub/spaces/" + id + "/features" + "?clientId=cli", 0, chunks.length, options.token, upresult, printFailed);
+                    upresult = await iterateChunks(chunks, uri, 0, chunks.length, options.token, upresult, printFailed);
                     process.stdout.write("\n");
                     // let tq =  taskQueue(8,chunks.length);
                     // chunks.forEach(chunk=>{
@@ -2111,14 +2112,13 @@ async function uploadDataToSpaceWithTags(
                     console.log(
                         "data upload to Data Hub space '" + id + "' completed"
                     );
-
                 if (upresult.failed > 0) {
                     console.log("not all the features could be successfully uploaded -- to print rejected features, run command with -e")
                     console.log("=============== Upload Summary ============= ");
                     upresult.total = featureOut.length;
                     console.table(upresult);
                 } else {
-                    summary.summarize(featureOut, id, true);
+                    summary.summarize(featureOut, id, true, options);
                 }
                 options.totalCount = featureOut.length;
 
@@ -2274,12 +2274,18 @@ async function mergeAllTags(
         }
         const nameTag = fileName ? getFileName(fileName) : null;
         if (nameTag) {
-            finalTags.push(nameTag);
+            if(!options.tags){
+                options.tags = nameTag;
+            } else {
+                options.tags = options.tags + "," + nameTag;
+            }
         }
         if (origId) {
             metaProps.originalFeatureId = origId;
         }
-        metaProps.tags = uniqArray(finalTags);
+        if(finalTags && finalTags.length > 0){
+            metaProps.tags = uniqArray(finalTags);
+        }
         item.properties["@ns:com:here:xyz"] = metaProps;
     };
 

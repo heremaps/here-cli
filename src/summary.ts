@@ -26,14 +26,24 @@
 
 import * as common from "./common";
 
-export function summarize(features: any[], spaceId: string, upload: boolean) {
-    const set1 = new Set();
+export function summarize(features: any[], spaceId: string, upload: boolean, options: any) {
+    let set1 = new Set<string>();
     const tagCountMap: { [fieldName: string]: any } = {};
     const gemetryMap: { [fieldName: string]: any } = {};
     const dateRanges = { minUpdated: Infinity, maxUpdated: 0, minCreated: Infinity, maxCreated: 0 };
+    let globalTagsArr: Array<string>;
+    if(options.tags){
+        globalTagsArr = options.tags.toLowerCase().split(',');
+    }
 
     features.forEach(element => {
-        const tags = element.properties["@ns:com:here:xyz"].tags as string[];
+        let tags: string[] = [];
+        if(element.properties["@ns:com:here:xyz"] && element.properties["@ns:com:here:xyz"].tags){
+            tags = element.properties["@ns:com:here:xyz"].tags as string[];
+        }
+        if(globalTagsArr){
+            tags = tags.concat(globalTagsArr);
+        }
         const geoType = (element.geometry) ? element.geometry["type"] : null;
 
         const updatedAt = element.properties["@ns:com:here:xyz"].updatedAt;
