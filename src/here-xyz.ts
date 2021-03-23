@@ -2272,14 +2272,7 @@ async function mergeAllTags(
                 process.exit(1);
             }
         }
-        const nameTag = fileName ? getFileName(fileName) : null;
-        if (nameTag) {
-            if(!options.tags){
-                options.tags = nameTag;
-            } else {
-                options.tags = options.tags + "," + nameTag;
-            }
-        }
+        
         if (origId) {
             metaProps.originalFeatureId = origId;
         }
@@ -2288,6 +2281,14 @@ async function mergeAllTags(
         }
         item.properties["@ns:com:here:xyz"] = metaProps;
     };
+    const nameTag = fileName ? getFileName(fileName) : null;
+    if (nameTag) {
+        if(!options.tags){
+            options.tags = nameTag;
+        } else {
+            options.tags = options.tags + "," + nameTag;
+        }
+    }
 
     if (!options.override && duplicates.length > 0) {
         const featuresOut = new Array();

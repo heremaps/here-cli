@@ -158,7 +158,7 @@ describe('Configure', function () {
         features = features.features;
       }
 
-      summary.summarize(features,"myspace", false);
+      summary.summarize(features,"myspace", false, {});
       capcon.stopCapture(process.stdout);
       if (features.length>0) {
         assert.ok(true, "");
@@ -182,7 +182,6 @@ describe('Configure', function () {
         }
       );
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -198,7 +197,6 @@ describe('Configure', function () {
 
     it('show space', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -213,7 +211,6 @@ describe('Configure', function () {
     });
     it('delete space', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -228,7 +225,6 @@ describe('Configure', function () {
     });
     it('create space', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -243,7 +239,6 @@ describe('Configure', function () {
     });
     it('clear space', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -286,7 +281,6 @@ describe('Configure', function () {
     
     it('upload to space using geojson', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -310,7 +304,6 @@ describe('Configure', function () {
 
     it('upload to space using csv', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -336,7 +329,6 @@ describe('Configure', function () {
 
     it('upload to space using gpx', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -359,7 +351,6 @@ describe('Configure', function () {
 
     it('upload to space using shapefile', async function () {
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -386,7 +377,6 @@ describe('Configure', function () {
     it('upload to space using geojson using stream', async function () {
       this.timeout(10000);
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -404,7 +394,6 @@ describe('Configure', function () {
     it('upload to space using csv using stream', async function () {
       this.timeout(10000);
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -420,7 +409,6 @@ describe('Configure', function () {
     it('upload to space using geojsonl', async function () {
       this.timeout(10000);
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
@@ -437,7 +425,6 @@ describe('Configure', function () {
     it('upload to space using geojsonl using stream', async function () {
       this.timeout(10000);
       const xyz = rewire('../bin/here-xyz');
-      const summary = rewire('../bin/summary');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
