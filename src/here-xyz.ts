@@ -907,6 +907,9 @@ async function showSpace(id: string, options: any) {
                         if(element.properties['@ns:com:here:xyz']['puuid']){
                             delete element.properties['@ns:com:here:xyz']['puuid'];
                         }
+                        if(element.properties['@ns:com:here:xyz']['tags']){
+                            delete element.properties['@ns:com:here:xyz']['tags'];
+                        }
                     }
                     if(options.geojsonl){
                         console.log(JSON.stringify(element));
