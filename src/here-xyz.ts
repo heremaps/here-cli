@@ -1035,8 +1035,24 @@ async function showSpace(id: string, options: any) {
                 	} 
                 }
                 if(options.targetSpace){
+                    let features = response.body.features;
+                    if (features.length > 0) {
+                        features.forEach((element: any) => {
+                            if(element.properties && element.properties['@ns:com:here:xyz']){
+                                if(element.properties['@ns:com:here:xyz']['uuid']){
+                                    delete element.properties['@ns:com:here:xyz']['uuid'];
+                                }
+                                if(element.properties['@ns:com:here:xyz']['puuid']){
+                                    delete element.properties['@ns:com:here:xyz']['puuid'];
+                                }
+                                if(element.properties['@ns:com:here:xyz']['tags']){
+                                    delete element.properties['@ns:com:here:xyz']['tags'];
+                                }
+                            }
+                        });
+                    }
                 	let uri = "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli" + "&addTags=h3@" + hexbin.id
-                    await iterateChunk(response.body.features, uri, options.token);
+                    await iterateChunk(features, uri, options.token);
                 } else {
                     allFeatures = allFeatures.concat(response.body.features);
                 }
@@ -2457,7 +2473,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
 }
 async function iterateChunk(chunk: any, url: string, token: string | null = null) {
     const fc = { type: "FeatureCollection", features: chunk };
-    const response = await execute(
+const response = await execute(
         url,
         "POST",
         "application/geo+json",
