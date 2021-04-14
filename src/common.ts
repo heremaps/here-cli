@@ -30,12 +30,14 @@ import getMAC from 'getmac';
 import { geoCodeString } from "./geocodeUtil";
 import {table,getBorderCharacters} from 'table';
 import {ApiError} from "./api-error";
+import * as turf from "@turf/turf";
 
 const fs = require('fs');
 const path = require('path');
 import * as zlib from "zlib";
 import * as h3 from "h3-js";
 const geojson2h3 = require('geojson2h3');
+const h3resolutionRadiusMap = require('./h3resolutionRadiusMap.json');
 
 let choiceList: { name: string, value: string}[] = [];
 const questions = [
@@ -804,8 +806,13 @@ export async function getApiKeys(cookies: string, appId: string) {
 
 export function geth3HexbinsInsidePolygon(feature: any, h3resolution: string){
     //h3.polyfill
-    const hexagons = geojson2h3.featureToH3Set(feature, Number(h3resolution));
-    return geojson2h3.h3SetToFeatureCollection(hexagons);
+    const bufferedFeature = turf.buffer(feature, Number(h3resolutionRadiusMap[h3resolution]))
+    const hexagons = geojson2h3.featureToH3Set(bufferedFeature, Number(h3resolution));
+    let featureCollection =  geojson2h3.h3SetToFeatureCollection(hexagons);
+    for(let hexbin of featureCollection.features){
+        hexbin = turf.intersect(feature, hexbin);
+    }
+    return featureCollection;
 }
 
 
