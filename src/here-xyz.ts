@@ -1014,6 +1014,7 @@ async function showSpace(id: string, options: any) {
             requestMethod = "POST";
             let allFeatures: any[] = [];
             let fullHexbinCounter = hexbins.features.length;
+            let hexbinnedFeatureCount = 0
             for(let hexbin of hexbins.features){
                 postData = hexbin.geometry;
                 response = await execute(
@@ -1026,6 +1027,7 @@ async function showSpace(id: string, options: any) {
                 if(!options.raw){
                     if(response.body.features.length > 0){
                     	fullHexbinCounter -= 1
+                    	hexbinnedFeatureCount += response.body.features.length
                         let density = (response.body.features.length/area).toFixed(1)
                     	density = density + "/" + units
                     	let hexCount = hexbins.features.length - fullHexbinCounter
@@ -1058,9 +1060,9 @@ async function showSpace(id: string, options: any) {
                 }
             }
             let done = hexbins.features.length - fullHexbinCounter
-            console.log(fullHexbinCounter,"h3 hexbins processed (" + done ,"were empty)")
+            console.log(done,"h3 hexbins processed (" + fullHexbinCounter ,"were empty),",hexbinnedFeatureCount,"features processed")
             if(options.targetSpace){
-                console.log("all features uploaded successfully to target space " + options.targetSpace);
+                console.log(hexbinnedFeatureCount,"features uploaded successfully to target space",options.targetSpace);
             } else {
                 response.body.features = allFeatures;
             }
