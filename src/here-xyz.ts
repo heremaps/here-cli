@@ -792,6 +792,7 @@ program
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--h3 <h3>","h3 resolution level for spatial search")
+    .option("--saveHexbins","save the h3 hexbin features used for filtering into the space")
     .option("--targetSpace [targetSpace]","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
@@ -1058,7 +1059,7 @@ async function showSpace(id: string, options: any) {
                             }
                         });
                     }
-                	let uri = "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli" + "&addTags=h3@" + hexbin.id
+                	const uri = "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli" + "&addTags=h3@" + hexbin.id
                     await iterateChunk(features, uri, options.token);
                 } else {
                     allFeatures = allFeatures.concat(response.body.features);
@@ -1067,6 +1068,10 @@ async function showSpace(id: string, options: any) {
             let done = hexbins.features.length - fullHexbinCounter
             console.log(done,"h3 hexbins processed (" + fullHexbinCounter ,"were empty),",hexbinnedFeatureCount,"features processed")
             if(options.targetSpace){
+                if(options.saveHexbins){
+                    const uri = "/hub/spaces/" + options.targetSpace + "/features" + "?clientId=cli" + "&addTags=hexbins";
+                    await iterateChunk(hexbins.features, uri, options.token);
+                }
                 console.log(hexbinnedFeatureCount,"features uploaded successfully to target space",options.targetSpace);
             } else {
                 response.body.features = allFeatures;
