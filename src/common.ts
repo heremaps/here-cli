@@ -809,8 +809,13 @@ export function getClippedh3HexbinsInsidePolygon(feature: any, h3resolution: str
     const bufferedFeature = turf.buffer(feature, Number(h3resolutionRadiusMap[h3resolution]) * 2);
     const hexagons = geojson2h3.featureToH3Set(bufferedFeature, Number(h3resolution));
     let featureCollection =  geojson2h3.h3SetToFeatureCollection(hexagons);
-    for(let hexbin of featureCollection.features){
-        hexbin = turf.intersect(feature, hexbin);
+    for (var i = featureCollection.features.length - 1; i >= 0; i--) {
+        const newHexbin = turf.intersect(feature, featureCollection.features[i]);
+        if (newHexbin) { 
+            featureCollection.features[i] = newHexbin;
+        } else {
+            featureCollection.features.splice(i, 1);
+        }
     }
     return featureCollection;
 }
