@@ -99,6 +99,15 @@ const titlePrompt = [
     }
 ];
 
+const enableUUIDPrompt = [
+    {
+        type: 'confirm',
+        name: 'enableUUID',
+        message: 'Do you want to enable UUID for space?',
+        default: false
+    }
+];
+
 const questionConfirm = [
     {
         type: 'input',
@@ -131,15 +140,6 @@ const sharingQuestion = [
         name: "sharingChoice",
         message: "Please select the shared spaces option",
         choices: [{name: 'request access to a space', value: 'newSharing'}, {name: 'list spaces you requested', value: 'request'}, {name: 'approve the requests of others', value: 'approval'}, {name: 'list spaces you are sharing', value: 'sharing'},{name: 'modify/revoke requests of others to share your spaces', value:'modifySharing'}]
-    }
-];
-
-const sharingModifyQuestion = [
-    {
-        type: "list",
-        name: "sharingId",
-        message: "Please select the sharing you want to revoke/modfiy",
-        choices: choiceList
     }
 ];
 
@@ -237,12 +237,12 @@ let joinValueToFeatureIdMap: Map<string, string> = new Map();
 
 program.version("0.1.0");
 
-function getGeoSpaceProfiles(title: string, description: string, client: any) {
+function getGeoSpaceProfiles(title: string, description: string, client: any, enableUUID: boolean = false) {
     return {
         title,
         description,
         client,
-        "enableUUID": true
+        enableUUID
     };
 }
 
@@ -792,7 +792,7 @@ program
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","indicate to make spatial search on the space")
     .option("--h3 <h3>","h3 resolution level for spatial search")
-    .option("--targetSpace <targetSpace>","target space id where the results of h3 spatial search will be written")
+    .option("--targetSpace [targetSpace]","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "make a radius spatial search using --center, or thicken an input line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values to specify the center point of a --radius search")
     .option("--feature <feature>", "comma separated spaceid,featureid values to specify reference geometry (taken from feature) for spatial query")
@@ -980,6 +980,11 @@ async function showSpace(id: string, options: any) {
         }
         cType = "application/geo+json";
     }
+    if (options.targetspace) {
+        if (options.targetspace == true) {
+            options.targetspace = await promptInputAndCreateSpace("target space for show output of space " + id);
+        }
+    }
     if (options.vector) {
         await launchXYZSpaceInvader(id, options.tags ? "&tags=" + options.tags : "", options.token, options.permanent);
     }
@@ -1166,6 +1171,7 @@ program
     .option("-t, --title [title]", "Title for Data Hub space")
     .option("-d, --message [message]", "Short description ")
     .option("--token <token>", "a external token to create space in other user's account")
+    .option("--enableUUID", "to enable UUID for the space, its needed for enabling activity log for the space, by default its false")
     .option("-s, --schema [schemadef]", "set json schema definition (local filepath / http link) for your space, all future data for this space will be validated for the schema")
     .action(options => createSpace(options)
         .catch(error => {
@@ -1181,7 +1187,7 @@ async function createSpace(options: any) {
             options.message = "a new Data Hub space created from commandline";
         }
     }
-    let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client);
+    let gp: any = getGeoSpaceProfiles(options.title, options.message, options.client, options.enableUUID);
 
     if (options.schema) {
 
@@ -1424,23 +1430,7 @@ program
         }
         if (!id && options.file) {
             console.log("No space ID specified, creating a new Data Hub space for this upload.");
-            const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
-            options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
-            const descPrompt = [{
-                type: 'input',
-                name: 'description',
-                message: 'Enter a description for the new space : ',
-                default: path.parse(options.file).name
-            }]
-            const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
-            options.message = descInput.description ? descInput.description : options.file;
-
-            const response: any = await createSpace(options)
-                .catch(err => {
-                    handleError(err);
-                    process.exit(1);
-                });
-            id = response.id;
+            id = await promptInputAndCreateSpace(path.parse(options.file).name);
             
             if(!options.stream && !(options.file.toLowerCase().indexOf(".shp") != -1 || options.file.toLowerCase().indexOf(".gpx") != -1 || options.file.toLowerCase().indexOf(".xls") != -1 || options.file.toLowerCase().indexOf(".xlsx") != -1 || options.file.toLowerCase().indexOf(".zip") != -1)){
                 const streamInput = await inquirer.prompt<{ streamconfirmation?: boolean }>(streamconfirmationPrompt);
@@ -1453,6 +1443,29 @@ program
             handleError(error, true);
         });
     });
+
+async function promptInputAndCreateSpace(defaultMessage: string){
+    let options: any = {};
+    const titleInput = await inquirer.prompt<{ title?: string }>(titlePrompt);
+    options.title = titleInput.title ? titleInput.title : "file_upload_" + new Date().toISOString();
+    const descPrompt = [{
+        type: 'input',
+        name: 'description',
+        message: 'Enter a description for the new space : ',
+        default: defaultMessage
+    }];
+    const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
+    options.message = descInput.description ? descInput.description : defaultMessage;
+    const uuidInput = await inquirer.prompt<{enableUUID?:boolean}>(enableUUIDPrompt);
+    options.enableUUID = uuidInput.enableUUID;
+
+    const response: any = await createSpace(options)
+        .catch(err => {
+            handleError(err);
+            process.exit(1);
+        });
+    return response.id;
+}
 
 async function executeHistoryCommand(id: string, options: any){
     if(options.history && !id){
