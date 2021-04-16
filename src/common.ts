@@ -31,6 +31,7 @@ import { geoCodeString } from "./geocodeUtil";
 import {table,getBorderCharacters} from 'table';
 import {ApiError} from "./api-error";
 import * as turf from "@turf/turf";
+import * as intersect from "@turf/intersect";
 
 const fs = require('fs');
 const path = require('path');
@@ -810,7 +811,7 @@ export function getClippedh3HexbinsInsidePolygon(feature: any, h3resolution: str
     const hexagons = geojson2h3.featureToH3Set(bufferedFeature, Number(h3resolution));
     let featureCollection =  geojson2h3.h3SetToFeatureCollection(hexagons);
     for (var i = featureCollection.features.length - 1; i >= 0; i--) {
-        const newHexbin = turf.intersect(feature, featureCollection.features[i]);
+        const newHexbin = intersect.default(feature, featureCollection.features[i]);
         if (newHexbin) { 
             newHexbin.id = featureCollection.features[i].id;
             featureCollection.features[i] = newHexbin;
