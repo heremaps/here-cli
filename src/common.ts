@@ -804,7 +804,7 @@ export async function getApiKeys(cookies: string, appId: string) {
     return apiKeys;
 }
 
-export function geth3HexbinsInsidePolygon(feature: any, h3resolution: string){
+export function getClippedh3HexbinsInsidePolygon(feature: any, h3resolution: string){
     //h3.polyfill
     const bufferedFeature = turf.buffer(feature, Number(h3resolutionRadiusMap[h3resolution]) * 2);
     const hexagons = geojson2h3.featureToH3Set(bufferedFeature, Number(h3resolution));

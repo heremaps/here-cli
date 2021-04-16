@@ -999,7 +999,7 @@ async function showSpace(id: string, options: any) {
             let jsonOut = await getSpaceDataFromXyz(refspace, options);
             //this returns Feature, not a FeatureCollections
             let spatialfeature = jsonOut;
-            let hexbins = common.geth3HexbinsInsidePolygon(spatialfeature, options.h3);
+            let hexbins = common.getClippedh3HexbinsInsidePolygon(spatialfeature, options.h3);
             let area = hexbin.getH3HexbinArea(parseInt(options.h3))
             let units = "km2";
             let printArea = area.toFixed(1) + units;
@@ -1066,6 +1066,8 @@ async function showSpace(id: string, options: any) {
             } else {
                 response.body.features = allFeatures;
             }
+            //TODO - remove it, only needed for testing
+            console.log(JSON.stringify(hexbins));
         } else {
             response = await execute(
                 uri,
