@@ -822,6 +822,10 @@ export function getClippedh3HexbinsInsidePolygon(feature: any, h3resolution: str
     return featureCollection;
 }
 
+export function getH3HexbinChildren(h3Index: string, resolution: number){
+	let children = h3.h3ToChildren(h3Index,resolution)
+	return children
+}
 
 /**
  *

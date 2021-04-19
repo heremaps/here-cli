@@ -1021,6 +1021,7 @@ async function showSpace(id: string, options: any) {
             let allFeatures: any[] = [];
             let fullHexbinCounter = hexbins.features.length;
             let hexbinnedFeatureCount = 0
+            options.limit = 30000 // given the number of features per hexbin will vary, can we detect this and adjust? also consider upload size...
             for(let hexbin of hexbins.features){
                 postData = hexbin.geometry;
                 response = await execute(
@@ -1039,6 +1040,14 @@ async function showSpace(id: string, options: any) {
                     	let hexCount = hexbins.features.length - fullHexbinCounter
                     	let hexCountStatus = hexCount + " of " + hexbins.features.length
                     	let data = {'count': hexCountStatus,'h3 id': hexbin.id,'features': response.body.features.length,'density': density}
+                    	// TODO: if we hit the limit, we could increase the resolution of the hexbins (by two levels for clean nesting) and iterate through those
+                    	// can we make the whole hexbin process a recursive function? but at what point? before we clip the hexbin?
+                    	if (response.body.features.length == options.limit){
+                    		console.log("caution: download of ",hexbin.id,"may be incomplete since its feature count = download limit of",options.limit," -- try increasing `--limit` or increase h3 resolution from",options.h3,"to a higher resolution")
+                    		const childResolution = parseInt(options.h3) + 2 // if you only go to the next resolution, child hexbins don't completely nest -- 7 vs 49 though...
+                    		const childArray = common.getH3HexbinChildren(hexbin.id,childResolution)
+                    		console.log('children @ r'+childResolution,childArray)
+                    	}
                 		console.table([data])
                 	} 
                 }
@@ -1076,8 +1085,6 @@ async function showSpace(id: string, options: any) {
             } else {
                 response.body.features = allFeatures;
             }
-            //TODO - remove it, only needed for testing
-            console.log(JSON.stringify(hexbins));
         } else {
             response = await execute(
                 uri,

@@ -55,6 +55,12 @@ export function getH3HexbinArea(resolution: number){
 	return area
 }
 
+export function getH3HexbinChildren(h3Index: string, resolution: number){
+	let children = h3.h3ToChildren(h3Index,resolution)
+	console.log({children})
+	return children
+}
+
 function getH3HexBin(point: number[], cellSize: number){
     let h3Index = h3.geoToH3(point[1],point[0], cellSize);
     const hexCenter = h3.h3ToGeo(h3Index); 
