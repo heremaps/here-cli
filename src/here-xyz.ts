@@ -981,9 +981,17 @@ async function showSpace(id: string, options: any) {
         }
         cType = "application/geo+json";
     }
-    if (options.targetspace) {
-        if (options.targetspace == true) {
-            options.targetspace = await promptInputAndCreateSpace("target space for show output of space " + id);
+    if (options.targetSpace) {
+        if (options.targetSpace == true) {
+//             options.targetSpace = await promptInputAndCreateSpace("target space for show output of space " + id);
+			if (options.feature){
+				const refspacefeature = options.feature.split(',');
+                refspace = refspacefeature[0];
+                reffeature = refspacefeature[1];
+            	options.targetSpace = await promptInputAndCreateSpace("features from space " + id + " within/along feature " + reffeature + " via space " + refspace);
+            } else {
+            	options.targetSpace = await promptInputAndCreateSpace("target space for spatial query of " + id);
+            }
         }
     }
     if (options.vector) {
@@ -1468,8 +1476,8 @@ async function promptInputAndCreateSpace(defaultMessage: string){
     }];
     const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
     options.message = descInput.description ? descInput.description : defaultMessage;
-    const uuidInput = await inquirer.prompt<{enableUUID?:boolean}>(enableUUIDPrompt);
-    options.enableUUID = uuidInput.enableUUID;
+    //const uuidInput = await inquirer.prompt<{enableUUID?:boolean}>(enableUUIDPrompt);
+    options.enableUUID = false;
 
     const response: any = await createSpace(options)
         .catch(err => {
