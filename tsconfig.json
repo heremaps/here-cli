@@ -5,9 +5,6 @@
     "strict": true,
     "outDir": "bin",
     "baseUrl": "./",
-    "paths": {
-      "@turf/voronoi": ["./declarations/@turf/voronoi.d.ts"],
-      "@turf/helpers": ["./declarations/@turf/helpers.d.ts"]
-    }
+    "skipLibCheck":true
   }
 }
