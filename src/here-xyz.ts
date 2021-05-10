@@ -99,15 +99,6 @@ const titlePrompt = [
     }
 ];
 
-const enableUUIDPrompt = [
-    {
-        type: 'confirm',
-        name: 'enableUUID',
-        message: 'Do you want to enable UUID for space?',
-        default: false
-    }
-];
-
 const questionConfirm = [
     {
         type: 'input',
@@ -983,7 +974,6 @@ async function showSpace(id: string, options: any) {
     }
     if (options.targetSpace) {
         if (options.targetSpace == true) {
-//             options.targetSpace = await promptInputAndCreateSpace("target space for show output of space " + id);
 			if (options.feature){
 				const refspacefeature = options.feature.split(',');
                 refspace = refspacefeature[0];
@@ -1476,7 +1466,6 @@ async function promptInputAndCreateSpace(defaultMessage: string){
     }];
     const descInput = await inquirer.prompt<{ description?: string }>(descPrompt);
     options.message = descInput.description ? descInput.description : defaultMessage;
-    //const uuidInput = await inquirer.prompt<{enableUUID?:boolean}>(enableUUIDPrompt);
     options.enableUUID = false;
 
     const response: any = await createSpace(options)
@@ -2579,7 +2568,7 @@ async function launchXYZSpaceInvader(spaceId: string, tags: string, token: strin
     if(!token){
         token = await getReadOnlyToken([spaceId], isPermanent);
     }
-    const uri = "https://xyz-demo.s3.amazonaws.com/datahub/space-invader/index.html?mode=1&space=" + spaceId + "&token=" + token + tags; //TODO add property search values
+    const uri = "https://geojson.tools/space-invader/?mode=1&space=" + spaceId + "&token=" + token + tags; //TODO add property search values
     open(
         uri
         , { wait: false });
