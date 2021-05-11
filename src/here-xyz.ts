@@ -2602,7 +2602,7 @@ program
     .option("--update", "use with tagrules options to update the respective configurations")
     .option("--view", "use with schema/searchable/tagrules options to view the respective configurations")
     .option("--activitylog","configure activity logs for your space interactively")
-    .option("--geocoder","configure forward or reverse geocoding for your space interactively")
+    //.option("--geocoder","configure forward or reverse geocoding for your space interactively")
     .option("--console","opens web console for Data Hub")
     .action(function (id, options) {
         if(options.console){
@@ -2993,9 +2993,7 @@ async function geocoderConfig(id:string, options:any) {
         if(response.statusCode >= 200 && response.statusCode < 210) {
             console.log("geocoder configuration updated successfully, it may take a few seconds to take effect and reflect.");
         }
-    } 
-    //console.log(options);
-
+    }
 }
 
 async function configureGeocodeInteractively(params: any, options: any){
