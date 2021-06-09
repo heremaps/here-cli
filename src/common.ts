@@ -985,7 +985,7 @@ async function execInternalGzip(
                         response.body.failed = (response.body && response.body.failed) ? response.body.failed.concat(secondResponse.body.failed) : secondResponse.body.failed;
                     }
                 } else {
-                    console.log("\nfeature with ID " + jsonData.features[0].id ? jsonData.features[0].id : JSON.stringify(jsonData.features[0].id) +" is too large for API gateway limit, please simplify the geometry to reduce its size");
+                    console.log("\nfeature " + (jsonData.features[0].id ? ("with ID " + jsonData.features[0].id) : JSON.stringify(jsonData.features[0]) +" is too large for API gateway limit, please simplify the geometry to reduce its size"));
                     response = {
                         statusCode:200,
                         body:{
