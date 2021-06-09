@@ -1596,7 +1596,7 @@ function streamingQueue() {
                 done();
             }).catch((err: any) => {
                 if(task.options.errors){
-                    console.log("\nFailed to upload : " + err.message);
+                    console.log("\nFailed to upload : " + JSON.stringify(err));
                 } else if(err.message.indexOf('The longitude (1st) value in coordinates of the Point is out of bounds') !== -1){
                     console.log("\nsome features have longitudes out of bounds (> 180 or < -180) -- use -e to see the full error message");
                 }
@@ -2330,7 +2330,7 @@ async function mergeAllTags(
     if (nameTag) {
         if(!options.tags){
             options.tags = nameTag;
-        } else {
+        } else if(options.tags.indexOf(nameTag) == -1){
             options.tags = options.tags + "," + nameTag;
         }
     }
@@ -2485,7 +2485,7 @@ async function iterateChunks(chunks: any, url: string, index: number, chunkSize:
             for (let n = 0; n < res.failed.length; n++) {
                 const failedentry = res.failed[n];
                 if (printFailed) {
-                    console.log("Failed to upload : " + JSON.stringify({ feature: fc.features[failedentry.position], reason: failedentry.message }));
+                    console.log("Failed to upload : " + JSON.stringify(failedentry));
                 }
             }
         }
