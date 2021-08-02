@@ -32,6 +32,12 @@ import {table,getBorderCharacters} from 'table';
 import {ApiError} from "./api-error";
 import * as turf from "@turf/turf";
 import * as intersect from "@turf/intersect";
+import {
+    UserAuth,
+    requestToken,
+    loadCredentialsFromFile
+} from "@here/olp-sdk-authentication";
+import {RequestFactory, OlpClientSettings, HRN} from "@here/olp-sdk-core";
 
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +53,14 @@ const questions = [
         name: "tagChoices",
         message: "Select default AppId.",
         choices: choiceList
+    }
+];
+
+export const questionConfirm = [
+    {
+        type: 'input',
+        name: 'confirmed',
+        message: 'Enter (Y)es to continue or (N)o to cancel'
     }
 ];
 
@@ -80,6 +94,51 @@ export function isApiServerXyz(){
 export function setApiServerUrl(url: string){
     settings.set('apiServerUrl',url);
     apiServerUrl = url;
+}
+
+async function getImlUrl(catalogHrn: string){
+    const olpClientSettings = new OlpClientSettings({
+        environment: "here",
+        getToken: () => getWorkspaceToken()
+    });
+    const url = await RequestFactory.getBaseUrl("interactive","v1",olpClientSettings, HRN.fromString(catalogHrn));
+    console.log(url);
+    return url;
+}
+
+async function getHostUrl(uri: string, catalogHrn: string){
+    if(catalogHrn){
+        uri = await getImlUrl(catalogHrn) + "/layers/" + uri;
+    } else {
+        uri = xyzRoot(false) + "/hub/spaces/" + uri;
+    }
+    return uri;
+}
+
+export async function setWorkSpaceCredentials(filePath: string){
+    try {
+        const token: string = await getWorkspaceToken(filePath);//This to verify the credentials
+        settings.set('workspaceMode', 'true');
+        settings.set('credentialsFilePath', filePath);
+        console.log("Workspace credentials loaded successfully");
+    } catch(error){
+        console.log(error.message);
+    }
+}
+
+export async function getWorkspaceToken(credentialsPath : string = ''){
+    if(!credentialsPath){
+        credentialsPath = settings.get('credentialsFilePath');
+    }
+    const credentials = loadCredentialsFromFile(
+        credentialsPath
+    );
+    const userAuth = new UserAuth({
+        credentials,
+        tokenRequester: requestToken
+    });
+    const token: string = await userAuth.getToken();
+    return token;
 }
 
 export const keySeparator = "%%";
@@ -191,6 +250,7 @@ export async function loginFlow(email: string, password: string) {
             await encryptAndStore('appDetails', appId + keySeparator + appCode).catch(err => {throw err});
             await encryptAndStore('apiKeys', appId).catch(err => {throw err});
             settings.set('apiServerUrl','https://xyz.api.here.com');
+            settings.set('workspaceMode','false');
             console.log('Default App Selected - ' + appId);
         }else{
             console.log('No Active Apps found. Please login to https://developer.here.com for more details.');
@@ -863,7 +923,8 @@ export async function execInternal(
     data: any,
     token: string,
     gzip: boolean,
-    setAuthorization: boolean
+    setAuthorization: boolean,
+    catalogHrn : string = ""
 ) {
     if (gzip) {
         return await execInternalGzip(
@@ -871,18 +932,20 @@ export async function execInternal(
             method,
             contentType,
             data,
-            token
+            token,
+            3,
+            catalogHrn
         );
     }
     if (!uri.startsWith("http")) {
-        uri = xyzRoot(false) + uri;
+        uri = await getHostUrl(uri, catalogHrn);
     }
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
     let headers: any = {
         "Content-Type": contentType,
         "App-Name": "HereCLI"
     };
-    if(isApiServerXyz()){
+    if(isApiServerXyz() || catalogHrn){
         headers["Authorization"] = "Bearer " + token;
     }
     const reqJson = {
@@ -925,11 +988,12 @@ async function execInternalGzip(
     contentType: string,
     data: any,
     token: string,
-    retry: number = 3
+    retry: number = 3,
+    catalogHrn : string
 ) {
     const zippedData = await gzip(data);
     if (!uri.startsWith("http")) {
-        uri = xyzRoot(false) + uri;
+        uri = await getHostUrl(uri, catalogHrn);
     }
     let headers: any = {
         "Content-Type": contentType,
@@ -937,7 +1001,7 @@ async function execInternalGzip(
         "Content-Encoding": "gzip",
         "Accept-Encoding": "gzip"
     };
-    if(isApiServerXyz()){
+    if(isApiServerXyz() || catalogHrn){
         headers["Authorization"] = "Bearer " + token;
     }
     const responseType = contentType.indexOf('json') !== -1 ? 'json' : 'text';
@@ -955,7 +1019,7 @@ async function execInternalGzip(
     if (response.statusCode < 200 || response.statusCode > 210) {
         if (response.statusCode >= 500 && retry > 0) {
             await new Promise(done => setTimeout(done, 1000));
-            response = await execInternalGzip(uri, method, contentType, data, token, --retry);
+            response = await execInternalGzip(uri, method, contentType, data, token, --retry, catalogHrn);
         } else if (response.statusCode == 413 && typeof data === "string"){
             let jsonData = JSON.parse(data);
             if(jsonData.type && jsonData.type === "FeatureCollection") {
@@ -969,7 +1033,7 @@ async function execInternalGzip(
                         }
                         return value;
                     });
-                    response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry);
+                    response = await execInternalGzip(uri, method, contentType, firstHalfString, token, retry, catalogHrn);
                     const secondHalf = jsonData.features.splice(-half);
                     const secondHalfString = JSON.stringify({ type: "FeatureCollection", features: secondHalf }, (key, value) => {
                         if (typeof value === 'string') {
@@ -977,7 +1041,7 @@ async function execInternalGzip(
                         }
                         return value;
                     });
-                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry);
+                    const secondResponse = await execInternalGzip(uri, method, contentType, secondHalfString, token, retry, catalogHrn);
                     if(secondResponse.body.features) {
                         response.body.features = (response.body && response.body.features) ? response.body.features.concat(secondResponse.body.features) : secondResponse.body.features;
                     }
@@ -1004,13 +1068,190 @@ async function execInternalGzip(
     return response;
 }
 
-export async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true) {
+export async function execute(uri: string, method: string, contentType: string, data: any, token: string | null = null, gzip: boolean = false, setAuthorization: boolean = true, catalogHrn: string = "") {
     if (!token) {
-        token = await verify();
+        if(catalogHrn){
+            token = await getWorkspaceToken();
+        } else {
+            token = await verify();
+        }
     }
-    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization);
+    return await execInternal(uri, method, contentType, data, token, gzip, setAuthorization, catalogHrn);
 }
 
 export function replaceOpearators(expr: string) {
     return expr.replace(">=", "=gte=").replace("<=", "=lte=").replace(">", "=gt=").replace("<", "=lt=").replace("+", "&");
+}
+
+export function createQuestionsList(object: any) {
+    let tagChoiceList = createChoiceList(object);
+    let IdTagquestions = [
+        {
+            type: "checkbox",
+            name: "tagChoices",
+            message: "Select attributes to be added as tags, like key@value",
+            choices: tagChoiceList
+        },
+        {
+            type: "checkbox",
+            name: "idChoice",
+            message:
+                "Select attributes to be used as the GeoJSON Feature ID (must be unique)",
+            choices: tagChoiceList
+        }
+    ];
+    return IdTagquestions;
+}
+
+export function createChoiceList(object: any){
+    let inputChoiceList: { name: string, value: string}[] = [];
+    for (let i = 0; i < 3 && i < object.features.length; i++) {
+        let j = 0;
+        for (let key in object.features[0].properties) {
+            if (i === 0) {
+                const desc =
+                    "" +
+                    (1 + j++) +
+                    " : " +
+                    key +
+                    " : " +
+                    object.features[i].properties[key];
+                    inputChoiceList.push({ name: desc, value: key });
+            } else {
+                inputChoiceList[j].name =
+                inputChoiceList[j].name + " , " + object.features[i].properties[key];
+                j++;
+            }
+        }
+    }
+    return inputChoiceList;
+}
+
+export function addDatetimeTag(dateValue:moment.Moment, element:string, options: any, finalTags: Array<string>){
+    dateValue.locale('en');
+    let allTags = false;
+    if (options.datetag == true || options.datetag == undefined) {
+        allTags = true;
+    }
+    let inputTagsList = [];
+    if (!allTags) {
+        inputTagsList = options.datetag.split(',');
+    }
+    if (allTags || inputTagsList.includes('year')) {
+        addTagsToList(dateValue.year().toString(), 'date_' + element + '_year', finalTags);
+    }
+    if (allTags || inputTagsList.includes('month')) {
+        addTagsToList(dateValue.format('MMMM'), 'date_' + element + '_month', finalTags);
+    }
+    if (allTags || inputTagsList.includes('year_month')) {
+        addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.month() + 1)).slice(-2).toString(), 'date_' + element + '_year_month', finalTags);
+    }
+    if (allTags || inputTagsList.includes('week')) {
+        addTagsToList(("0" + (dateValue.week())).slice(-2), 'date_' + element + '_week', finalTags);
+    }
+    if (allTags || inputTagsList.includes('year_week')) {
+        addTagsToList(dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2), 'date_' + element + '_year_week', finalTags);
+    }
+    if (allTags || inputTagsList.includes('weekday')) {
+        addTagsToList(dateValue.format('dddd'), 'date_' + element + '_weekday', finalTags);
+    }
+    if (allTags || inputTagsList.includes('hour')) {
+        addTagsToList(("0" + (dateValue.hour())).slice(-2), 'date_' + element + '_hour', finalTags);
+    }
+}
+
+export function addTagsToList(value: string, tp: string, finalTags: string[]) {
+    value = value.toString().toLowerCase();
+    value = value.replace(/\s+/g, "_");
+    value = value.replace(/,+/g, "_");
+    value = value.replace(/&+/g, "_and_");
+    value = value.replace(/\++/g, "_plus_");
+    value = value.replace(/#+/g, "_num_");
+    tp = tp.replace(/\s+/g, "_");
+    //finalTags.push(value); // should we add tags with no @ an option?
+    finalTags.push(tp + "@" + value);
+    return finalTags;
+}
+
+export function uniqArray<T>(a: Array<T>) {
+    return Array.from(new Set(a));
+}
+
+export function getFileName(fileName: string) {
+    try {
+        let bName = path.basename(fileName);
+        if (bName.indexOf(".") != -1) {
+            bName = bName.substring(0, bName.lastIndexOf("."));
+        }
+        return bName;
+    } catch (e) {
+        return null;
+    }
+}
+
+export function addDatetimeProperty(dateValue:moment.Moment, element:string, options: any, item: any){
+    dateValue.locale('en');
+    let allTags = false;
+    if (options.dateprops == true || options.dateprops == undefined) {
+        allTags = true;
+    }
+    let inputTagsList = [];
+    if (!allTags) {
+        inputTagsList = options.dateprops.split(',');
+    }
+    if (allTags || inputTagsList.includes('year')) {
+        item.properties['date_' + element + '_year'] = dateValue.year().toString();
+    }
+    if (allTags || inputTagsList.includes('month')) {
+        item.properties['date_' + element + '_month'] = dateValue.format('MMMM');
+    }
+    if (allTags || inputTagsList.includes('year_month')) {
+        item.properties['date_' + element + '_year_month'] = dateValue.year().toString() + '-' + ("0" + (dateValue.month() + 1)).slice(-2).toString();
+    }
+    if (allTags || inputTagsList.includes('week')) {
+        item.properties['date_' + element + '_week'] = ("0" + (dateValue.week())).slice(-2);
+    }
+    if (allTags || inputTagsList.includes('year_week')) {
+        item.properties['date_' + element + '_year_week'] = dateValue.year().toString() + '-' + ("0" + (dateValue.week())).slice(-2);
+    }
+    if (allTags || inputTagsList.includes('weekday')) {
+        item.properties['date_' + element + '_weekday'] = dateValue.format('dddd');
+    }
+    if (allTags || inputTagsList.includes('hour')) {
+        item.properties['date_' + element + '_hour'] = ("0" + (dateValue.hour())).slice(-2);
+    }
+}
+
+export function collate(result: Array<any>) {
+    return result.reduce((features: any, feature: any) => {
+        if (feature.type === "Feature") {
+            features.push(feature);
+        } else if (feature.type === "FeatureCollection") {
+            features = features.concat(feature.features);
+        } else {
+            console.log("Unknown type" + feature.type);
+        }
+        return features
+    }, []);
+}
+
+export function getGeoSpaceProfiles(title: string, description: string, client: any, enableUUID: boolean = false) {
+    return {
+        title,
+        description,
+        client,
+        enableUUID
+    };
+}
+
+export function getSchemaProcessorProfile(schema: string) {
+    return {
+        "schema-validator" : [{
+            "eventTypes": ["ModifyFeaturesEvent.request", "ModifySpaceEvent.request"],
+            "params": {
+                "schema": schema
+            },
+            "order": 0
+        }]
+    }
 }

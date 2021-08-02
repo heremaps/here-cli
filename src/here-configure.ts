@@ -82,7 +82,7 @@ async function setUserPass() {
 program
     .command('verify')
     //.arguments('[env]')
-    .description('Verify credentials')
+    .description('verify credentials')
     .action(function (env, options) {
         common.verify();
     });
@@ -90,7 +90,7 @@ program
 
 program
     .command('refresh')
-    .description('Refresh account setup')
+    .description('refresh account setup')
     .action(function (options:any) {
         common.refreshAccount(true);
     });
@@ -102,13 +102,20 @@ program
         common.setApiServerUrl(apiServerUrl);
     });
 
+program
+    .command('workspace <credentialsFilePath>')
+    .description('here workspace credentials file path, by default it will be checked in the home directory')
+    .action(function (credentialsFilePath:string, options:any) {
+        common.setWorkSpaceCredentials(credentialsFilePath);
+    });
+
 prompter.stop();
 //program.parse(process.argv);
 
 if (process.argv.length == 2) {
     setUserPass();
 } else {
-    common.validate(["help","verify","account","refresh","server"], [process.argv[2]], program);
+    common.validate(["help","verify","account","refresh","server","workspace"], [process.argv[2]], program);
     program.parse(process.argv);
 }
 
