@@ -196,12 +196,12 @@ describe('Configure', function () {
     });
 
     it('show space', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('showSpace')("myspace", { raw: false });
+      await xyzutil.__get__('showSpace')("myspace", { raw: false });
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("9376020521              │ MultiLineString         │ workspace@weu_bw_1901")!=-1) {        
         assert.ok(true, "");
@@ -224,12 +224,12 @@ describe('Configure', function () {
       }
     });
     it('create space', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('createSpace')({ title: "test", message : "test" });
+      await xyzutil.__get__('createSpace')({ title: "test", message : "test" });
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("Data Hub space 'testing' created successfully")!=-1) {
         assert.ok(true, "");
@@ -280,12 +280,12 @@ describe('Configure', function () {
     });
     
     it('upload to space using geojson', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson"});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson"});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
@@ -303,12 +303,12 @@ describe('Configure', function () {
     
 
     it('upload to space using csv', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv", delimiter: ',', quote: '"'});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv", delimiter: ',', quote: '"'});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
@@ -328,12 +328,12 @@ describe('Configure', function () {
     });
 
     it('upload to space using gpx', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.gpx" });
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.gpx" });
       capcon.stopCapture(process.stdout);
       if (output.indexOf("data upload to Data Hub space 'myspace' completed") != -1) {
         assert.ok(true, "");
@@ -350,12 +350,12 @@ describe('Configure', function () {
     });
 
     it('upload to space using shapefile', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/shapesample/shapesample.shp"});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/shapesample/shapesample.shp"});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
         assert.ok(true, "");
@@ -376,12 +376,12 @@ describe('Configure', function () {
 
     it('upload to space using geojson using stream', async function () {
       this.timeout(10000);
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson",stream:true});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojson",stream:true});
       capcon.stopCapture(process.stdout);    
       
       if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
@@ -393,12 +393,12 @@ describe('Configure', function () {
 
     it('upload to space using csv using stream', async function () {
       this.timeout(10000);
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true, delimiter: ',', quote: '"' });
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.csv",stream:true, delimiter: ',', quote: '"' });
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");
@@ -406,14 +406,15 @@ describe('Configure', function () {
         assert.fail();
       }
     });
+
     it('upload to space using geojsonl', async function () {
       this.timeout(10000);
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl"});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl"});
       capcon.stopCapture(process.stdout);     
       console.log("output::::"+output);
       if (output.indexOf("data upload to Data Hub space 'myspace' completed")!=-1) {
@@ -422,14 +423,15 @@ describe('Configure', function () {
         assert.fail();
       }
     });
+
     it('upload to space using geojsonl using stream', async function () {
       this.timeout(10000);
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl",stream:true});
+      await xyzutil.__get__('uploadToXyzSpace')("myspace", { file: "test/data/sample.geojsonl",stream:true});
       capcon.stopCapture(process.stdout);     
       if (output.indexOf("uploaded feature count :0, failed feature count :0")!=-1) {
         assert.ok(true, "");

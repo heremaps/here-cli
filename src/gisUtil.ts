@@ -28,7 +28,7 @@ import * as tmp from "tmp";
 import * as fs from "fs";
 import * as turf from "@turf/turf";
 import {Delaunay} from "d3-delaunay";
-import {getSpaceDataFromXyz} from "./xyzutil";
+import {getSpaceDataFromXyz, uploadToXyzSpace, getSpaceStatistics} from "./xyzutil";
 
 export async function performGisOperation(id:string, options:any){
     await common.verifyProLicense();
@@ -116,7 +116,7 @@ export async function performGisOperation(id:string, options:any){
             options.file = neighboursTmpObj.name;
             options.stream = true;
             console.log("updating Delaunay neighbours");
-            await xyz.uploadToXyzSpace(id, options);
+            await uploadToXyzSpace(id, options);
         }
     }
     if(!options.samespace && (options.centroid || options.voronoi || options.delaunay)){
@@ -141,7 +141,7 @@ export async function performGisOperation(id:string, options:any){
         }
         options.file = tmpObj.name;
         options.stream = true;
-        await xyz.uploadToXyzSpace(id, options);
+        await uploadToXyzSpace(id, options);
         console.log("GIS operation completed on space " + sourceId);
     }
 }
@@ -194,7 +194,7 @@ function populateArea(feature: any){
 }
 
 async function calculateVoronoiPolygon(spaceId: string, features: any[], options: any){
-    const statData = await xyz.getSpaceStatistics(spaceId);
+    const statData = await getSpaceStatistics(spaceId);
     const bbox: [number,number,number, number] = statData.bbox.value;
     const delaunay = Delaunay.from(features, function(feature){return feature.geometry.coordinates[0]}, function(feature){return feature.geometry.coordinates[1]});
     const voronoiResult = delaunay.voronoi(bbox).cellPolygons();
