@@ -46,6 +46,7 @@ describe('Configure', function () {
   describe('configure', function () {
     var count = 0;
     before(function () {
+      console.log("starting server");
       server.listen();
       mock('user-settings', {
         file: function (a) {
@@ -203,19 +204,19 @@ describe('Configure', function () {
       });
       await xyzutil.__get__('showSpace')("myspace", { raw: false });
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("9376020521              │ MultiLineString         │ workspace@weu_bw_1901")!=-1) {        
+      if (output.indexOf("9376020521              │ MultiLineString         │ 2/13/2019, 14:30        │ 2/13/2019, 14:30        │ workspace@weu_bw_1901")!=-1) {        
         assert.ok(true, "");
       } else {
         assert.fail();
       }
     });
     it('delete space', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('deleteSpace')("myspace", { raw: false, prop: [] , force: true});
+      await xyzutil.__get__('deleteSpace')("myspace", { raw: false, prop: [] , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("Data Hub space 'myspace' deleted successfully")!=-1) {
         assert.ok(true, "");
@@ -238,12 +239,12 @@ describe('Configure', function () {
       }
     });
     it('clear space', async function () {
-      const xyz = rewire('../bin/here-xyz');
+      const xyzutil = rewire('../bin/xyzutil');
       var output = '';
       capcon.startCapture(process.stdout, function (stdout) {
         output += stdout;
       });
-      await xyz.__get__('clearSpace')("myspace", { tags:"*" , force: true});
+      await xyzutil.__get__('clearSpace')("myspace", { tags:"*" , force: true});
       capcon.stopCapture(process.stdout); 
       if (output.indexOf("data cleared successfully")!=-1) {
         assert.ok(true, "");
