@@ -61,9 +61,14 @@ const titlePrompt = [
     }
 ];
 
-let catalogHrn: string;
+let catalogHrn: string,
+    layer: any;
 export function setCatalogHrn(hrn: string){
     catalogHrn = hrn;
+}
+
+export function setLayer(layerConfig: any){
+    layer = layerConfig;
 }
 
 export function getSpaceDataFromXyz(id: string, options: any) {
@@ -1511,9 +1516,17 @@ async function getStatsAndBasicForSpace(spaceId: string) {
 
 export async function getSpaceMetaData(id: string, token: string | null = null) {
     //TODO - use config service to retrieve layer config
-    const uri = id + "?clientId=cli&skipCache=true";
-    const cType = "application/json";
-    const response = await execute(uri, "GET", cType, "", token);
+    let response: any = {}
+    if(catalogHrn) {
+        response['body'] = {};
+        response['body']['id'] = layer.id;
+        response['body']['title'] = layer.name;
+        response['body']['description'] = layer.description;
+    } else {
+        const uri = id + "?clientId=cli&skipCache=true";
+        const cType = "application/json";
+        response = await execute(uri, "GET", cType, "", token);
+    }
     return response.body;
 }
 

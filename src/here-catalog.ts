@@ -37,6 +37,7 @@ program
     .requiredOption("-n, --catalogName <catalogName>", "Name for catalog")
     .option("-s, --summary <summary>", "Short summary")
     .option("-m, --message <message>", "Description for catalog")
+    .option("--tags <tags>", "a comma separated list of tags")
     .option("--token <token>", "a external token to create layer in other user's account")
     .action(async function (options) {
         if (!options.summary) {

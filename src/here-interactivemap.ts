@@ -39,6 +39,24 @@ const catalogConfirmationPrompt = [
     }
 ];
 
+const layerConfirmationPrompt = (catalogHrn: string) => [
+    {
+        type: 'confirm',
+        name: 'layerConfirmation',
+        message: 'Layer ID not provided. Do you want to use existing layer from catalog ' + catalogHrn + '?',
+        default: true
+    }
+];
+
+const catLayerConfirmationPrompt = [
+    {
+        type: 'confirm',
+        name: 'catLayerConfirmation',
+        message: 'Catalog HRN and Layer ID not provided. Do you want to use existing layers?',
+        default: true
+    }
+];
+
 const newCatalogCreationPrompt = [
     {
         type: 'input',
@@ -71,6 +89,9 @@ program
     .requiredOption("-n, --layerName <layerName>", "Name for Interactive Map layer")
     .option("-s, --summary <summary>", "Short summary")
     .option("-m, --message <message>", "Description for Interactive Map layer")
+    .option("-p, --searchableProperties <searchableProperties>", "a comma separated list of properties to be indexed for faster queries")
+    .option("--tags <tags>", "a comma separated list of tags")
+    .option("--billingTags <billingTags>", "a comma separated list of billing tags")
     .option("--token <token>", "a external token to create layer in other user's account")
     .action(async function (catalogHrn, options) {
         if (!options.summary) {
@@ -117,6 +138,97 @@ program
             common.handleError(error);
         };
     });
+
+
+program
+    .command("config [catalogHrn] [layerId]")
+    .description("configure/update an Interactive Map layer in a catalog")
+    .option("-n, --layerName <layerName>", "Name for Interactive Map layer")
+    .option("-s, --summary <summary>", "Short summary")
+    .option("-m, --message <message>", "Description for Interactive Map layer")
+    .option("-p, --searchableProperties <searchableProperties>", "a comma separated list of properties to be indexed for faster queries")
+    .option("--tags <tags>", "a comma separated list of tags")
+    .option("--billingTags <billingTags>", "a comma separated list of billing tags")
+    .option("--token <token>", "a external token to create layer in other user's account")
+    .action(async function (catalogHrn, layerId, options) {
+        try {
+            if(catalogHrn) {
+                const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);
+                if(!layerId) {
+                    const hasIml = catalog.layers.some((layer: any) => layer.layerType === 'interactivemap');
+                    if(!hasIml) {
+                        console.error("Error - No Interactive Map layer is present in the catalog " + catalogHrn);
+                        process.exit(1);
+                    } else {
+                        const layerInput = await inquirer.prompt<{ layerConfirmation?: boolean }>(layerConfirmationPrompt(catalogHrn));
+                        if(layerInput.layerConfirmation) {
+                            let layerChoiceList : { name: string, value: string }[] = [];
+                            catalog.layers.forEach((layer: any) => {
+                                if(layer.layerType === 'interactivemap') {
+                                    layerChoiceList.push({
+                                        name: layer.hrn + " - " + layer.name,
+                                        value : layer.id + ""
+                                    });
+                                }
+                            });
+                            
+                            const layerQuestion = [
+                                {
+                                    type: "list",
+                                    name: "layerId",
+                                    message: "Please select the layer",
+                                    choices: layerChoiceList
+                                }
+                            ];
+                            layerId = (await inquirer.prompt<{layerId:string}>(layerQuestion)).layerId;
+                        }
+                    }
+                }
+            } else {
+                const catLayerInput = await inquirer.prompt<{ catLayerConfirmation?: boolean }>(catLayerConfirmationPrompt);
+                if(catLayerInput.catLayerConfirmation) {
+                    let catalogs = await catalogUtil.getCatalogs(true,options.token);
+                    catalogs = (catalogs as ConfigApi.Catalog[])?.filter(catalog => catalog.layers.some((layer: any) => layer.layerType === 'interactivemap'))
+                    if (!catalogs || catalogs.length == 0) {
+                        console.log("No layers found");
+                    } else {
+                        let layerChoiceList : { name: string, value: any }[] = [];
+                        catalogs.forEach((catalog: any) => {
+                            catalog.layers.forEach((layer: any) => {
+                                if(layer.layerType === 'interactivemap') {
+                                    layerChoiceList.push({
+                                        name: layer.hrn + " - " + layer.name,
+                                        value : {catalogHrn: catalog.hrn, layerId: layer.id}
+                                    });
+                                }
+                            });
+                        });
+
+                        const layerQuestion = [
+                            {
+                                type: "list",
+                                name: "catLayer",
+                                message: "Please select the layer",
+                                choices: layerChoiceList
+                            }
+                        ];
+                        const catLayer = (await inquirer.prompt<{catLayer:any}>(layerQuestion)).catLayer;
+                        catalogHrn = catLayer.catalogHrn;
+                        layerId = catLayer.layerId;
+
+                    }
+                }
+            }
+            
+            if(catalogHrn && layerId){
+                await catalogUtil.updateInteractiveMapLayer(catalogHrn, layerId, options, options.token);
+            }
+            console.log("Interactive Map layer updated successfully");//TODO - print layer hrn
+        } catch(error){
+            common.handleError(error);
+        };
+    });
+
 
 program
     .command("upload <catalogHrn> <id>")
@@ -234,8 +346,11 @@ program
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's layer")
     .action(async (catalogHrn, id, options) => {
-        await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
+        const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
+        const layer = catalog.layers.find(layer => layer.id === id);
+
         xyzutil.setCatalogHrn(catalogHrn);
+        xyzutil.setLayer(layer);
         xyzutil.deleteSpace(id, options)
             .catch((error) => {
                 common.handleError(error, true);
@@ -277,6 +392,7 @@ common.validate(
         "clear",
         "token",
         "create",
+        "config",
         "list",
         "ls"
     ],

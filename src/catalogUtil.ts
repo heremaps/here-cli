@@ -46,7 +46,15 @@ async function getConfigApiRequestBuilder(token: string = ''){
 export async function deleteLayer(catalogHrn: string, layerId: string, token: string = ''){
     const requestBuilder = await getConfigApiRequestBuilder(token);  
     const statusLink = await ConfigApi.deleteLayer(requestBuilder, {catalogHrn: catalogHrn,layerId: layerId});
-    console.log(statusLink);
+
+    if(statusLink.configToken) {
+        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        if(statusResponse && statusResponse.status) {
+            console.log('Layer delete for ' + layerId + ' is completed with status ' + statusResponse.status)
+        } else {
+            console.log(statusResponse);
+        }
+    }
     //TODO - check the status link for result when its completed
 }
 
@@ -70,6 +78,31 @@ export async function createInteractiveMapLayer(catalogHrn: string, options: any
     const statusLink = await ConfigApi.updateCatalog(requestBuilder, {catalogHrn: catalogHrn,body: updateCatalogConfig});
     console.log(statusLink);
     //TODO - check the status link for result when its completed
+    if(statusLink.configToken) {
+        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        if(statusResponse && statusResponse.status) {
+            console.log('Catalog update for ' + updateCatalogConfig.id + ' is completed with status ' + statusResponse.status)
+        } else {
+            console.log(statusResponse);
+        }
+    }
+}
+
+export async function updateInteractiveMapLayer(catalogHrn: string, layerId: string, options: any, token: string = ''){  
+    const requestBuilder = await getConfigApiRequestBuilder(token);
+    let layer = getLayerObject(options, undefined);
+
+    const statusLink = await ConfigApi.patchLayer(requestBuilder, {catalogHrn: catalogHrn, layerId: layerId, body: layer});
+
+    //TODO - check the status link for result when its completed
+    if(statusLink.configToken) {
+        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        if(statusResponse && statusResponse.status) {
+            console.log('Layer update for ' + layerId + ' is completed with status ' + statusResponse.status)
+        } else {
+            console.log(statusResponse);
+        }
+    }
 }
 
 export function getLayerObject(options: any, layerType: string = "interactivemap"){
@@ -79,6 +112,11 @@ export function getLayerObject(options: any, layerType: string = "interactivemap
         summary: options.summary,
         description: options.message,
         layerType: layerType,
+        interactiveMapProperties: {
+            searchableProperties: options.searchableProperties?.split(",")
+        },
+        tags: options.tags?.split(","),
+        billingTags: options.billingTags?.split(",")
         //hrn: catalogHrn + ":" + options.id,
     };
     return layer;
@@ -107,11 +145,21 @@ export async function createCatalog(options: any, layers: any[] = []){
         description : options.message,
         name : options.catalogName,
         summary: options.summary,
+        tags: options.tags?.split(","),
         layers: layers
     }
     const statusLink = await ConfigApi.createCatalog(requestBuilder, {body:createCatalogConfig});
-    console.log(statusLink);
+    //console.log(statusLink);
     //TODO - check the status link for result when its completed
+    if(statusLink.configToken) {
+        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        if(statusResponse && statusResponse.status) {
+            console.log('Catalog creation for ' + createCatalogConfig.id + ' is completed with status ' + statusResponse.status)
+        } else {
+            console.log(statusResponse);
+        }
+    }
+    
 }
 
 export async function validateCatalogAndLayer(catalogHrn: string, layerId: string, token: string = ''){
@@ -120,7 +168,7 @@ export async function validateCatalogAndLayer(catalogHrn: string, layerId: strin
         for(const layer of (catalog.layers as Array<any>)){
             if(layer.id == layerId){
                 if(layer.layerType == "interactivemap"){
-                    return true;
+                    return catalog;
                 } else {
                     console.error("Error - layer " + layerId + " is not of type interactivemap");
                     process.exit(1);
@@ -130,4 +178,17 @@ export async function validateCatalogAndLayer(catalogHrn: string, layerId: strin
         console.error("Error - layer " + layerId + " is not present in the catalog " + catalogHrn);
         process.exit(1);
     }
+    return catalog;
+}
+
+
+async function waitForStatus(builder: RequestBuilder, configToken: string) {
+    let status = 'pending', response;
+    while(status === 'pending') {
+        await new Promise(done => setTimeout(done, 500));
+        const statusResponse = await ConfigApi.getCatalogStatus(builder, {token: configToken});
+        status = statusResponse.status ? statusResponse.status : 'success';
+        response = statusResponse;
+    }
+    return response;
 }
