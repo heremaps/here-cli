@@ -204,7 +204,7 @@ describe('Configure', function () {
       });
       await xyzutil.__get__('showSpace')("myspace", { raw: false });
       capcon.stopCapture(process.stdout);     
-      if (output.indexOf("9376020521              │ MultiLineString         │ 2/13/2019, 14:30        │ 2/13/2019, 14:30        │ workspace@weu_bw_1901")!=-1) {        
+      if (output.indexOf("9376020521              │ MultiLineString")!=-1) {        
         assert.ok(true, "");
       } else {
         assert.fail();
