@@ -26,7 +26,26 @@
 import * as common from "./common";
 import {RequestFactory, OlpClientSettings} from "@here/olp-sdk-core";
 import {ConfigApi, RequestBuilder} from "@here/olp-sdk-dataservice-api";
+import * as inquirer from "inquirer";
 let requestBuilder: RequestBuilder;
+
+const layerConfirmationPrompt = (catalogHrn: string) => [
+    {
+        type: 'confirm',
+        name: 'layerConfirmation',
+        message: 'Layer ID not provided. Do you want to use an existing layer from catalog ' + catalogHrn + '?',
+        default: true
+    }
+];
+
+const catLayerConfirmationPrompt = [
+    {
+        type: 'confirm',
+        name: 'catLayerConfirmation',
+        message: 'Catalog HRN and Layer ID not provided. Do you want to use an existing layer?',
+        default: true
+    }
+];
 
 async function getConfigApiRequestBuilder(token: string = ''){
     if(requestBuilder){
@@ -74,38 +93,39 @@ export async function createInteractiveMapLayer(catalogHrn: string, options: any
         tags: catalog.tags,
         layers: layers
     }
-    console.log(updateCatalogConfig);
+
     const statusLink = await ConfigApi.updateCatalog(requestBuilder, {catalogHrn: catalogHrn,body: updateCatalogConfig});
-    console.log(statusLink);
+   
     //TODO - check the status link for result when its completed
     if(statusLink.configToken) {
-        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        const statusResponse: any = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
             console.log('Catalog update for ' + updateCatalogConfig.id + ' is completed with status ' + statusResponse.status)
         } else {
-            console.log(statusResponse);
+            console.log('Catalog ' + statusResponse.id + ' is updated successfully');
         }
     }
 }
 
 export async function updateInteractiveMapLayer(catalogHrn: string, layerId: string, options: any, token: string = ''){  
     const requestBuilder = await getConfigApiRequestBuilder(token);
-    let layer = getLayerObject(options, undefined);
+    let layer = getLayerObject(options);
 
     const statusLink = await ConfigApi.patchLayer(requestBuilder, {catalogHrn: catalogHrn, layerId: layerId, body: layer});
 
     //TODO - check the status link for result when its completed
     if(statusLink.configToken) {
-        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        const statusResponse: any = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
             console.log('Layer update for ' + layerId + ' is completed with status ' + statusResponse.status)
         } else {
-            console.log(statusResponse);
+            console.log('Catalog ' + statusResponse.id + ' is updated successfully'); 
         }
     }
 }
 
 export function getLayerObject(options: any, layerType: string = "interactivemap"){
+
     let layer = {
         id : options.id,
         name: options.layerName,
@@ -113,7 +133,7 @@ export function getLayerObject(options: any, layerType: string = "interactivemap
         description: options.message,
         layerType: layerType,
         interactiveMapProperties: {
-            searchableProperties: options.searchableProperties?.split(",")
+            searchableProperties: options.searchableProperties ? options.searchableProperties.split(",") : []
         },
         tags: options.tags?.split(","),
         billingTags: options.billingTags?.split(",")
@@ -152,11 +172,11 @@ export async function createCatalog(options: any, layers: any[] = []){
     //console.log(statusLink);
     //TODO - check the status link for result when its completed
     if(statusLink.configToken) {
-        const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
+        const statusResponse: any = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
             console.log('Catalog creation for ' + createCatalogConfig.id + ' is completed with status ' + statusResponse.status)
         } else {
-            console.log(statusResponse);
+            console.log('Catalog ' + statusResponse.id + ' created with HRN ' + statusResponse.hrn);
         }
     }
     
@@ -191,4 +211,79 @@ async function waitForStatus(builder: RequestBuilder, configToken: string) {
         response = statusResponse;
     }
     return response;
+}
+
+export async function catalogLayerSelectionPrompt(catalogHrn: string, layerId: string, options: any) {
+    let catLayer: {catalogHrn: string, layerId: string, catalog: ConfigApi.Catalog|undefined} = {
+        catalogHrn: catalogHrn,
+        layerId: layerId,
+        catalog: undefined
+    };
+    
+    if(catalogHrn) {
+        const catalog = await validateCatalogAndLayer(catalogHrn, layerId);
+        catLayer.catalog = catalog;
+        if(!layerId) {
+            const hasIml = catalog.layers.some((layer: any) => layer.layerType === 'interactivemap');
+            if(!hasIml) {
+                console.error("Error - No Interactive Map layer is present in the catalog " + catalogHrn);
+                process.exit(1);
+            } else {
+                const layerInput = await inquirer.prompt<{ layerConfirmation?: boolean }>(layerConfirmationPrompt(catalogHrn));
+                if(layerInput.layerConfirmation) {
+                    let layerChoiceList : { name: string, value: string }[] = [];
+                    catalog.layers.forEach((layer: any) => {
+                        if(layer.layerType === 'interactivemap') {
+                            layerChoiceList.push({
+                                name: layer.hrn + " - " + layer.name,
+                                value : layer.id + ""
+                            });
+                        }
+                    });
+                    
+                    const layerQuestion = [
+                        {
+                            type: "list",
+                            name: "layerId",
+                            message: "Please select the layer",
+                            choices: layerChoiceList
+                        }
+                    ];
+                    catLayer.layerId = (await inquirer.prompt<{layerId:string}>(layerQuestion)).layerId;
+                }
+            }
+        }
+    } else {
+        const catLayerInput = await inquirer.prompt<{ catLayerConfirmation?: boolean }>(catLayerConfirmationPrompt);
+        if(catLayerInput.catLayerConfirmation) {
+            let catalogs = await getCatalogs(true,options.token);
+            catalogs = (catalogs as ConfigApi.Catalog[])?.filter(catalog => catalog.layers.some((layer: any) => layer.layerType === 'interactivemap'))
+            if (!catalogs || catalogs.length == 0) {
+                console.log("No layers found");
+            } else {
+                let layerChoiceList : { name: string, value: any }[] = [];
+                catalogs.forEach((catalog: any) => {
+                    catalog.layers.forEach((layer: any) => {
+                        if(layer.layerType === 'interactivemap') {
+                            layerChoiceList.push({
+                                name: layer.hrn + " - " + layer.name,
+                                value : {catalogHrn: catalog.hrn, layerId: layer.id, catalog: catalog}
+                            });
+                        }
+                    });
+                });
+
+                const layerQuestion = [
+                    {
+                        type: "list",
+                        name: "catLayer",
+                        message: "Please select the layer",
+                        choices: layerChoiceList
+                    }
+                ];
+                catLayer = (await inquirer.prompt<{catLayer:any}>(layerQuestion)).catLayer;
+            }
+        }
+    }
+    return catLayer;
 }

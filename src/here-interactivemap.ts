@@ -39,24 +39,6 @@ const catalogConfirmationPrompt = [
     }
 ];
 
-const layerConfirmationPrompt = (catalogHrn: string) => [
-    {
-        type: 'confirm',
-        name: 'layerConfirmation',
-        message: 'Layer ID not provided. Do you want to use existing layer from catalog ' + catalogHrn + '?',
-        default: true
-    }
-];
-
-const catLayerConfirmationPrompt = [
-    {
-        type: 'confirm',
-        name: 'catLayerConfirmation',
-        message: 'Catalog HRN and Layer ID not provided. Do you want to use existing layers?',
-        default: true
-    }
-];
-
 const newCatalogCreationPrompt = [
     {
         type: 'input',
@@ -133,7 +115,7 @@ program
             if(catalogHrn){
                 await catalogUtil.createInteractiveMapLayer(catalogHrn, options, options.token);
             }
-            console.log("Interactive Map layer created successfully");//TODO - print layer hrn
+            console.log("Interactive Map layer " + options.id + " created successfully");//TODO - print layer hrn
         } catch(error){
             common.handleError(error);
         };
@@ -152,78 +134,16 @@ program
     .option("--token <token>", "a external token to create layer in other user's account")
     .action(async function (catalogHrn, layerId, options) {
         try {
-            if(catalogHrn) {
-                const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);
-                if(!layerId) {
-                    const hasIml = catalog.layers.some((layer: any) => layer.layerType === 'interactivemap');
-                    if(!hasIml) {
-                        console.error("Error - No Interactive Map layer is present in the catalog " + catalogHrn);
-                        process.exit(1);
-                    } else {
-                        const layerInput = await inquirer.prompt<{ layerConfirmation?: boolean }>(layerConfirmationPrompt(catalogHrn));
-                        if(layerInput.layerConfirmation) {
-                            let layerChoiceList : { name: string, value: string }[] = [];
-                            catalog.layers.forEach((layer: any) => {
-                                if(layer.layerType === 'interactivemap') {
-                                    layerChoiceList.push({
-                                        name: layer.hrn + " - " + layer.name,
-                                        value : layer.id + ""
-                                    });
-                                }
-                            });
-                            
-                            const layerQuestion = [
-                                {
-                                    type: "list",
-                                    name: "layerId",
-                                    message: "Please select the layer",
-                                    choices: layerChoiceList
-                                }
-                            ];
-                            layerId = (await inquirer.prompt<{layerId:string}>(layerQuestion)).layerId;
-                        }
-                    }
-                }
-            } else {
-                const catLayerInput = await inquirer.prompt<{ catLayerConfirmation?: boolean }>(catLayerConfirmationPrompt);
-                if(catLayerInput.catLayerConfirmation) {
-                    let catalogs = await catalogUtil.getCatalogs(true,options.token);
-                    catalogs = (catalogs as ConfigApi.Catalog[])?.filter(catalog => catalog.layers.some((layer: any) => layer.layerType === 'interactivemap'))
-                    if (!catalogs || catalogs.length == 0) {
-                        console.log("No layers found");
-                    } else {
-                        let layerChoiceList : { name: string, value: any }[] = [];
-                        catalogs.forEach((catalog: any) => {
-                            catalog.layers.forEach((layer: any) => {
-                                if(layer.layerType === 'interactivemap') {
-                                    layerChoiceList.push({
-                                        name: layer.hrn + " - " + layer.name,
-                                        value : {catalogHrn: catalog.hrn, layerId: layer.id}
-                                    });
-                                }
-                            });
-                        });
-
-                        const layerQuestion = [
-                            {
-                                type: "list",
-                                name: "catLayer",
-                                message: "Please select the layer",
-                                choices: layerChoiceList
-                            }
-                        ];
-                        const catLayer = (await inquirer.prompt<{catLayer:any}>(layerQuestion)).catLayer;
-                        catalogHrn = catLayer.catalogHrn;
-                        layerId = catLayer.layerId;
-
-                    }
-                }
-            }
+            const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
             
-            if(catalogHrn && layerId){
-                await catalogUtil.updateInteractiveMapLayer(catalogHrn, layerId, options, options.token);
+            if(catLayer.catalogHrn && catLayer.layerId){
+                let layer: any = catLayer.catalog?.layers.find(x => x.id === catLayer.layerId);
+                if(!options.summary) {
+                    options.summary = layer.summary;
+                }
+                await catalogUtil.updateInteractiveMapLayer(catLayer.catalogHrn, catLayer.layerId, options, options.token);
+                console.log("Interactive Map layer " + catLayer.layerId + " updated successfully");//TODO - print layer hrn
             }
-            console.log("Interactive Map layer updated successfully");//TODO - print layer hrn
         } catch(error){
             common.handleError(error);
         };
@@ -231,7 +151,7 @@ program
 
 
 program
-    .command("upload <catalogHrn> <id>")
+    .command("upload [catalogHrn] [layerId]")
     .description("upload one or more GeoJSON, CSV, GPX, XLS, or a Shapefile to the given layerid -- if no spaceID is given, a new space will be created; GeoJSON feature IDs will be respected unless you override with -o or specify with -i; pipe GeoJSON via stdout using | here iml upload <catalogHrn> <layerId>")
     .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, CSV, GPX, or XLS files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
     .option("-c, --chunk [chunk]", "chunk size, default 200 -- use smaller values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
@@ -256,12 +176,16 @@ program
     .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry and tagged with null_island (best used with -i)')
     .option('--history [history]', 'repeat commands previously used to upload data to a layer; save and recall a specific command using "--history save" and "--history fav" ')
     .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
-    .action(async function (catalogHrn, id, options) {
-        await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
-        xyzutil.setCatalogHrn(catalogHrn);
-        xyzutil.uploadToXyzSpace(id, options).catch((error) => {
-            common.handleError(error, true);
-        });
+    .action(async function (catalogHrn, layerId, options) {
+        
+        const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
+
+        if(catLayer.catalogHrn && catLayer.layerId) {
+            xyzutil.setCatalogHrn(catLayer.catalogHrn);
+            xyzutil.uploadToXyzSpace(catLayer.layerId, options).catch((error) => {
+                common.handleError(error, true);
+            });
+        }
     });
 
 program
