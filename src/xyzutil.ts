@@ -1412,7 +1412,6 @@ export async function deleteSpace(geospaceId: string, options:any) {
 
     if(catalogHrn){
         await catalogUtil.deleteLayer(catalogHrn, geospaceId, options.token);
-        console.log("Layer '" + geospaceId + "' deleted successfully");
     } else {
         const response = await execute(
             geospaceId + "?clientId=cli",
@@ -1510,23 +1509,21 @@ async function printDeleteWarning(id: string, options: any) {
 
 async function getStatsAndBasicForSpace(spaceId: string) {
     let statsbody = await getSpaceStatistics(spaceId);
-    statsbody['spacedef'] = await getSpaceMetaData(spaceId);
+    if(catalogHrn) {
+        statsbody['spacedef'] = {};
+        statsbody['spacedef']['id'] = layer.id;
+        statsbody['spacedef']['title'] = layer.name;
+        statsbody['spacedef']['description'] = layer.description;
+    } else {
+        statsbody['spacedef'] = await getSpaceMetaData(spaceId);
+    }
     return statsbody;
 }
 
 export async function getSpaceMetaData(id: string, token: string | null = null) {
-    //TODO - use config service to retrieve layer config
-    let response: any = {}
-    if(catalogHrn) {
-        response['body'] = {};
-        response['body']['id'] = layer.id;
-        response['body']['title'] = layer.name;
-        response['body']['description'] = layer.description;
-    } else {
-        const uri = id + "?clientId=cli&skipCache=true";
-        const cType = "application/json";
-        response = await execute(uri, "GET", cType, "", token);
-    }
+    const uri = id + "?clientId=cli&skipCache=true";
+    const cType = "application/json";
+    const response = await execute(uri, "GET", cType, "", token);
     return response.body;
 }
 
