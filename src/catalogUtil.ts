@@ -69,12 +69,11 @@ export async function deleteLayer(catalogHrn: string, layerId: string, token: st
     if(statusLink.configToken) {
         const statusResponse = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
-            console.log('Layer delete for ' + layerId + ' is completed with status ' + statusResponse.status)
+            console.log("Layer delete for '" + layerId + "' is completed with status " + statusResponse.status)
         } else {
-            console.log(statusResponse);
+            console.log("Layer '" + layerId + "' deleted successfully");
         }
     }
-    //TODO - check the status link for result when its completed
 }
 
 export async function createInteractiveMapLayer(catalogHrn: string, options: any, token: string = ''){  
@@ -100,9 +99,9 @@ export async function createInteractiveMapLayer(catalogHrn: string, options: any
     if(statusLink.configToken) {
         const statusResponse: any = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
-            console.log('Catalog update for ' + updateCatalogConfig.id + ' is completed with status ' + statusResponse.status)
+            console.log("Layer creation for '" + options.id + "' is completed with status " + statusResponse.status)
         } else {
-            console.log('Catalog ' + statusResponse.id + ' is updated successfully');
+            console.log("Interactive Map layer '" + options.id + "' is created successfully");
         }
     }
 }
@@ -117,9 +116,9 @@ export async function updateInteractiveMapLayer(catalogHrn: string, layerId: str
     if(statusLink.configToken) {
         const statusResponse: any = await waitForStatus(requestBuilder, statusLink.configToken);
         if(statusResponse && statusResponse.status) {
-            console.log('Layer update for ' + layerId + ' is completed with status ' + statusResponse.status)
+            console.log("Layer update for '" + layerId + "' is completed with status " + statusResponse.status)
         } else {
-            console.log('Catalog ' + statusResponse.id + ' is updated successfully'); 
+            console.log("Interactive Map layer '" + layerId + "' is updated successfully");
         }
     }
 }
@@ -176,7 +175,7 @@ export async function createCatalog(options: any, layers: any[] = []){
         if(statusResponse && statusResponse.status) {
             console.log('Catalog creation for ' + createCatalogConfig.id + ' is completed with status ' + statusResponse.status)
         } else {
-            console.log('Catalog ' + statusResponse.id + ' created with HRN ' + statusResponse.hrn);
+            console.log("Catalog '" + statusResponse.id + "' created with HRN " + statusResponse.hrn);
         }
     }
     

@@ -115,7 +115,6 @@ program
             if(catalogHrn){
                 await catalogUtil.createInteractiveMapLayer(catalogHrn, options, options.token);
             }
-            console.log("Interactive Map layer " + options.id + " created successfully");//TODO - print layer hrn
         } catch(error){
             common.handleError(error);
         };
@@ -142,7 +141,6 @@ program
                     options.summary = layer.summary;
                 }
                 await catalogUtil.updateInteractiveMapLayer(catLayer.catalogHrn, catLayer.layerId, options, options.token);
-                console.log("Interactive Map layer " + catLayer.layerId + " updated successfully");//TODO - print layer hrn
             }
         } catch(error){
             common.handleError(error);
@@ -161,7 +159,8 @@ program
     .option("-z, --point [point]", "points field name with coordinates like (Latitude,Longitude) e.g. (37.7,-122.4)")
     .option("--lonlat", "parse a -—point/-z csv field as (lon,lat) instead of (lat,lon)")
     .option("-i, --id [id]", "property name(s) to be used as the feature ID (must be unique) -- multiple values can be comma separated")
-    .option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
+    // TODO: Either remove --assign option or modify assign to remove tags - Removing for now
+    //.option("-a, --assign","interactive mode to analyze and select fields to be used as tags and unique feature IDs")
     .option("-o, --override", "override default feature ID and use property hash feature ID generation")
     .option("-s, --stream", "streaming support for upload  and/or large csv and geojson uploads using concurrent writes, tune chunk size with -c")
     .option('-d, --delimiter [,]', 'alternate delimiter used in CSV', ',')
@@ -174,7 +173,6 @@ program
     .option('--date <date>', 'date-related property name(s) of a feature to be normalized as a ISO 8601 datestring (datahub_iso8601_[propertyname]), and unix timestamp (datahub_timestamp_[propertyname] ')
     .option('--dateprops [datepropsString]', 'comma separated list of granular date properties to be added via --date. possible options - year, month, week, weekday, year_month, year_week, hour')
     .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry and tagged with null_island (best used with -i)')
-    .option('--history [history]', 'repeat commands previously used to upload data to a layer; save and recall a specific command using "--history save" and "--history fav" ')
     .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
     .action(async function (catalogHrn, layerId, options) {
         
@@ -265,33 +263,33 @@ program
     });
 
 program
-    .command("delete <catalogHrn> <id>")
+    .command("delete <catalogHrn> <layerId>")
     .description("delete the Data Hub space with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's layer")
-    .action(async (catalogHrn, id, options) => {
-        const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
-        const layer = catalog.layers.find(layer => layer.id === id);
+    .action(async (catalogHrn, layerId, options) => {
+        const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
+        const layer = catalog.layers.find(layer => layer.id === layerId);
 
         xyzutil.setCatalogHrn(catalogHrn);
         xyzutil.setLayer(layer);
-        xyzutil.deleteSpace(id, options)
+        xyzutil.deleteSpace(layerId, options)
             .catch((error) => {
                 common.handleError(error, true);
             })
     });
 
 program
-    .command("clear <catalogHrn> <id>")
+    .command("clear <catalogHrn> <layerId>")
     .description("clear data from Data Hub space")
     //.option("-t, --tags <tags>", "tags for the Data Hub space")
     .option("-i, --ids <ids>", "IDs for the Data Hub space")
     .option("--token <token>", "a external token to clear another user's space data")
     .option("--force", "skip the confirmation prompt")
-    .action(async (catalogHrn, id, options) => {
-        await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
+    .action(async (catalogHrn, layerId, options) => {
+        await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
         xyzutil.setCatalogHrn(catalogHrn);
-        xyzutil.clearSpace(id, options).catch((error) => {
+        xyzutil.clearSpace(layerId, options).catch((error) => {
             common.handleError(error, true);
         })
     });
