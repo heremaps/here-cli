@@ -150,7 +150,7 @@ program
 
 program
     .command("upload [catalogHrn] [layerId]")
-    .description("upload one or more GeoJSON, CSV, GPX, XLS, or a Shapefile to the given layerid -- if no spaceID is given, a new space will be created; GeoJSON feature IDs will be respected unless you override with -o or specify with -i; pipe GeoJSON via stdout using | here iml upload <catalogHrn> <layerId>")
+    .description("upload one or more GeoJSON, CSV, GPX, XLS, or a Shapefile to the given layerid. GeoJSON feature IDs will be respected unless you override with -o or specify with -i; pipe GeoJSON via stdout using | here iml upload <catalogHrn> <layerId>")
     .option("-f, --file <file>", "comma separated list of local GeoJSON, GeoJSONL, Shapefile, CSV, GPX, or XLS files (or GeoJSON/CSV URLs); use a directory path and --batch [filetype] to upload all files of that type within a directory")
     .option("-c, --chunk [chunk]", "chunk size, default 200 -- use smaller values (1 to 10) to allow safer uploads of very large geometries (big polygons, many properties), use higher values (e.g. 500 to 5000) for faster uploads of small geometries (points and lines, few properties)")
     .option("--token <token>", "a external token to upload data to another user's layer")
@@ -245,13 +245,13 @@ program
     //.option("-v, --vector", "inspect and analyze using Data Hub Space Invader and tangram.js")
     //.option("-x, --permanent", "uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
-    .option("--spatial","perform a spatial search on a space using --center, --feature, or --geometry")
+    .option("--spatial","perform a spatial search on a layer using --center, --feature, or --geometry")
     .option("--h3 <h3>","h3 resolution level to be used to iterate through a large spatial search on a space")
-    //.option("--saveHexbins","save the h3 hexbin geometries used to iterate through a large spatial search on a space")
+    //.option("--saveHexbins","save the h3 hexbin geometries used to iterate through a large spatial layer on a space")
     //.option("--targetSpace [targetSpace]","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "the radius to be used with a --spatial --center search, or to add a buffer to a line or polygon (in meters)")
     .option("--center <center>", "comma separated, double-quoted lon,lat values specifying the center point of a --radius search")
-    .option("--feature <feature>", "comma separated 'catalogHrn,layerId,featureid' values specifying a reference geometry in another space for a spatial query")
+    .option("--feature <feature>", "comma separated 'catalogHrn,layerId,featureid' values specifying a reference geometry in another layer for a spatial query")
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
     .action(async function (catalogHrn, id, options) {
         await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
@@ -264,7 +264,7 @@ program
 
 program
     .command("delete <catalogHrn> <layerId>")
-    .description("delete the Data Hub space with the given id")
+    .description("delete the Interactive map layer with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's layer")
     .action(async (catalogHrn, layerId, options) => {
@@ -281,10 +281,10 @@ program
 
 program
     .command("clear <catalogHrn> <layerId>")
-    .description("clear data from Data Hub space")
+    .description("clear data from Interactive map layer")
     //.option("-t, --tags <tags>", "tags for the Data Hub space")
-    .option("-i, --ids <ids>", "IDs for the Data Hub space")
-    .option("--token <token>", "a external token to clear another user's space data")
+    .option("-i, --ids <ids>", "IDs for the Interactive map layer")
+    .option("--token <token>", "a external token to clear another user's layer data")
     .option("--force", "skip the confirmation prompt")
     .action(async (catalogHrn, layerId, options) => {
         await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId

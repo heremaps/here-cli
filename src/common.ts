@@ -900,7 +900,7 @@ export function handleError(apiError: ApiError, isIdSpaceId: boolean = false) {
             console.log("Operation FAILED : Insufficient rights to perform action");
         } else if (apiError.statusCode == 404) {
             if (isIdSpaceId) {
-                console.log("Operation FAILED: Space does not exist");
+                console.log("Operation FAILED: Resource with given id does not exist");
             } else {
                 console.log("Operation FAILED : Resource not found.");
             }
