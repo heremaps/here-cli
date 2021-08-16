@@ -69,11 +69,11 @@ app.delete("/hub/spaces/:spaceId/features", function(req, res) {
 var server=null;
 exports.listen = function () {
     server = app.listen(port,()=>"Started Listening");
-    //console.log("Server Started on "+port);
+    console.log("Server Started on "+port);
 }
 
 exports.close = function (callback) {
     server.close();
 };
-
+//exports.listen();
 //server = app.listen(port,()=>"Started Listening");
