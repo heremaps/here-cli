@@ -63,8 +63,10 @@ const titlePrompt = [
 
 let catalogHrn: string,
     layer: any;
+let idMsg = "Data Hub space";
 export function setCatalogHrn(hrn: string){
     catalogHrn = hrn;
+    idMsg = "Interactive map layer";
 }
 
 export function setLayer(layerConfig: any){
@@ -463,7 +465,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
             });
         }
         let totalTime = ((new Date().getTime() - startTime.getTime()) / 1000);
-        console.log(options.totalCount + " features uploaded to Data Hub space '" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
+        console.log(options.totalCount + " features uploaded to " + idMsg + "'" + id + "' in " + totalTime + " seconds, at the rate of " + Math.round(options.totalCount / totalTime) + " features per second");
     }
     if(!catalogHrn){
         await updateCommandMetadata(id, options, false, null);
@@ -599,14 +601,12 @@ async function uploadDataToSpaceWithTags(
                     console.log(
                         "'" +
                         options.file +
-                        "' uploaded to Data Hub space '" +
+                        "' uploaded to " + idMsg + "'" +
                         id +
                         "'"
                     );
                 else
-                    console.log(
-                        "data upload to Data Hub space '" + id + "' completed"
-                    );
+                    console.log("data upload to " + idMsg + "'" + id + "' completed");
                 if (upresult.failed > 0) {
                     console.log("not all the features could be successfully uploaded -- to print rejected features, run command with -e")
                     console.log("=============== Upload Summary ============= ");
@@ -967,7 +967,7 @@ export async function showSpace(id: string, options: any) {
     }
 
     if(options.spatial && !(options.radius || options.center || options.feature || options.geometry)) {
-        console.log("spatial option needs one of the following options to search - --center and --radius, a 'spaceID,featureID', or a geometry");
+        console.log("spatial option needs one of the following options to search - --center and --radius, a 'featureID', or a geometry");
         process.exit(1);
     }
 
@@ -1124,9 +1124,9 @@ export async function showSpace(id: string, options: any) {
 				const refspacefeature = options.feature.split(',');
                 refspace = refspacefeature[0];
                 reffeature = refspacefeature[1];
-            	options.targetSpace = await promptInputAndCreateSpace("features from space " + id + " within/along feature " + reffeature + " via space " + refspace);
+            	options.targetSpace = await promptInputAndCreateSpace("features from " + idMsg + id + " within/along feature " + reffeature + " via " + idMsg + refspace);
             } else {
-            	options.targetSpace = await promptInputAndCreateSpace("target space for spatial query of " + id);
+            	options.targetSpace = await promptInputAndCreateSpace("target " + idMsg + " for spatial query of " + id);
             }
         }
     }
@@ -1225,7 +1225,7 @@ export async function showSpace(id: string, options: any) {
                     const uri = options.targetSpace + "/features" + "?clientId=cli" + "&addTags=hexbins";
                     await iterateChunk(hexbins.features, uri, options.token);
                 }
-                console.log(hexbinnedFeatureCount,"features uploaded successfully to target space",options.targetSpace);
+                console.log(hexbinnedFeatureCount,"features uploaded successfully to target " + idMsg,options.targetSpace);
             } else {
                 response.body.features = allFeatures;
             }
@@ -1298,9 +1298,9 @@ async function launchHereGeoJson(uri: string, spaceIds: string[],  token: string
 
 async function getReadOnlyToken(inputSpaceIds: string[], isPermanent: boolean){
     if(isPermanent){
-        console.log("generating permanent token for this space");
+        console.log("generating permanent token for this " + idMsg);
     } else {
-        console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this space that will not expire");
+        console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this " + idMsg + " that will not expire");
     }
     let spaceIds: string[] = [];
     for(let spaceId of inputSpaceIds){
@@ -1353,10 +1353,10 @@ export async function promptInputAndCreateSpace(defaultMessage: string){
 export async function createSpace(options: any) {
     if (options) {
         if (!options.title) {
-            options.title = "a new Data Hub space created from commandline";
+            options.title = "a new " +  idMsg + " created from commandline";
         }
         if (!options.message) {
-            options.message = "a new Data Hub space created from commandline";
+            options.message = "a new " + idMsg + " created from commandline";
         }
     }
     let gp: any = common.getGeoSpaceProfiles(options.title, options.message, options.client, options.enableUUID);
@@ -1392,7 +1392,7 @@ export async function createSpace(options: any) {
     }
 
     const response = await execute("?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log("Data Hub space '" + response.body.id + "' created successfully");
+    console.log(idMsg + " '" + response.body.id + "' created successfully");
     return response.body;
 }
 
@@ -1400,7 +1400,7 @@ export async function deleteSpace(geospaceId: string, options:any) {
 
     if (!options.force) {
         await printDeleteWarning(geospaceId, options);
-        console.log("Are you sure you want to delete the given space?");
+        console.log("Are you sure you want to delete the given " + idMsg + "?");
         const answer = await inquirer.prompt<{ confirmed?: string }>(common.questionConfirm);
 
         const termsResp = answer.confirmed ? answer.confirmed.toLowerCase() : 'no';
@@ -1421,7 +1421,7 @@ export async function deleteSpace(geospaceId: string, options:any) {
             options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210)
-            console.log("Data Hub space '" + geospaceId + "' deleted successfully");
+            console.log(idMsg + " '" + geospaceId + "' deleted successfully");
     }
 }
 
@@ -1477,7 +1477,7 @@ export async function clearSpace(id: string, options: any) {
 }
 
 async function printDeleteWarning(id: string, options: any) {
-    console.log("loading space details..");
+    console.log("loading " + idMsg + " details..");
     const jsonStats = await getStatsAndBasicForSpace(id);
     if (options.tags) {
         const tagsArray = options.tags.split(",").filter((x: any) => x != "")
@@ -1487,8 +1487,8 @@ async function printDeleteWarning(id: string, options: any) {
         for (const tag of tagsArray) {
             tagsStats.push({ tag: tag, count: 0 });
         }
-        console.log("space details")
-        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
+        console.log(idMsg + " details")
+        const statsAll = [{ key: "title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
         common.drawTable(statsAll, ["key", "value"]);
 
         if (tagsStats && tagsStats.length > 0) {
@@ -1496,14 +1496,14 @@ async function printDeleteWarning(id: string, options: any) {
         }
         common.drawTable(tagsStats, ["tag", "count"]);
     } else {
-        console.log("details of space and feature(s) being affected by this action");
-        const statsAll = [{ key: "space title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "space description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
+        console.log("details of " + idMsg + " and feature(s) being affected by this action");
+        const statsAll = [{ key: "title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
         common.drawTable(statsAll, ["key", "value"]);
 
         const realStats =[{ key: "total features", value: jsonStats.count.value, estimated: jsonStats.count.estimated }, { key: "geometry types", value: jsonStats.geometryTypes.value, estimated: jsonStats.geometryTypes.estimated }]
         common.drawNewTable(realStats, ["key", "value", "estimated"], [20,20,20]);
         // OR we could print a normal statement like below.
-        // console.log("There are total " + jsonStats.count.value + " features consisting geometry type(s) " + jsonStats.geometryTypes.value + " in the space.");
+        // console.log("There are total " + jsonStats.count.value + " features consisting geometry type(s) " + jsonStats.geometryTypes.value + " in the " + idMsg + ".");
     }
 }
 
