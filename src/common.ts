@@ -102,7 +102,7 @@ async function getImlUrl(catalogHrn: string){
         getToken: () => getWorkspaceToken()
     });
     const url = await RequestFactory.getBaseUrl("interactive","v1",olpClientSettings, HRN.fromString(catalogHrn));
-    console.log(url);
+    //console.log(url);
     return url;
 }
 

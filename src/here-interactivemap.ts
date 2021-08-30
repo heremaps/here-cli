@@ -175,15 +175,16 @@ program
     .option('--noCoords', 'upload CSV files with no coordinates, generates null geometry and tagged with null_island (best used with -i)')
     .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
     .action(async function (catalogHrn, layerId, options) {
-        
-        const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
-
-        if(catLayer.catalogHrn && catLayer.layerId) {
-            xyzutil.setCatalogHrn(catLayer.catalogHrn);
-            xyzutil.uploadToXyzSpace(catLayer.layerId, options).catch((error) => {
-                common.handleError(error, true);
-            });
+        try {
+            const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
+            if(catLayer.catalogHrn && catLayer.layerId) {
+                xyzutil.setCatalogHrn(catLayer.catalogHrn);
+                xyzutil.uploadToXyzSpace(catLayer.layerId, options);
+            }
+        } catch(error) {
+            common.handleError(error, true);
         }
+        
     });
 
 program
@@ -254,12 +255,13 @@ program
     .option("--feature <feature>", "comma separated 'catalogHrn,layerId,featureid' values specifying a reference geometry in another layer for a spatial query")
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
     .action(async function (catalogHrn, id, options) {
-        await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
-        xyzutil.setCatalogHrn(catalogHrn);
-        xyzutil.showSpace(id, options)
-            .catch((error) => {
-                common.handleError(error, true);
-            });
+        try {
+            await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
+            xyzutil.setCatalogHrn(catalogHrn);
+            xyzutil.showSpace(id, options)
+        } catch(error) {
+            common.handleError(error);
+        }
     });
 
 program
@@ -268,15 +270,16 @@ program
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's layer")
     .action(async (catalogHrn, layerId, options) => {
-        const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
-        const layer = catalog.layers.find(layer => layer.id === layerId);
+        try {
+            const catalog = await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
+            const layer = catalog.layers.find(layer => layer.id === layerId);
 
-        xyzutil.setCatalogHrn(catalogHrn);
-        xyzutil.setLayer(layer);
-        xyzutil.deleteSpace(layerId, options)
-            .catch((error) => {
-                common.handleError(error, true);
-            })
+            xyzutil.setCatalogHrn(catalogHrn);
+            xyzutil.setLayer(layer);
+            xyzutil.deleteSpace(layerId, options);
+        } catch(error) {
+            common.handleError(error);
+        }
     });
 
 program
@@ -287,11 +290,13 @@ program
     .option("--token <token>", "a external token to clear another user's layer data")
     .option("--force", "skip the confirmation prompt")
     .action(async (catalogHrn, layerId, options) => {
-        await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
-        xyzutil.setCatalogHrn(catalogHrn);
-        xyzutil.clearSpace(layerId, options).catch((error) => {
-            common.handleError(error, true);
-        })
+        try {
+            await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
+            xyzutil.setCatalogHrn(catalogHrn);
+            xyzutil.clearSpace(layerId, options);
+        } catch(error) {
+            common.handleError(error);
+        }
     });
 
 program
