@@ -63,10 +63,10 @@ const titlePrompt = [
 
 let catalogHrn: string,
     layer: any;
-let idMsg = "Data Hub space";
+let idMsg = "Data Hub space ";
 export function setCatalogHrn(hrn: string){
     catalogHrn = hrn;
-    idMsg = "Interactive map layer";
+    idMsg = "Interactive map layer ";
 }
 
 export function setLayer(layerConfig: any){
@@ -1126,7 +1126,7 @@ export async function showSpace(id: string, options: any) {
                 reffeature = refspacefeature[1];
             	options.targetSpace = await promptInputAndCreateSpace("features from " + idMsg + id + " within/along feature " + reffeature + " via " + idMsg + refspace);
             } else {
-            	options.targetSpace = await promptInputAndCreateSpace("target " + idMsg + " for spatial query of " + id);
+            	options.targetSpace = await promptInputAndCreateSpace("target " + idMsg + "for spatial query of " + id);
             }
         }
     }
@@ -1300,7 +1300,7 @@ async function getReadOnlyToken(inputSpaceIds: string[], isPermanent: boolean){
     if(isPermanent){
         console.log("generating permanent token for this " + idMsg);
     } else {
-        console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this " + idMsg + " that will not expire");
+        console.log("generating a temporary token which will expire in 48 hours – use --permanent / -x to generate a token for this " + idMsg + "that will not expire");
     }
     let spaceIds: string[] = [];
     for(let spaceId of inputSpaceIds){
@@ -1353,10 +1353,10 @@ export async function promptInputAndCreateSpace(defaultMessage: string){
 export async function createSpace(options: any) {
     if (options) {
         if (!options.title) {
-            options.title = "a new " +  idMsg + " created from commandline";
+            options.title = "a new " +  idMsg + "created from commandline";
         }
         if (!options.message) {
-            options.message = "a new " + idMsg + " created from commandline";
+            options.message = "a new " + idMsg + "created from commandline";
         }
     }
     let gp: any = common.getGeoSpaceProfiles(options.title, options.message, options.client, options.enableUUID);
@@ -1392,7 +1392,7 @@ export async function createSpace(options: any) {
     }
 
     const response = await execute("?clientId=cli", "POST", "application/json", gp, options.token);
-    console.log(idMsg + " '" + response.body.id + "' created successfully");
+    console.log(idMsg + "'" + response.body.id + "' created successfully");
     return response.body;
 }
 
@@ -1421,7 +1421,7 @@ export async function deleteSpace(geospaceId: string, options:any) {
             options.token
         );
         if (response.statusCode >= 200 && response.statusCode < 210)
-            console.log(idMsg + " '" + geospaceId + "' deleted successfully");
+            console.log(idMsg + "'" + geospaceId + "' deleted successfully");
     }
 }
 
@@ -1477,7 +1477,7 @@ export async function clearSpace(id: string, options: any) {
 }
 
 async function printDeleteWarning(id: string, options: any) {
-    console.log("loading " + idMsg + " details..");
+    console.log("loading " + idMsg + "details..");
     const jsonStats = await getStatsAndBasicForSpace(id);
     if (options.tags) {
         const tagsArray = options.tags.split(",").filter((x: any) => x != "")
@@ -1487,7 +1487,7 @@ async function printDeleteWarning(id: string, options: any) {
         for (const tag of tagsArray) {
             tagsStats.push({ tag: tag, count: 0 });
         }
-        console.log(idMsg + " details")
+        console.log(idMsg + "details")
         const statsAll = [{ key: "title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
         common.drawTable(statsAll, ["key", "value"]);
 
@@ -1496,7 +1496,7 @@ async function printDeleteWarning(id: string, options: any) {
         }
         common.drawTable(tagsStats, ["tag", "count"]);
     } else {
-        console.log("details of " + idMsg + " and feature(s) being affected by this action");
+        console.log("details of " + idMsg + "and feature(s) being affected by this action");
         const statsAll = [{ key: "title", value: jsonStats.spacedef ? jsonStats.spacedef.title : "" }, { key: "description", value: jsonStats.spacedef ? jsonStats.spacedef.description : "" }];
         common.drawTable(statsAll, ["key", "value"]);
 
