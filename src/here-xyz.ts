@@ -731,10 +731,12 @@ program
     .option("--feature <feature>", "comma separated 'spaceid,featureid' values specifying a reference geometry in another space for a spatial query")
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
     .action(function (id, options) {
-        xyzutil.showSpace(id, options)
-            .catch((error) => {
-                handleError(error, true);
-            });
+        try {
+            xyzutil.validateShowOptions(options);
+            xyzutil.showSpace(id, options);
+        } catch(error) {
+            handleError(error, true);
+        }
     });
 
 program
@@ -814,7 +816,6 @@ async function listTokens() {
     common.drawNewTable(tokenInfo, ["tid", "type", "iat", "description"], [25, 10, 10, 70]);
 }
 
-const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
 program
     .command("upload [id]")
     .description("upload one or more GeoJSON, CSV, GPX, XLS, or a Shapefile to the given id -- if no spaceID is given, a new space will be created; GeoJSON feature IDs will be respected unless you override with -o or specify with -i; pipe GeoJSON via stdout using | here xyz upload spaceid")
@@ -846,44 +847,11 @@ program
     .option('--history [history]', 'repeat commands previously used to upload data to a space; save and recall a specific command using "--history save" and "--history fav" ')
     .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
     .action(async function (id, options) {
+
+        xyzutil.validateUploadOptions(options);
+
         if(options.history){
             await executeHistoryCommand(id, options);
-        }
-        if(options.datetag && !options.date){
-            console.log("--datetag option is only allowed with --date option");
-            process.exit(1);
-        }
-        if (options.dateprops && !options.date) {
-            console.log("--dateprops option is only allowed with --date option");
-            process.exit(1);
-        }
-        if(options.datetag){
-            if(!(options.datetag == true || options.datetag == undefined)){
-                options.datetag.split(',').forEach((tag: string) => {
-                    if(!validDateTags.includes(tag)){
-                        console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
-                        process.exit(1);
-                    }
-                });
-            }
-        }
-        if (options.dateprops) {
-            if (!(options.dateprops == true || options.dateprops == undefined)) {
-                options.dateprops.split(',').forEach((tag: string) => {
-                    if (!validDateTags.includes(tag)) {
-                        console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
-                        process.exit(1);
-                    }
-                });
-            }
-        }
-        if(options.groupby && !(options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1)){
-            console.log("'groupby' option is only allowed with csv files");
-            process.exit(1);
-        }
-        if(!options.groupby && (options.flatten || options.promote)){
-            console.log(options.promote ? "'promote'": "'flatten'" + " option is only allowed with 'groupby' option");
-            process.exit(1);
         }
         if (!id && options.file) {
             console.log("No space ID specified, creating a new Data Hub space for this upload.");

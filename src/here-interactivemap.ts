@@ -176,6 +176,7 @@ program
     .option('--batch [batch]', 'upload all files of the same type within a directory; specify "--batch [geojson|geojsonl|csv|shp|gpx|xls]" (will inspect shapefile subdirectories); select directory with -f')
     .action(async function (catalogHrn, layerId, options) {
         try {
+            xyzutil.validateUploadOptions(options);
             const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
             if(catLayer.catalogHrn && catLayer.layerId) {
                 xyzutil.setCatalogHrn(catLayer.catalogHrn);
@@ -256,6 +257,7 @@ program
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
     .action(async function (catalogHrn, id, options) {
         try {
+            xyzutil.validateShowOptions(options);
             await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
             xyzutil.setCatalogHrn(catalogHrn);
             xyzutil.showSpace(id, options)
