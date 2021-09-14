@@ -177,6 +177,47 @@ export function getSpaceDataFromXyz(id: string, options: any) {
     });
 }
 
+const validDateTags = ['year', 'month', 'week', 'weekday', 'year_month', 'year_week', 'hour'];
+export function validateUploadOptions(options: any) {
+   
+    if(options.datetag && !options.date){
+        console.log("--datetag option is only allowed with --date option");
+        process.exit(1);
+    }
+    if (options.dateprops && !options.date) {
+        console.log("--dateprops option is only allowed with --date option");
+        process.exit(1);
+    }
+    if(options.datetag){
+        if(!(options.datetag == true || options.datetag == undefined)){
+            options.datetag.split(',').forEach((tag: string) => {
+                if(!validDateTags.includes(tag)){
+                    console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
+                    process.exit(1);
+                }
+            });
+        }
+    }
+    if (options.dateprops) {
+        if (!(options.dateprops == true || options.dateprops == undefined)) {
+            options.dateprops.split(',').forEach((tag: string) => {
+                if (!validDateTags.includes(tag)) {
+                    console.log(tag + " is not a valid option. List of valid options - " + validDateTags);
+                    process.exit(1);
+                }
+            });
+        }
+    }
+    if(options.groupby && !(options.file.toLowerCase().indexOf(".csv") != -1 || options.file.toLowerCase().indexOf(".txt") != -1)){
+        console.log("'groupby' option is only allowed with csv files");
+        process.exit(1);
+    }
+    if(!options.groupby && (options.flatten || options.promote)){
+        console.log(options.promote ? "'promote'": "'flatten'" + " option is only allowed with 'groupby' option");
+        process.exit(1);
+    }
+}
+
 export async function uploadToXyzSpace(id: string, options: any) {
     //(async () => {
     let tags = "";
@@ -458,7 +499,7 @@ export async function uploadToXyzSpace(id: string, options: any) {
                     );
                 } catch (e) {
                     console.log(
-                        "Empty or invalid input to upload. Refer to 'here xyz upload -h' for help"
+                        "Empty or invalid input to upload. Refer to 'here " + (catalogHrn ? "iml" : "xyz") + " upload -h' for help"
                     );
                     process.exit(1);
                 }
@@ -944,13 +985,7 @@ export async function updateCommandMetadata(id: string, options: any, isClear: b
     return response.body;
 }
 
-export async function showSpace(id: string, options: any) {
-    let uri = id;
-    let cType = "application/json";
-    let tableFunction = common.drawTable;
-    let requestMethod = "GET";
-    let postData: string = "";
-
+export function validateShowOptions(options: any) {
     if(options.vector && options.spatial) {
         console.log("options 'vector' and 'spatial' can not be used together, try 'web'");
         process.exit(1);
@@ -991,6 +1026,14 @@ export async function showSpace(id: string, options: any) {
         console.log("usage of options web and " + invalidOption + " together is not yet supported, please try option web with radius, feature/center options");
         process.exit(1);
     }
+}
+
+export async function showSpace(id: string, options: any) {
+    let uri = id;
+    let cType = "application/json";
+    let tableFunction = common.drawTable;
+    let requestMethod = "GET";
+    let postData: string = "";
 
     if(options.all){
         options.totalRecords = Number.MAX_SAFE_INTEGER;
