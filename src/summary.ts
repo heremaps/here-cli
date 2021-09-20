@@ -80,7 +80,7 @@ export function summarize(features: any[], spaceId: string, upload: boolean, opt
         });
     });
     const myArr = Array.from(set1);
-    const summaryObject = { "count": features.length, "tagInfo": { "uniqueTagCount": myArr.length, "allTags": myArr, tagSummary: tagCountMap, gemetryMap: gemetryMap, dateRanges: dateRanges } };
+    const summaryObject = { "count": features.length, "tagInfo": { "uniqueTagCount": myArr.length, "allTags": myArr, tagSummary: tagCountMap, gemetryMap: gemetryMap, dateRanges: dateRanges}, catalogHrn: options.catalogHrn };
     generateSummaryText(spaceId, summaryObject, upload);
 }
 
@@ -94,9 +94,12 @@ function generateSummaryText(spaceId: string, summaryObject: any, upload: boolea
     console.log("==========================================================");
     console.log("Total " + summaryObject.count + " features");
     printGeometry(summaryObject);
-    console.log("Total unique tag Count : " + summaryObject.tagInfo.uniqueTagCount);
-    console.log("Unique tag list  :" + JSON.stringify(summaryObject.tagInfo.allTags));
-    printTags(summaryObject);
+    
+    if(!summaryObject.catalogHrn) {
+        console.log("Total unique tag Count : " + summaryObject.tagInfo.uniqueTagCount);
+        console.log("Unique tag list  :" + JSON.stringify(summaryObject.tagInfo.allTags));
+        printTags(summaryObject);
+    }
     if (!upload) {
         printDateRanges(summaryObject);
     }

@@ -654,6 +654,7 @@ async function uploadDataToSpaceWithTags(
                     upresult.total = featureOut.length;
                     console.table(upresult);
                 } else {
+                    options.catalogHrn = catalogHrn;
                     summary.summarize(featureOut, id, true, options);
                 }
                 options.totalCount = featureOut.length;
