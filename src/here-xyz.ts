@@ -730,10 +730,10 @@ program
     .option("--center <center>", "comma separated, double-quoted lon,lat values specifying the center point of a --radius search")
     .option("--feature <feature>", "comma separated 'spaceid,featureid' values specifying a reference geometry in another space for a spatial query")
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
-    .action(function (id, options) {
+    .action(async function (id, options) {
         try {
             xyzutil.validateShowOptions(options);
-            xyzutil.showSpace(id, options);
+            await xyzutil.showSpace(id, options);
         } catch(error) {
             handleError(error, true);
         }
