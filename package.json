@@ -2,7 +2,7 @@
   "name": "@here/cli",
   "description": "CLI for HERE XYZ Platform",
   "author": "HERE Europe B.V.",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/heremaps/here-cli"
@@ -13,6 +13,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@here/olp-sdk-authentication": "1.11.0",
     "@turf/turf": "6.3.0",
     "JSONStream": "^1.3.5",
     "block-queue": "0.0.2",
@@ -41,12 +42,11 @@
     "prompt": "^1.0.0",
     "readline": "1.3.0",
     "shapefile": "0.6.6",
-    "table": "^5.4.6",
+    "table": "^6.7.5",
     "tmp": "0.2.1",
     "user-settings": "0.2.0",
-    "xlsx": "0.16.4",
-    "xmldom": "^0.5.0",
-    "@here/olp-sdk-authentication": "1.11.0"
+    "xlsx": "^0.17.4",
+    "xmldom": "^0.5.0"
   },
   "devDependencies": {
     "@types/crypto-js": "^3.1.47",
@@ -62,7 +62,7 @@
     "capture-console": "^1.0.1",
     "chai": "^4.2.0",
     "express": "^4.17.1",
-    "mocha": "^8.1.1",
+    "mocha": "^9.1.3",
     "mock-require": "^3.0.3",
     "rewire": "^5.0.0",
     "ts-node": "^8.10.2",
