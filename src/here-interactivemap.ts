@@ -66,21 +66,21 @@ program.version("0.1.0");
 
 program
     .command("create [catalogHrn]")
-    .description("create a new Interactive Map layer")
-    .requiredOption("-i, --id <id>", "Id for Interactive Map layer")
-    .requiredOption("-n, --layerName <layerName>", "Name for Interactive Map layer")
+    .description("create a new interactive map layer")
+    .requiredOption("-i, --id <id>", "Id for interactive map layer")
+    .requiredOption("-n, --layerName <layerName>", "Name for interactive map layer")
     .option("-s, --summary <summary>", "Short summary")
-    .option("-m, --message <message>", "Description for Interactive Map layer")
+    .option("-m, --message <message>", "Description for interactive map layer")
     .option("-p, --searchableProperties <searchableProperties>", "a comma separated list of properties to be indexed for faster queries")
     .option("--tags <tags>", "a comma separated list of tags")
     .option("--billingTags <billingTags>", "a comma separated list of billing tags")
     .option("--token <token>", "a external token to create layer in other user's account")
     .action(async function (catalogHrn, options) {
         if (!options.summary) {
-            options.summary = "a new Interactive map layer created from commandline";
+            options.summary = "a new interactive map layer created from commandline";
         }
         if (!options.message) {
-            options.message = "a new Interactive map layer created from commandline";
+            options.message = "a new interactive map layer created from commandline";
         }
         try {
             if(!catalogHrn){
@@ -123,10 +123,10 @@ program
 
 program
     .command("config [catalogHrn] [layerId]")
-    .description("configure/update an Interactive Map layer in a catalog")
-    .option("-n, --layerName <layerName>", "Name for Interactive Map layer")
+    .description("configure/update an interactive map layer in a catalog")
+    .option("-n, --layerName <layerName>", "Name for interactive map layer")
     .option("-s, --summary <summary>", "Short summary")
-    .option("-m, --message <message>", "Description for Interactive Map layer")
+    .option("-m, --message <message>", "Description for interactive map layer")
     .option("-p, --searchableProperties <searchableProperties>", "a comma separated list of properties to be indexed for faster queries")
     .option("--tags <tags>", "a comma separated list of tags")
     .option("--billingTags <billingTags>", "a comma separated list of billing tags")
@@ -191,7 +191,7 @@ program
 program
     .command("list")
     .alias("ls")
-    .description("information about available Interactive map layers")
+    .description("information about available interactive map layers")
     .option("-r, --raw", "show raw layer definition")
     .option("--token <token>", "a external token to access another user's layers")
     .option("--filter <filter>", "a comma separted strings to filter layers")
@@ -232,13 +232,13 @@ program
     });
 
 program
-    .command("show <catalogHrn> <id>")
-    .description("shows the content of the given [id]")
+    .command("show <catalogHrn> <layerId>")
+    .description("shows the content of the given id")
     .option("-l, --limit <limit>", "Number of objects to be fetched")
     .option("-o, --offset <offset>", "The offset / handle to continue the iteration")
     //.option("-t, --tags <tags>", "Tags to filter on")
-    .option("-r, --raw", "show raw Interactive Map layer content")
-    .option("--all", "iterate over entire Interactive Map layer to get entire data of layer, output will be shown on the console in GeoJSON format")
+    .option("-r, --raw", "show raw interactive map layer content")
+    .option("--all", "iterate over entire interactive map layer to get entire data of layer, output will be shown on the console in GeoJSON format")
     .option("--geojsonl", "to print output of --all in geojsonl format")
     .option("-c, --chunk [chunk]", "chunk size to use in --all option, default 5000")
     .option("--token <token>", "a external token to access another user's layer")
@@ -255,12 +255,12 @@ program
     .option("--center <center>", "comma separated, double-quoted lon,lat values specifying the center point of a --radius search")
     .option("--feature <feature>", "comma separated 'catalogHrn,layerId,featureid' values specifying a reference geometry in another layer for a spatial query")
     .option("--geometry <geometry>", "geometry file to be uploaded for a --spatial query (a single feature in geojson file)")
-    .action(async function (catalogHrn, id, options) {
+    .action(async function (catalogHrn, layerId, options) {
         try {
             xyzutil.validateShowOptions(options);
-            await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
+            await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
             xyzutil.setCatalogHrn(catalogHrn);
-            await xyzutil.showSpace(id, options)
+            await xyzutil.showSpace(layerId, options)
         } catch(error) {
             common.handleError(error);
         }
@@ -268,7 +268,7 @@ program
 
 program
     .command("delete <catalogHrn> <layerId>")
-    .description("delete the Interactive map layer with the given id")
+    .description("delete the interactive map layer with the given id")
     .option("--force", "skip the confirmation prompt")
     .option("--token <token>", "a external token to delete another user's layer")
     .action(async (catalogHrn, layerId, options) => {
@@ -286,9 +286,9 @@ program
 
 program
     .command("clear <catalogHrn> <layerId>")
-    .description("clear data from Interactive map layer")
+    .description("clear data from interactive map layer")
     //.option("-t, --tags <tags>", "tags for the Data Hub space")
-    .option("-i, --ids <ids>", "IDs for the Interactive map layer")
+    .option("-i, --ids <ids>", "IDs for the interactive map layer")
     .option("--token <token>", "a external token to clear another user's layer data")
     .option("--force", "skip the confirmation prompt")
     .action(async (catalogHrn, layerId, options) => {
