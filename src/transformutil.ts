@@ -37,7 +37,7 @@ import * as common from "./common";
 import * as proj4 from "proj4";
 import * as inquirer from "inquirer";
 import * as csv from 'fast-csv';
-import { DOMParser } from 'xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 import {getSpaceDataFromXyz} from "./xyzutil";
 
 const latArray = ["y", "ycoord", "ycoordinate", "coordy", "coordinatey", "latitude", "lat"];
