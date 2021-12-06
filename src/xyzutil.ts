@@ -1105,7 +1105,7 @@ export async function showSpace(id: string, options: any) {
     }
 
     cType = "application/geo+json";
-    let refspace,reffeature;
+    let refcataloghrn,refspace,reffeature;
     if (!options.limit) {
         options.limit = 5000;
     }
@@ -1139,9 +1139,16 @@ export async function showSpace(id: string, options: any) {
             }
             if(options.feature) {
                 const refspacefeature = options.feature.split(',');
-                refspace = refspacefeature[0];
-                reffeature = refspacefeature[1];
-                uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature;
+                if(catalogHrn) {
+                    refcataloghrn = refspacefeature[0];
+                    refspace = refspacefeature[1];
+                    reffeature = refspacefeature[2];
+                    uri = uri + "&" + "refCatalogHrn="+refcataloghrn+"&refLayerId="+refspace+"&refFeatureId="+reffeature;
+                } else {
+                    refspace = refspacefeature[0];
+                    reffeature = refspacefeature[1];
+                    uri = uri + "&" + "refSpaceId="+refspace+"&refFeatureId="+reffeature;
+                }
                 if(options.radius) {
                     uri = uri + "&" + "radius="+ options.radius;
                 }

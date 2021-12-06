@@ -180,7 +180,7 @@ program
             const catLayer = await catalogUtil.catalogLayerSelectionPrompt(catalogHrn, layerId, options);
             if(catLayer.catalogHrn && catLayer.layerId) {
                 xyzutil.setCatalogHrn(catLayer.catalogHrn);
-                xyzutil.uploadToXyzSpace(catLayer.layerId, options);
+                await xyzutil.uploadToXyzSpace(catLayer.layerId, options);
             }
         } catch(error) {
             common.handleError(error, true);
@@ -248,7 +248,7 @@ program
     //.option("-x, --permanent", "uses Permanent token for --web and --vector option")
     .option("-s, --search <propfilter>", "search expression in \"double quotes\", use single quote to signify string value,  use p.<FEATUREPROP> or f.<id/updatedAt/tags/createdAt> (Use '+' for AND , Operators : >,<,<=,<=,=,!=) (use comma separated values to search multiple values of a property) {e.g. \"p.name=John,Tom+p.age<50+p.phone='9999999'+p.zipcode=123456\"}")
     .option("--spatial","perform a spatial search on a layer using --center, --feature, or --geometry")
-    .option("--h3 <h3>","h3 resolution level to be used to iterate through a large spatial search on a space")
+    //.option("--h3 <h3>","h3 resolution level to be used to iterate through a large spatial search on a space")
     //.option("--saveHexbins","save the h3 hexbin geometries used to iterate through a large spatial layer on a space")
     //.option("--targetSpace [targetSpace]","target space id where the results of h3 spatial search will be written")
     .option("--radius <radius>", "the radius to be used with a --spatial --center search, or to add a buffer to a line or polygon (in meters)")
@@ -260,7 +260,7 @@ program
             xyzutil.validateShowOptions(options);
             await catalogUtil.validateCatalogAndLayer(catalogHrn, id);//validate catalogHrn and layerId
             xyzutil.setCatalogHrn(catalogHrn);
-            xyzutil.showSpace(id, options)
+            await xyzutil.showSpace(id, options)
         } catch(error) {
             common.handleError(error);
         }
@@ -278,7 +278,7 @@ program
 
             xyzutil.setCatalogHrn(catalogHrn);
             xyzutil.setLayer(layer);
-            xyzutil.deleteSpace(layerId, options);
+            await xyzutil.deleteSpace(layerId, options);
         } catch(error) {
             common.handleError(error);
         }
@@ -295,7 +295,7 @@ program
         try {
             await catalogUtil.validateCatalogAndLayer(catalogHrn, layerId);//validate catalogHrn and layerId
             xyzutil.setCatalogHrn(catalogHrn);
-            xyzutil.clearSpace(layerId, options);
+            await xyzutil.clearSpace(layerId, options);
         } catch(error) {
             common.handleError(error);
         }
