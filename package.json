@@ -35,7 +35,7 @@
     "inquirer": "7.2.0",
     "latest-version": "5.1.0",
     "line-by-line": "^0.1.6",
-    "moment": "2.27.0",
+    "moment": "2.29.2",
     "open": "7.0.4",
     "proj4": "2.6.2",
     "project-version": "1.2.0",
