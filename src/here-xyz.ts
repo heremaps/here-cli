@@ -348,7 +348,7 @@ program
                 await common.verifyProLicense();
                 const sourceId = id;
                 options.totalRecords = Number.MAX_SAFE_INTEGER;
-                //options.token = 'Ef87rh2BTh29U-tyUx9NxQ';
+                
                 if (options.readToken) {
                     options.token = options.readToken;
                 }
